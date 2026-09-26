@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.next/
+.turbo/
+.env
+.env.local
+.DS_Store
+
+# foundry
+packages/contracts/out/
+packages/contracts/cache/
+packages/contracts/broadcast/
