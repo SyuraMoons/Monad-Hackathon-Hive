@@ -8,6 +8,7 @@ import type {
   ContentHash,
   EdgeId,
   GraphSnapshot,
+  HealthResponse,
   Hex,
   HiveError,
   HiveEvent,
@@ -36,6 +37,10 @@ export type BridgeStatus = "connecting" | "open" | "reconnecting" | "offline";
  */
 export interface HiveClient {
   readonly mode: HiveMode;
+  status: {
+    /** GET /health: network status dots in the canvas sidebar. */
+    health(): Promise<HealthResponse>;
+  };
   auth: {
     /** POST /v1/auth/challenge */
     challenge(owner: Address): Promise<{ nonce: string; expiresAt: UnixSeconds }>;

@@ -10,7 +10,7 @@ export const now = () => Math.floor(Date.now() / 1000);
 /** The mock passkey's fixed PRF output. The demo graph's keys are derived from it, like a real account. */
 export const MOCK_PRF = new Uint8Array(32).map((_, i) => (i * 37 + 11) & 0xff);
 
-const mockKey = (n: number) => privateKeyToAddress(bytesToHex(HDKey.fromMasterSeed(MOCK_PRF).derive(`m/44'/60'/0'/0/${n}`).privateKey!));
+export const mockKey = (n: number) => privateKeyToAddress(bytesToHex(HDKey.fromMasterSeed(MOCK_PRF).derive(`m/44'/60'/0'/0/${n}`).privateKey!));
 
 /** Owner key (n = 0) of the mock passkey. graph.load() hands the demo graph to whoever signs in anyway. */
 export const MOCK_OWNER = mockKey(0);
@@ -36,6 +36,20 @@ export function initialGraph(): GraphSnapshotWire {
       { edgeId: "1", from: "1", to: "2", topic: "work", expiresAt: t + 30 * DAY, active: true, addedTx: MOCK_EDGE_TX, removedTx: null },
     ],
   };
+}
+
+/** ?mock=stress: 20 agents in a chain with work and research edges, for the 60 fps check (step 6). */
+export function stressGraph(): GraphSnapshotWire {
+  const t = now();
+  const agents = Array.from({ length: 20 }, (_, i) => ({
+    agentId: String(i + 1), owner: MOCK_OWNER, agentKey: mockKey(i + 1), name: `Agent ${i + 1}`,
+    agentType: (["claude", "gpt", "other"] as const)[i % 3], registeredAt: t - DAY,
+  }));
+  const edges = agents.slice(0, -1).map((a, i) => ({
+    edgeId: String(i + 1), from: a.agentId, to: String(i + 2), topic: i % 2 ? "research" : "work",
+    expiresAt: t + 7 * DAY, active: true, addedTx: "0x" + (i + 1).toString(16).padStart(64, "0"), removedTx: null,
+  }));
+  return { agents, edges };
 }
 
 /** Memory text by content hash. The live client fetches ciphertext and decrypts locally instead. */

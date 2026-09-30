@@ -4,6 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, type ReactNode } from "react";
 import type { Address } from "@hive/shared";
 import { getHiveClient } from "@/lib/hive/client";
+import { pulses } from "@/lib/pulse";
 import { useFeed } from "@/lib/stores/feed";
 import { useGraph } from "@/lib/stores/graph";
 import { useSession } from "@/lib/stores/session";
@@ -24,6 +25,7 @@ function useHiveBootstrap(owner: Address | undefined) {
         (event) => {
           useGraph.getState().applyEvent(event);
           useFeed.getState().applyEvent(event);
+          pulses.fromEvent(event);
         },
         (bridge) => useUi.getState().set({ bridge }),
       );

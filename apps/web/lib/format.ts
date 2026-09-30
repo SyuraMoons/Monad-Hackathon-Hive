@@ -4,7 +4,10 @@
 export const shortHash = (hash: string) => (hash.length > 12 ? `${hash.slice(0, 6)}…${hash.slice(-4)}` : hash);
 
 /** `#1 · 0x9c…4e1a` */
-export const agentLabel = (agentId: bigint, agentKey: string) => `#${agentId} · ${agentKey.slice(0, 4)}…${agentKey.slice(-4)}`;
+export const agentLabel = (agentId: bigint, agentKey: string) => {
+  const k = agentKey.toLowerCase();
+  return `#${agentId} · ${k.slice(0, 4)}…${k.slice(-4)}`;
+};
 
 /** 24-hour `18:02:41` in the viewer's local time. */
 export const clockTime = (unixSeconds: number) =>

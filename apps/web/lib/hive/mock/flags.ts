@@ -1,5 +1,5 @@
 // Failure switches for development, comma-separated: /login?mock=reject · /canvas?mock=tx-fail,bridge-offline
-export type MockFlag = "reject" | "prf-unavailable" | "tx-fail" | "bridge-offline" | "no-agents";
+export type MockFlag = "reject" | "prf-unavailable" | "tx-fail" | "bridge-offline" | "no-agents" | "stress";
 
 export function mockFlag(flag: MockFlag): boolean {
   if (typeof window === "undefined") return false;

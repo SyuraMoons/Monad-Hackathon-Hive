@@ -1,0 +1,29 @@
+/* React Flow restyled to Hive tokens (design.md §6 Canvas controls, Edge, Canvas Node). */
+.hive-flow { --xy-background-color: var(--color-paper); font-family: var(--font-body); }
+.hive-flow .react-flow__background { opacity: .55; }
+
+.hive-flow .react-flow__controls {
+  box-shadow: none; border: 1px solid var(--color-line); border-radius: 8px; overflow: hidden; background: var(--color-paper);
+}
+.hive-flow .react-flow__controls-button {
+  width: 36px; height: 36px; padding: 0; border: none; background: var(--color-paper); color: var(--color-ink-2);
+}
+.hive-flow .react-flow__controls-button:hover { background: var(--color-paper-2); }
+.hive-flow .react-flow__controls-button svg { width: 12px; height: 12px; fill: currentColor; max-width: none; max-height: none; }
+.hive-flow .react-flow__controls-button:focus-visible { outline: 2px solid var(--color-ink); outline-offset: -2px; }
+
+.hive-flow .react-flow__node { cursor: grab; }
+.hive-flow .react-flow__node:focus-visible { outline: none; }
+.hive-flow .react-flow__node:focus-visible .hive-node { outline: 2px solid var(--color-ink); outline-offset: 2px; }
+
+/* Handles exist for step 7's drag-to-connect; they stay invisible until then. */
+.hive-flow .hive-handle { width: 10px; height: 10px; border: none; background: var(--color-ink); opacity: 0; }
+
+.hive-edge:hover .hive-edge-path { stroke-width: 3; }
+
+/* Pulse arrival: the target's border flashes amber-strong once, then settles back (hero storyboard, design.md §8). */
+.hive-node { transition: border-color .15s var(--ease-hive), box-shadow .15s var(--ease-hive); }
+.hive-node.hive-hit {
+  border-color: var(--color-amber-strong);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-amber-strong) 22%, transparent), var(--shadow-node);
+}

@@ -1,0 +1,153 @@
+"use client";
+
+import "@xyflow/react/dist/base.css";
+import "./canvas.css";
+
+import {
+  Background,
+  BackgroundVariant,
+  Controls,
+  ReactFlow,
+  useReactFlow,
+  type NodeChange,
+} from "@xyflow/react";
+import { useCallback, useEffect, useMemo, useState, type DragEvent } from "react";
+import { cn } from "@/lib/cn";
+import type { Layout, XY } from "@/lib/layout";
+import { useGraph } from "@/lib/stores/graph";
+import { AgentNode, type AgentFlowNode } from "./AgentNode";
+import { HiveEdge, type HiveFlowEdge } from "./HiveEdge";
+import { PulseLayer } from "./PulseLayer";
+
+export const AGENT_MIME = "application/x-hive-agent";
+
+const nodeTypes = { agent: AgentNode };
+const edgeTypes = { hive: HiveEdge };
+
+// First slots match Figma Canvas 1 Live (55:46) at zoom 1; beyond that, a grid.
+const SLOTS: XY[] = [{ x: 130, y: 260 }, { x: 600, y: 260 }, { x: 130, y: 540 }, { x: 600, y: 540 }, { x: 365, y: 110 }, { x: 365, y: 680 }];
+export function freeSlot(taken: XY[], index: number, total: number): XY {
+  const grid = (i: number) => ({ x: 40 + (i % 4) * 250, y: 60 + Math.floor(i / 4) * 170 });
+  const candidates = total > SLOTS.length ? Array.from({ length: total + 8 }, (_, i) => grid(i)) : [...SLOTS, ...Array.from({ length: 8 }, (_, i) => grid(i + 8))];
+  const free = candidates.filter((c) => !taken.some((t) => Math.abs(t.x - c.x) < 120 && Math.abs(t.y - c.y) < 60));
+  return free[0] ?? grid(index + total);
+}
+
+export function GraphCanvas({ layout, place }: { layout: Layout; place(patch: Layout, persist?: boolean): void }) {
+  const status = useGraph((s) => s.status);
+  const agents = useGraph((s) => s.agents);
+  const edges = useGraph((s) => s.edges);
+  const [selected, setSelected] = useState<string | null>(null);
+  const [dragOver, setDragOver] = useState(false);
+  const rf = useReactFlow();
+
+  const liveEdges = useMemo(() => Object.values(edges).filter((e) => e.state !== "revoked"), [edges]);
+  const linked = useMemo(() => new Set(liveEdges.flatMap((e) => [e.from.toString(), e.to.toString()])), [liveEdges]);
+
+  // A new browser has no saved layout: give every agent that has an edge a position, so the graph from chain
+  // shows up (rules T9). Agents without edges stay as chips until they're dropped.
+  useEffect(() => {
+    if (status !== "ready") return;
+    const missing = Object.keys(agents).filter((id) => linked.has(id) && !layout[id]).sort((a, b) => Number(a) - Number(b));
+    if (!missing.length) return;
+    const taken = Object.values(layout);
+    const patch: Layout = {};
+    missing.forEach((id, i) => {
+      const slot = freeSlot([...taken, ...Object.values(patch)], i, Object.keys(agents).length);
+      patch[id] = slot;
+    });
+    place(patch);
+  }, [status, agents, linked, layout, place]);
+
+  const nodes: AgentFlowNode[] = useMemo(
+    () =>
+      Object.keys(agents)
+        .filter((id) => layout[id])
+        .map((id) => ({ id, type: "agent", position: layout[id], data: { agentId: id, isolated: !linked.has(id) }, selected: id === selected })),
+    [agents, layout, linked, selected],
+  );
+
+  const flowEdges: HiveFlowEdge[] = useMemo(
+    () =>
+      liveEdges
+        .filter((e) => layout[e.from.toString()] && layout[e.to.toString()])
+        .map((e) => ({ id: e.key, source: e.from.toString(), target: e.to.toString(), type: "hive", data: { edgeKey: e.key } })),
+    [liveEdges, layout],
+  );
+
+  const onNodesChange = useCallback(
+    (changes: NodeChange<AgentFlowNode>[]) => {
+      for (const c of changes) {
+        if (c.type === "position" && c.position) place({ [c.id]: c.position }, !c.dragging);
+        if (c.type === "select") setSelected((cur) => (c.selected ? c.id : cur === c.id ? null : cur));
+      }
+    },
+    [place],
+  );
+
+  function onDrop(e: DragEvent) {
+    e.preventDefault();
+    setDragOver(false);
+    const id = e.dataTransfer.getData(AGENT_MIME);
+    if (!id || !agents[id]) return;
+    const p = rf.screenToFlowPosition({ x: e.clientX, y: e.clientY });
+    place({ [id]: { x: Math.round(p.x - 110), y: Math.round(p.y - 36) } });
+  }
+
+  const empty = status === "ready" && nodes.length === 0;
+  const hasEdges = flowEdges.length > 0;
+
+  return (
+    <div
+      className="relative h-full min-h-0"
+      onDragOver={(e) => {
+        if (!e.dataTransfer.types.includes(AGENT_MIME)) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        setDragOver(true);
+      }}
+      onDragLeave={(e) => { if (e.currentTarget === e.target) setDragOver(false); }}
+      onDrop={onDrop}
+    >
+      <ReactFlow
+        className="hive-flow"
+        nodes={nodes}
+        edges={flowEdges}
+        nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
+        onNodesChange={onNodesChange}
+        onPaneClick={() => setSelected(null)}
+        nodesConnectable={false}
+        defaultViewport={{ x: 0, y: 0, zoom: 1 }}
+        minZoom={0.4}
+        maxZoom={1.75}
+        proOptions={{ hideAttribution: true }}
+        aria-label="Permission graph"
+      >
+        <Background variant={BackgroundVariant.Lines} gap={40} color="var(--color-line)" lineWidth={1} />
+        <Controls showInteractive={false} position="bottom-left" style={{ left: 20, bottom: 20 }} />
+        <PulseLayer />
+      </ReactFlow>
+
+      {empty && (
+        <div
+          className={cn(
+            "pointer-events-none absolute top-1/2 left-1/2 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-2.5 rounded-modal border border-dashed bg-paper px-10 py-9 text-center transition-colors",
+            dragOver ? "border-amber-strong" : "border-clay",
+          )}
+        >
+          <p className="font-display text-[30px] leading-tight text-ink">Drag your first agent here</p>
+          <p className="w-[380px] max-w-full text-[16px] leading-[1.5] text-ink-2">
+            Pick an agent from the left. Its identity is already onchain; placing it here only sets where it sits.
+          </p>
+        </div>
+      )}
+
+      <p className="pointer-events-none absolute right-0 bottom-6 left-0 text-center font-mono text-[14px] whitespace-pre text-ink-3">
+        {empty || !hasEdges
+          ? "Nothing is connected yet, so nothing can leak."
+          : "Memory moves only along the edges you signed"}
+      </p>
+    </div>
+  );
+}

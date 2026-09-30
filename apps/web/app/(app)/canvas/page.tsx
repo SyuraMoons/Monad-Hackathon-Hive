@@ -1,34 +1,38 @@
 "use client";
 
-import { useFeed } from "@/lib/stores/feed";
+import { ReactFlowProvider } from "@xyflow/react";
+import { GraphCanvas } from "@/components/canvas/GraphCanvas";
+import { LiveFeed } from "@/components/canvas/LiveFeed";
+import { Sidebar } from "@/components/canvas/Sidebar";
+import { useLayout } from "@/lib/layout";
 import { useGraph } from "@/lib/stores/graph";
-import { useUi } from "@/lib/stores/ui";
+import { useSession } from "@/lib/stores/session";
 
-// Empty shell of Figma Canvas 55:46 (sidebar 240 · canvas · feed 340). Step 6 fills each region.
-export default function CanvasPage() {
-  const status = useGraph((s) => s.status);
-  const error = useGraph((s) => s.error);
-  const agentCount = useGraph((s) => Object.keys(s.agents).length);
-  const edgeCount = useGraph((s) => Object.keys(s.edges).length);
-  const rowCount = useFeed((s) => s.rows.length);
-  const bridge = useUi((s) => s.bridge);
+// Figma 07 · Canvas: 0 Empty (56:231) and 1 Live (55:46). 240 / canvas / 340 (design.md §5).
+// Real by construction: everything shown comes from the graph and feed stores, which only HiveClient fills.
+function Canvas({ owner }: { owner: string }) {
+  const { layout, place } = useLayout(owner);
+  const error = useGraph((s) => (s.status === "error" ? s.error : undefined));
 
   return (
-    <div className="grid min-h-0 flex-1 grid-cols-[240px_minmax(0,1fr)_340px]">
-      <aside aria-label="Agents" className="border-r border-line bg-paper-2 px-5 pt-6">
-        <h2 className="font-mono text-[14px] tracking-[0.1em] text-ink-3">AGENTS</h2>
-      </aside>
-      <main aria-label="Permission graph" className="grid place-items-center bg-paper">
-        <p className="font-mono text-[14px] text-ink-3" aria-live="polite" data-testid="graph-status">
-          {status === "error" ? `Couldn't load the graph: ${error}` : status === "ready" ? `${agentCount} agents · ${edgeCount} edges` : "Loading graph…"}
-        </p>
-      </main>
-      <aside aria-label="Live memory" className="border-l border-line bg-paper-2 px-5 pt-5">
-        <h2 className="font-display text-[22px] text-ink">Live memory</h2>
-        <p className="mt-2 font-mono text-[14px] text-ink-3" data-testid="feed-status">
-          bridge {bridge} · {rowCount} rows
-        </p>
-      </aside>
-    </div>
+    <ReactFlowProvider>
+      <div className="grid h-[calc(100svh-56px)] min-h-0 grid-cols-[240px_minmax(0,1fr)_340px]">
+        <Sidebar layout={layout} place={place} />
+        <main className="relative min-h-0 bg-paper">
+          <GraphCanvas layout={layout} place={place} />
+          {error && (
+            <p role="alert" className="absolute top-5 left-1/2 -translate-x-1/2 rounded-card bg-ink px-4 py-3 text-[15px] text-paper shadow-toast">
+              Couldn’t load your graph: {error}
+            </p>
+          )}
+        </main>
+        <LiveFeed />
+      </div>
+    </ReactFlowProvider>
   );
+}
+
+export default function CanvasPage() {
+  const owner = useSession((s) => s.owner);
+  return owner ? <Canvas owner={owner} /> : null;
 }

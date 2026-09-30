@@ -9,6 +9,9 @@ const txTodo = (what: string): TxHandle<never> => todo(what);
 export function createLiveClient(): HiveClient {
   return {
     mode: "live",
+    status: {
+      health: async () => todo("status.health"),
+    },
     auth: {
       challenge: async () => todo("auth.challenge"),
       verify: async () => todo("auth.verify"),

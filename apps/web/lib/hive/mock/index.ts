@@ -8,6 +8,7 @@ import {
   zAuthChallengeResponse,
   zAuthVerifyResponse,
   zGraphSnapshot,
+  zHealthResponse,
   zHiveEvent,
   zProvenance,
   zTxHash,
@@ -19,7 +20,7 @@ import { verifyMessage } from "viem";
 import { privateKeyToAddress } from "viem/accounts";
 import { explorerTx } from "@/lib/explorer";
 import type { BridgeStatus, HiveClient, TxHandle, TxResult } from "../types";
-import { initialGraph, MOCK_LIVE_WRITES, MOCK_MEMORY, MOCK_OWNER, MOCK_SEED_EVENTS, now } from "./data";
+import { initialGraph, MOCK_LIVE_WRITES, MOCK_MEMORY, MOCK_OWNER, MOCK_SEED_EVENTS, now, stressGraph } from "./data";
 import { latency, mockFlag, randomHex32 } from "./flags";
 
 type SlotWire = {
@@ -31,7 +32,13 @@ const DAY = 86_400;
 const offline = () => new HiveError("INTERNAL", "The Hive bridge is unreachable.");
 
 export function createMockClient(): HiveClient {
-  const graph: GraphSnapshotWire = mockFlag("no-agents") ? { agents: [], edges: [] } : initialGraph();
+  const stress = mockFlag("stress");
+  const graph: GraphSnapshotWire = mockFlag("no-agents") ? { agents: [], edges: [] } : stress ? stressGraph() : initialGraph();
+  // Stress: a random agent writes on the topic of its outgoing edge, so every write pulses.
+  const stressWrite = () => {
+    const e = graph.edges[Math.floor(Math.random() * graph.edges.length)];
+    return { agentId: String(e.from), topic: e.topic, content: `Stress write ${Date.now()}` };
+  };
   const memory: Record<string, string> = { ...MOCK_MEMORY };
   const slots: SlotWire[] = [];
   // Agents start disconnected, like after a bridge restart: the Connect page authorizes them (rules §5.1).
@@ -78,6 +85,14 @@ export function createMockClient(): HiveClient {
 
   return {
     mode: "mock",
+
+    status: {
+      async health() {
+        await latency();
+        if (mockFlag("bridge-offline")) throw offline();
+        return zHealthResponse.parse({ ok: true, chainId: 10143, rpcReachable: true, supabaseReachable: true, activeSessions: sessions.size, version: "mock" });
+      },
+    },
 
     auth: {
       async challenge(owner) {
@@ -192,21 +207,21 @@ export function createMockClient(): HiveClient {
         timers.push(setTimeout(() => {
           listeners.add(deliver);
           status("open");
-          if (graph.agents.length) {
+          if (graph.agents.length && !stress) {
             for (const s of MOCK_SEED_EVENTS) deliver({ id: `seed-${s.ago}`, at: now() - s.ago, type: s.type, data: s.data });
           }
           interval = setInterval(() => {
             if (!graph.agents.length) return;
-            const w = MOCK_LIVE_WRITES[writeIdx++ % MOCK_LIVE_WRITES.length];
+            const w = stress ? stressWrite() : MOCK_LIVE_WRITES[writeIdx++ % MOCK_LIVE_WRITES.length];
             const contentHash = randomHex32();
             memory[contentHash] = w.content;
             const targets = activeTargets(w.agentId, w.topic);
             const slot = recordWrite(w.agentId, w.topic, contentHash, now(), targets);
             emit({ type: "memory.written", data: { slotId: slot.slotId, agentId: w.agentId, topic: w.topic, contentHash, txHash: slot.txHash, propagatedTo: targets } });
-            if (targets.length) {
+            if (targets.length && !stress) {
               timers.push(setTimeout(() => emit({ type: "memory.read", data: { readerAgentId: targets[0], fromAgentIds: [w.agentId], count: 1 } }), 2000));
             }
-          }, 9000);
+          }, stress ? 250 : 9000);
         }, 300 + Math.random() * 500));
 
         return () => {
