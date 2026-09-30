@@ -1,0 +1,242 @@
+import {
+  HiveError,
+  zAddress,
+  zAgentsResponse,
+  zAuditEvent,
+  zAuthorizeResponse,
+  zAuthVerifyResponse,
+  zGraphSnapshot,
+  zHiveEvent,
+  zProvenance,
+  zTxHash,
+  type AuditEvent,
+  type GraphSnapshotWire,
+  type HiveEventWire,
+} from "@hive/shared";
+import { explorerTx } from "@/lib/explorer";
+import type { BridgeStatus, HiveClient, TxHandle, TxResult } from "../types";
+import { initialGraph, MOCK_LIVE_WRITES, MOCK_MEMORY, MOCK_OWNER, MOCK_SEED_EVENTS, now } from "./data";
+import { latency, mockFlag, randomHex32 } from "./flags";
+
+type SlotWire = {
+  slotId: string; agentId: string; topic: string; contentHash: string; txHash: string;
+  writtenAt: number; propagatedTo: string[];
+};
+
+const DAY = 86_400;
+const offline = () => new HiveError("INTERNAL", "The Hive bridge is unreachable.");
+
+export function createMockClient(): HiveClient {
+  const graph: GraphSnapshotWire = mockFlag("no-agents") ? { agents: [], edges: [] } : initialGraph();
+  const memory: Record<string, string> = { ...MOCK_MEMORY };
+  const slots: SlotWire[] = [];
+  // Claude and GPT are connected in Figma 55:46; Therapy Bot is registered but idle.
+  const sessions = new Map<string, { lastCallAt: number; tokenExpiresAt: number }>(
+    graph.agents.filter((a) => a.agentId !== "3").map((a) => [String(a.agentId), { lastCallAt: now() - 20, tokenExpiresAt: now() + DAY }]),
+  );
+  const listeners = new Set<(e: HiveEventWire) => void>();
+  let seq = 0, nextSlot = 1, nextEdge = 2, nextAgent = graph.agents.length + 1, writeIdx = 0;
+
+  const emit = (e: Omit<HiveEventWire, "id" | "at"> & { at?: number }) => {
+    const wire = { id: `mock-${++seq}`, at: e.at ?? now(), ...e } as HiveEventWire;
+    listeners.forEach((l) => l(wire));
+  };
+
+  const activeTargets = (from: string, topic: string) =>
+    graph.edges.filter((e) => e.active && String(e.from) === from && e.topic === topic && e.expiresAt > now()).map((e) => String(e.to));
+
+  function recordWrite(agentId: string, topic: string, contentHash: string, at: number, propagatedTo: string[]) {
+    const slot: SlotWire = { slotId: String(nextSlot++), agentId, topic, contentHash, txHash: randomHex32(), writtenAt: at, propagatedTo };
+    slots.push(slot);
+    return slot;
+  }
+
+  // Seed the history shown in Figma, so Audit and provenance have something to find.
+  for (const s of MOCK_SEED_EVENTS) {
+    if (s.type === "memory.written" && graph.agents.length) {
+      recordWrite(s.data.agentId, s.data.topic, s.data.contentHash, now() - s.ago, [...s.data.propagatedTo]);
+    }
+  }
+
+  function tx<T extends object>(run: () => T | HiveError): TxHandle<T> {
+    return {
+      status: "pending",
+      async wait(): Promise<TxResult<T>> {
+        await latency();
+        await latency();
+        if (mockFlag("tx-fail")) return { status: "failed", error: new HiveError("CHAIN_ERROR", "The transaction reverted onchain.") };
+        const out = run();
+        if (out instanceof HiveError) return { status: "failed", error: out };
+        const txHash = zTxHash.parse(randomHex32());
+        return { status: "confirmed", txHash, explorerUrl: explorerTx(txHash), ...out };
+      },
+    };
+  }
+
+  return {
+    mode: "mock",
+
+    auth: {
+      async signIn() {
+        await latency();
+        if (mockFlag("reject-passkey")) throw new HiveError("UNAUTHORIZED", "The passkey request was cancelled or isn't allowed.");
+        const { userToken, expiresAt } = zAuthVerifyResponse.parse({ userToken: "mock-user-token", expiresAt: now() + DAY });
+        return { owner: zAddress.parse(MOCK_OWNER), userToken, expiresAt };
+      },
+      async signOut() {
+        await latency();
+        for (const id of sessions.keys()) emit({ type: "agent.disconnected", data: { agentId: id } });
+        sessions.clear();
+      },
+    },
+
+    agents: {
+      async list() {
+        await latency();
+        if (mockFlag("bridge-offline")) throw offline();
+        return zAgentsResponse.parse(
+          graph.agents.map((a) => {
+            const s = sessions.get(String(a.agentId));
+            return { agentId: a.agentId, name: a.name, agentType: a.agentType, connected: !!s, lastCallAt: s?.lastCallAt ?? null, tokenExpiresAt: s?.tokenExpiresAt ?? null };
+          }),
+        );
+      },
+      async authorize(agentId) {
+        await latency();
+        if (mockFlag("bridge-offline")) throw offline();
+        const id = String(agentId);
+        if (!graph.agents.some((a) => String(a.agentId) === id)) throw new HiveError("NOT_FOUND", `Agent #${id} is not registered.`);
+        // Simulate the agent's first MCP call a few seconds after the command is pasted.
+        setTimeout(() => {
+          sessions.set(id, { lastCallAt: now(), tokenExpiresAt: now() + DAY });
+          emit({ type: "agent.connected", data: { agentId: id } });
+        }, 2500 + Math.random() * 2000);
+        return zAuthorizeResponse.parse({ agentToken: `hive_sk_mock_${id}_${randomHex32().slice(2, 10)}`, expiresAt: now() + DAY, mcpUrl: "http://localhost:4000/mcp" });
+      },
+      async disconnect(agentId) {
+        await latency();
+        const id = String(agentId);
+        if (sessions.delete(id)) emit({ type: "agent.disconnected", data: { agentId: id } });
+      },
+    },
+
+    graph: {
+      async load(owner) {
+        await latency();
+        const mine = owner.toLowerCase() === MOCK_OWNER;
+        return zGraphSnapshot.parse(mine ? structuredClone(graph) : { agents: [], edges: [] });
+      },
+      async auditEvents(owner) {
+        await latency();
+        if (owner.toLowerCase() !== MOCK_OWNER) return [];
+        const rows: unknown[] = [
+          ...graph.agents.map((a) => ({ kind: "agent.registered", at: a.registeredAt, txHash: randomHex32(), agentId: a.agentId, name: a.name, agentType: a.agentType })),
+          ...graph.edges.map((e) => ({ kind: "edge.added", at: e.expiresAt - 30 * DAY, txHash: e.addedTx, edgeId: e.edgeId, from: e.from, to: e.to, topic: e.topic, expiresAt: e.expiresAt })),
+          ...graph.edges.filter((e) => e.removedTx).map((e) => ({ kind: "edge.removed", at: now(), txHash: e.removedTx, edgeId: e.edgeId, from: e.from, to: e.to, topic: e.topic })),
+          ...slots.flatMap((s) => [
+            { kind: "memory.written", at: s.writtenAt, txHash: s.txHash, slotId: s.slotId, agentId: s.agentId, contentHash: s.contentHash, topic: s.topic, propagatedCount: s.propagatedTo.length },
+            ...s.propagatedTo.map((to) => ({ kind: "memory.propagated", at: s.writtenAt, txHash: s.txHash, slotId: s.slotId, from: s.agentId, to, contentHash: s.contentHash, topic: s.topic })),
+          ]),
+        ];
+        return rows.map((r) => zAuditEvent.parse(r)).sort((a: AuditEvent, b: AuditEvent) => b.at - a.at);
+      },
+      async provenance(contentHash) {
+        await latency();
+        const s = slots.find((x) => x.contentHash === contentHash);
+        if (!s) return null;
+        return zProvenance.parse({
+          slot: { slotId: s.slotId, agentId: s.agentId, contentHash: s.contentHash, topic: s.topic, propagatedCount: s.propagatedTo.length, txHash: s.txHash, writtenAt: s.writtenAt },
+          propagations: s.propagatedTo.map((to) => ({ slotId: s.slotId, from: s.agentId, to, contentHash: s.contentHash, topic: s.topic, txHash: s.txHash, at: s.writtenAt })),
+        });
+      },
+    },
+
+    events: {
+      subscribe(onEvent, onStatus) {
+        const status = (s: BridgeStatus) => onStatus?.(s);
+        const deliver = (wire: unknown) => {
+          const parsed = zHiveEvent.safeParse(wire);
+          if (parsed.success) onEvent(parsed.data);
+          else console.error("[hive mock] dropped invalid event", parsed.error.issues);
+        };
+        const timers: ReturnType<typeof setTimeout>[] = [];
+        let interval: ReturnType<typeof setInterval> | undefined;
+        status("connecting");
+
+        if (mockFlag("bridge-offline")) {
+          timers.push(setTimeout(() => status("offline"), 800));
+          return () => timers.forEach(clearTimeout);
+        }
+
+        timers.push(setTimeout(() => {
+          listeners.add(deliver);
+          status("open");
+          if (graph.agents.length) {
+            for (const s of MOCK_SEED_EVENTS) deliver({ id: `seed-${s.ago}`, at: now() - s.ago, type: s.type, data: s.data });
+          }
+          interval = setInterval(() => {
+            if (!graph.agents.length) return;
+            const w = MOCK_LIVE_WRITES[writeIdx++ % MOCK_LIVE_WRITES.length];
+            const contentHash = randomHex32();
+            memory[contentHash] = w.content;
+            const targets = activeTargets(w.agentId, w.topic);
+            const slot = recordWrite(w.agentId, w.topic, contentHash, now(), targets);
+            emit({ type: "memory.written", data: { slotId: slot.slotId, agentId: w.agentId, topic: w.topic, contentHash, txHash: slot.txHash, propagatedTo: targets } });
+            if (targets.length) {
+              timers.push(setTimeout(() => emit({ type: "memory.read", data: { readerAgentId: targets[0], fromAgentIds: [w.agentId], count: 1 } }), 2000));
+            }
+          }, 9000);
+        }, 300 + Math.random() * 500));
+
+        return () => {
+          listeners.delete(deliver);
+          timers.forEach(clearTimeout);
+          if (interval) clearInterval(interval);
+        };
+      },
+    },
+
+    memory: {
+      async preview(contentHash) {
+        await latency();
+        if (mockFlag("bridge-offline")) throw offline();
+        const text = memory[contentHash];
+        if (text === undefined) throw new HiveError("NOT_FOUND", "No memory with that content hash.");
+        return text;
+      },
+    },
+
+    tx: {
+      registerAgent({ name, agentType }) {
+        return tx(() => {
+          const agentId = String(nextAgent++);
+          graph.agents.push({ agentId, owner: MOCK_OWNER, agentKey: randomHex32().slice(0, 42), name, agentType, registeredAt: now() });
+          return { agentId: BigInt(agentId) };
+        });
+      },
+      addEdge({ from, to, topic, expiresAt }) {
+        return tx(() => {
+          if (from === to) return new HiveError("CHAIN_ERROR", "SelfEdge: an agent can't share with itself.");
+          if (expiresAt <= now()) return new HiveError("CHAIN_ERROR", "ExpiryInPast: pick a later expiry.");
+          const existing = graph.edges.find((e) => e.active && String(e.from) === String(from) && String(e.to) === String(to) && e.topic === topic);
+          if (existing) {
+            existing.expiresAt = expiresAt;
+            return { edgeId: BigInt(existing.edgeId) };
+          }
+          const edgeId = String(nextEdge++);
+          graph.edges.push({ edgeId, from: String(from), to: String(to), topic, expiresAt, active: true, addedTx: randomHex32(), removedTx: null });
+          return { edgeId: BigInt(edgeId) };
+        });
+      },
+      removeEdge(edgeId) {
+        return tx(() => {
+          const edge = graph.edges.find((e) => String(e.edgeId) === String(edgeId) && e.active);
+          if (!edge) return new HiveError("CHAIN_ERROR", `EdgeInactive: edge #${edgeId} is not active.`);
+          edge.active = false;
+          edge.removedTx = randomHex32();
+          return {};
+        });
+      },
+    },
+  };
+}
