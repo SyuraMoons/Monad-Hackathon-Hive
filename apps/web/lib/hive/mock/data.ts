@@ -1,16 +1,25 @@
 // All demo data lives here and nowhere else (rules.md golden rule 8). Wire format, so it goes
 // through the same zod schemas as the live bridge and Envio responses.
 import type { GraphSnapshotWire } from "@hive/shared";
-
-export const MOCK_OWNER = "0x7f3a4c2e9b1d6f8a0c3e5b7d9f1a2c4e6b80c21e";
+import { bytesToHex } from "viem";
+import { HDKey, privateKeyToAddress } from "viem/accounts";
 
 const DAY = 86_400;
 export const now = () => Math.floor(Date.now() / 1000);
 
+/** The mock passkey's fixed PRF output. The demo graph's keys are derived from it, like a real account. */
+export const MOCK_PRF = new Uint8Array(32).map((_, i) => (i * 37 + 11) & 0xff);
+
+const mockKey = (n: number) => privateKeyToAddress(bytesToHex(HDKey.fromMasterSeed(MOCK_PRF).derive(`m/44'/60'/0'/0/${n}`).privateKey!));
+
+/** Owner key (n = 0) of the mock passkey. graph.load() hands the demo graph to whoever signs in anyway. */
+export const MOCK_OWNER = mockKey(0);
+
+/** Agent keys m/44'/60'/0'/0/{n} of the mock passkey, so authorize can prove them like the real bridge. */
 export const MOCK_AGENT_KEYS = {
-  claude: "0x9c5b2e8f1a4d7c0b3e6f9a2d5c8b1e4f7a0d4e1a",
-  gpt: "0x27e4a1c7f0b3d6e9a2c5f8b1d4e7a0c3f6b9b83f",
-  therapy: "0x51d8b2f5a9c3e6b0d4f7a1c8e2b5d9f3a6c0a90c",
+  claude: mockKey(1),
+  gpt: mockKey(2),
+  therapy: mockKey(3),
 } as const;
 
 export const MOCK_EDGE_TX = "0x4f1c" + "7d2e8b3a".repeat(7) + "9a2e";

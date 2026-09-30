@@ -1,9 +1,12 @@
 "use client";
 
-import { authMessage, HiveError, type Address } from "@hive/shared";
+import { authMessage, HiveError, type Address, type AgentId, type AgentType } from "@hive/shared";
+import { bytesToHex } from "viem";
+import { privateKeyToAddress } from "viem/accounts";
 import { create } from "zustand";
 import { getHiveClient, HIVE_MODE } from "@/lib/hive/client";
 import type { HiveMode } from "@/lib/hive/types";
+import { useGraph } from "./graph";
 import { getPasskeyService, PasskeyError, type HiveKeys, type PasskeyErrorCode } from "@/lib/passkey";
 
 /** Login screen states (Figma 05 · Login): 1 signed-out · 2 waiting · 3 verified · 4 error. */
@@ -24,15 +27,43 @@ type SessionState = {
   /** Where to go after Login 3: /connect when no agent is connected yet (rules §6). */
   destination?: "/connect" | "/canvas";
   error?: LoginError;
+  /** Per agent type on the Connect page. Tokens are bearer secrets: memory only. */
+  connections: Partial<Record<AgentType, Connection>>;
   signIn(options?: { create?: boolean }): Promise<void>;
+  /** Connect page: register the agent if needed (owner userOp), then authorize it with the bridge (rules O1, §5.1). */
+  connectAgent(agentType: AgentType, name: string): Promise<void>;
   cancel(): void;
   reset(): void;
   signOut(): Promise<void>;
 };
 
+export type Connection =
+  | { phase: "registering" | "authorizing" }
+  | { phase: "ready"; agentId: AgentId; agentToken: string; mcpUrl: string; expiresAt: number }
+  | { phase: "error"; message: string };
+
 let inFlight: AbortController | null = null;
 
-const initial = { status: "signed-out" as Status, progress: { owner: false, encryption: false, scope: false } };
+const initial = { status: "signed-out" as Status, progress: { owner: false, encryption: false, scope: false }, connections: {} };
+
+const MAX_AGENT_INDEX = 64;
+
+/** The key index n whose m/44'/60'/0'/0/{n} address is `agentKey` (rules §4: recoverable by re-deriving). */
+function findAgentIndex(keys: HiveKeys, agentKey: string): number | null {
+  for (let n = 1; n <= MAX_AGENT_INDEX; n++) {
+    if (privateKeyToAddress(keys.agentPrivateKey(n)).toLowerCase() === agentKey.toLowerCase()) return n;
+  }
+  return null;
+}
+
+/** The next unused index: the first n whose address isn't already one of the owner's agents. */
+function nextAgentIndex(keys: HiveKeys, taken: string[]): number {
+  const used = new Set(taken.map((k) => k.toLowerCase()));
+  for (let n = 1; n <= MAX_AGENT_INDEX; n++) {
+    if (!used.has(privateKeyToAddress(keys.agentPrivateKey(n)).toLowerCase())) return n;
+  }
+  throw new Error("No free agent key index");
+}
 
 export const useSession = create<SessionState>()((set, get) => ({
   ...initial,
@@ -85,6 +116,38 @@ export const useSession = create<SessionState>()((set, get) => ({
       set({ status: "error", error, keys: undefined });
     } finally {
       if (inFlight === ac) inFlight = null;
+    }
+  },
+
+  async connectAgent(agentType, name) {
+    const { keys, owner, connections } = get();
+    const current = connections[agentType]?.phase;
+    if (!keys || !owner || current === "registering" || current === "authorizing" || current === "ready") return;
+    const setConn = (c: Connection) => set({ connections: { ...get().connections, [agentType]: c } });
+
+    try {
+      const client = await getHiveClient();
+      const graph = useGraph.getState();
+      let agent = Object.values(graph.agents).find((a) => a.agentType === agentType);
+
+      if (!agent) {
+        setConn({ phase: "registering" });
+        const n = nextAgentIndex(keys, Object.values(graph.agents).map((a) => a.agentKey));
+        const agentKey = privateKeyToAddress(keys.agentPrivateKey(n));
+        const result = await client.tx.registerAgent({ name, agentType, agentKey }).wait();
+        if (result.status === "failed") throw result.error;
+        await useGraph.getState().load(owner);
+        agent = useGraph.getState().agents[result.agentId.toString()];
+        if (!agent) throw new Error(`${name} was registered, but the graph hasn't caught up yet. Try again in a moment.`);
+      }
+
+      setConn({ phase: "authorizing" });
+      const n = findAgentIndex(keys, agent.agentKey);
+      if (n === null) throw new Error(`${name} was registered with a different passkey, so this one can't authorize it.`);
+      const res = await client.agents.authorize(agent.agentId, { agentPrivateKey: keys.agentPrivateKey(n), encryptionKey: bytesToHex(keys.encryptionKey) });
+      setConn({ phase: "ready", agentId: agent.agentId, agentToken: res.agentToken, mcpUrl: res.mcpUrl, expiresAt: res.expiresAt });
+    } catch (e) {
+      setConn({ phase: "error", message: e instanceof Error ? e.message : String(e) });
     }
   },
 

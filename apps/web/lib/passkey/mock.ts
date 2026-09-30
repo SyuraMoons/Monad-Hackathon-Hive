@@ -1,10 +1,10 @@
+import { MOCK_PRF } from "@/lib/hive/mock/data";
 import { latency, mockFlag } from "@/lib/hive/mock/flags";
 import { deriveHiveKeys } from "./keys";
 import { PasskeyError, type PasskeyService, type PrfSecret } from "./types";
 
 // Development only. Flags: ?mock=reject (prompt closed) · ?mock=prf-unavailable
 // The PRF output is fixed, so the mock owner address is stable across reloads.
-const MOCK_PRF = new Uint8Array(32).map((_, i) => (i * 37 + 11) & 0xff);
 
 async function prompt(signal?: AbortSignal): Promise<PrfSecret> {
   await Promise.race([

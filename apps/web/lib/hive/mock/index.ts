@@ -16,6 +16,7 @@ import {
   type HiveEventWire,
 } from "@hive/shared";
 import { verifyMessage } from "viem";
+import { privateKeyToAddress } from "viem/accounts";
 import { explorerTx } from "@/lib/explorer";
 import type { BridgeStatus, HiveClient, TxHandle, TxResult } from "../types";
 import { initialGraph, MOCK_LIVE_WRITES, MOCK_MEMORY, MOCK_OWNER, MOCK_SEED_EVENTS, now } from "./data";
@@ -33,10 +34,8 @@ export function createMockClient(): HiveClient {
   const graph: GraphSnapshotWire = mockFlag("no-agents") ? { agents: [], edges: [] } : initialGraph();
   const memory: Record<string, string> = { ...MOCK_MEMORY };
   const slots: SlotWire[] = [];
-  // Claude and GPT are connected in Figma 55:46; Therapy Bot is registered but idle.
-  const sessions = new Map<string, { lastCallAt: number; tokenExpiresAt: number }>(
-    graph.agents.filter((a) => a.agentId !== "3").map((a) => [String(a.agentId), { lastCallAt: now() - 20, tokenExpiresAt: now() + DAY }]),
-  );
+  // Agents start disconnected, like after a bridge restart: the Connect page authorizes them (rules §5.1).
+  const sessions = new Map<string, { lastCallAt: number; tokenExpiresAt: number }>();
   const listeners = new Set<(e: HiveEventWire) => void>();
   const nonces = new Map<string, string>();
   let seq = 0, nextSlot = 1, nextEdge = 2, nextAgent = graph.agents.length + 1, writeIdx = 0;
@@ -117,11 +116,16 @@ export function createMockClient(): HiveClient {
           }),
         );
       },
-      async authorize(agentId) {
+      async authorize(agentId, { agentPrivateKey }) {
         await latency();
         if (mockFlag("bridge-offline")) throw offline();
         const id = String(agentId);
-        if (!graph.agents.some((a) => String(a.agentId) === id)) throw new HiveError("NOT_FOUND", `Agent #${id} is not registered.`);
+        const agent = graph.agents.find((a) => String(a.agentId) === id);
+        if (!agent) throw new HiveError("NOT_FOUND", `Agent #${id} is not registered.`);
+        // Same check as the bridge: the delegated key must be the agent key registered onchain.
+        if (privateKeyToAddress(agentPrivateKey).toLowerCase() !== agent.agentKey.toLowerCase()) {
+          throw new HiveError("FORBIDDEN", "That key doesn't belong to this agent.");
+        }
         // Simulate the agent's first MCP call a few seconds after the command is pasted.
         setTimeout(() => {
           sessions.set(id, { lastCallAt: now(), tokenExpiresAt: now() + DAY });
@@ -224,10 +228,11 @@ export function createMockClient(): HiveClient {
     },
 
     tx: {
-      registerAgent({ name, agentType }) {
+      registerAgent({ name, agentType, agentKey }) {
         return tx(() => {
+          if (graph.agents.some((a) => a.agentKey.toLowerCase() === agentKey.toLowerCase())) return new HiveError("CHAIN_ERROR", "That agent key is already registered.");
           const agentId = String(nextAgent++);
-          graph.agents.push({ agentId, owner: MOCK_OWNER, agentKey: randomHex32().slice(0, 42), name, agentType, registeredAt: now() });
+          graph.agents.push({ agentId, owner: MOCK_OWNER, agentKey, name, agentType, registeredAt: now() });
           return { agentId: BigInt(agentId) };
         });
       },

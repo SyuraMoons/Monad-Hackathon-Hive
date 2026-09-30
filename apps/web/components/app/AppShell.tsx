@@ -8,6 +8,7 @@ import { useFeed } from "@/lib/stores/feed";
 import { useGraph } from "@/lib/stores/graph";
 import { useSession } from "@/lib/stores/session";
 import { useUi } from "@/lib/stores/ui";
+import { Waves } from "@/components/ui/Waves";
 import { TopBar } from "./TopBar";
 
 /** Fills the stores from the HiveClient once signed in. Screens only ever read the stores. */
@@ -52,7 +53,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   if (!signedIn) return null;
 
   return (
-    <div className="flex min-h-svh flex-col">
+    <div className="relative flex min-h-svh flex-col overflow-x-hidden">
+      {pathname === "/connect" && <Waves />}
       <TopBar />
       {/* design.md §7: the app routes need a laptop-sized screen */}
       <p className="grid flex-1 place-items-center px-6 text-center text-[17px] text-ink-2 lg:hidden">

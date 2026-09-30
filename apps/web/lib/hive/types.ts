@@ -45,7 +45,8 @@ export interface HiveClient {
   };
   agents: {
     list(): Promise<AgentStatus[]>;
-    authorize(agentId: AgentId): Promise<AuthorizeResponse>;
+    /** POST /v1/agents/:id/authorize. The bridge checks address(agentPrivateKey) == agents(id).agentKey. */
+    authorize(agentId: AgentId, body: { agentPrivateKey: Hex; encryptionKey: Hex }): Promise<AuthorizeResponse>;
     disconnect(agentId: AgentId): Promise<void>;
   };
   graph: {
@@ -62,7 +63,8 @@ export interface HiveClient {
     preview(contentHash: ContentHash): Promise<string>;
   };
   tx: {
-    registerAgent(input: { name: string; agentType: AgentType }): TxHandle<{ agentId: AgentId }>;
+    /** AgentRegistry.register(name, agentType, agentKey) as an owner userOp (rules O1). */
+    registerAgent(input: { name: string; agentType: AgentType; agentKey: Address }): TxHandle<{ agentId: AgentId }>;
     addEdge(input: { from: AgentId; to: AgentId; topic: Topic; expiresAt: UnixSeconds }): TxHandle<{ edgeId: EdgeId }>;
     removeEdge(edgeId: EdgeId): TxHandle;
   };

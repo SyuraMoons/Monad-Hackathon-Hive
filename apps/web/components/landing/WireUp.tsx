@@ -25,6 +25,7 @@ export function WireUp() {
         tab="claude"
         command={COMMAND}
         token={TOKEN}
+        maskToken={false}
         note="Setup happens in the app: sign in with your passkey, and the Connect page fills in your bridge URL and a token scoped to one agent."
       />
       <p className="mt-4 max-w-[900px] text-[14.5px] leading-[1.4] text-ink-3">
