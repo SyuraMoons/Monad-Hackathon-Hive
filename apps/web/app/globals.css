@@ -1,26 +1,36 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@theme {
+  --color-paper: #F4F2EC;   --color-paper-2: #ECE9E1;
+  --color-wave-1: #EFEDE6;  --color-wave-2: #E6E2D7;
+  --color-line: #DCD8CD;    --color-clay: #B7B0A0;
+  --color-ink: #171512;     --color-ink-2: #4C4840;   --color-ink-3: #6B665B;
+  --color-amber: #DE9A16;   --color-amber-strong: #A86E00;
+  --color-topic-work: var(--color-amber-strong);
+  --color-topic-research: #2F7FA8;  --color-topic-personal: #8A5FB8;
+  --color-status-active: #1F7A48;   --color-status-revoked: #B3392F;
+
+  --font-display: var(--font-fraunces), Georgia, serif;
+  --font-body: var(--font-albert-sans), system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, monospace;
+
+  --radius-tag: 4px;  --radius-sm: 6px;  --radius-chip: 8px;  --radius-card: 10px;
+  --radius-menu: 12px; --radius-modal: 14px;
+
+  --shadow-node: 0 2px 6px rgb(23 21 18 / .08);
+  --shadow-menu: 0 8px 20px rgb(0 0 0 / .14);
+  --shadow-popover: 0 10px 28px rgb(0 0 0 / .14);
+  --shadow-modal: 0 12px 32px rgb(0 0 0 / .20);
+  --shadow-toast: 0 6px 18px rgb(0 0 0 / .18);
+
+  --ease-hive: cubic-bezier(.22,.61,.36,1);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+html { -webkit-text-size-adjust:100%; }
+body { background:var(--color-paper); color:var(--color-ink); font-family:var(--font-body);
+       font-weight:400; -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
+       overflow-x:hidden;
+       /* Fraunces axes used across Figma; fonts without these axes ignore them */
+       font-variation-settings:"SOFT" 0, "WONK" 1; }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
-}
+:focus-visible { outline:2px solid var(--color-ink); outline-offset:2px; }

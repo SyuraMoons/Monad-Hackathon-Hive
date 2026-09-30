@@ -1,0 +1,26 @@
+.pill { display:inline-flex; align-items:center; justify-content:center; gap:11px;
+        height:48px; padding:0 26px; max-width:min(100%, 320px); border-radius:999px;
+        background:var(--color-ink); color:var(--color-paper);
+        -webkit-text-fill-color:var(--color-paper);   /* mobile Safari: never inherit link colour */
+        font:500 15px/1 var(--font-body); letter-spacing:-.008em;
+        text-decoration:none; white-space:nowrap; cursor:pointer;
+        border:1px solid color-mix(in srgb, var(--color-ink) 12%, transparent);
+        box-shadow:0 1px 0 rgb(255 255 255 / .10) inset;
+        transition:transform .4s var(--ease-hive), background .3s var(--ease-hive), color .3s var(--ease-hive); }
+.arrow { flex-shrink:0; stroke:var(--color-amber); }
+.pill:hover, .pill:focus-visible { transform:translateY(-2px); background:#000;
+        color:var(--color-paper); -webkit-text-fill-color:var(--color-paper); }
+.pill:focus-visible { outline:2px solid var(--color-ink); outline-offset:2px; }
+
+.danger { background:var(--color-status-revoked); }
+.danger:hover, .danger:focus-visible { background:color-mix(in srgb, var(--color-status-revoked) 86%, #000); }
+
+.pill:disabled, .pill[aria-disabled="true"] { opacity:.45; cursor:not-allowed; pointer-events:none; }
+
+@media (max-width:420px) {
+  .pill { width:100%; max-width:280px; height:44px; padding:0 20px; font-size:14px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pill, .pill:hover, .pill:focus-visible { transform:none; }
+}
