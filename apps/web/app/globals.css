@@ -26,7 +26,11 @@
   --ease-hive: cubic-bezier(.22,.61,.36,1);
 }
 
-html { -webkit-text-size-adjust:100%; }
+/* Height of the sticky landing header: top padding + 40px button + 14px bottom padding */
+:root { --nav-h: calc(max(14px, env(safe-area-inset-top, 0px) + 12px) + 54px); }
+
+html { -webkit-text-size-adjust:100%; scroll-behavior:smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior:auto; } }
 body { background:var(--color-paper); color:var(--color-ink); font-family:var(--font-body);
        font-weight:400; -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
        overflow-x:hidden;
