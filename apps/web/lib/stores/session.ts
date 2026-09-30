@@ -27,6 +27,8 @@ type SessionState = {
   /** Where to go after Login 3: /connect when no agent is connected yet (rules §6). */
   destination?: "/connect" | "/canvas";
   error?: LoginError;
+  /** True after the user chose Sign out, so the app sends them home rather than back to /login. */
+  signedOutOnPurpose: boolean;
   /** Per agent type on the Connect page. Tokens are bearer secrets: memory only. */
   connections: Partial<Record<AgentType, Connection>>;
   signIn(options?: { create?: boolean }): Promise<void>;
@@ -44,7 +46,7 @@ export type Connection =
 
 let inFlight: AbortController | null = null;
 
-const initial = { status: "signed-out" as Status, progress: { owner: false, encryption: false, scope: false }, connections: {} };
+const initial = { status: "signed-out" as Status, progress: { owner: false, encryption: false, scope: false }, connections: {}, signedOutOnPurpose: false };
 
 const MAX_AGENT_INDEX = 64;
 
@@ -166,7 +168,7 @@ export const useSession = create<SessionState>()((set, get) => ({
       if (owner && userToken && expiresAt) await (await getHiveClient()).auth.signOut({ owner, userToken, expiresAt });
     } finally {
       keys?.end();
-      set({ ...initial, owner: undefined, userToken: undefined, expiresAt: undefined, keys: undefined, destination: undefined, error: undefined });
+      set({ ...initial, signedOutOnPurpose: true, owner: undefined, userToken: undefined, expiresAt: undefined, keys: undefined, destination: undefined, error: undefined });
     }
   },
 }));

@@ -4,16 +4,19 @@ import { ReactFlowProvider } from "@xyflow/react";
 import { Toaster } from "@/components/app/Toaster";
 import { GraphCanvas } from "@/components/canvas/GraphCanvas";
 import { LiveFeed } from "@/components/canvas/LiveFeed";
+import { NodeDrawer } from "@/components/canvas/NodeDrawer";
 import { Sidebar } from "@/components/canvas/Sidebar";
 import { useLayout } from "@/lib/layout";
 import { useGraph } from "@/lib/stores/graph";
 import { useSession } from "@/lib/stores/session";
+import { useUi } from "@/lib/stores/ui";
 
 // Figma 07 · Canvas: 0 Empty (56:231) and 1 Live (55:46). 240 / canvas / 340 (design.md §5).
 // Real by construction: everything shown comes from the graph and feed stores, which only HiveClient fills.
 function Canvas({ owner }: { owner: string }) {
   const { layout, place } = useLayout(owner);
   const error = useGraph((s) => (s.status === "error" ? s.error : undefined));
+  const drawer = useUi((s) => s.drawerAgentId);
 
   return (
     <ReactFlowProvider>
@@ -28,7 +31,11 @@ function Canvas({ owner }: { owner: string }) {
             </p>
           )}
         </main>
-        <LiveFeed />
+        {/* The node drawer covers the feed panel (design.md §6 Drawer). */}
+        <div className="relative grid min-h-0">
+          <LiveFeed />
+          {drawer !== null && <NodeDrawer key={drawer.toString()} agentId={drawer.toString()} />}
+        </div>
       </div>
     </ReactFlowProvider>
   );

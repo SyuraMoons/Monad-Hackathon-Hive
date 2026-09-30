@@ -42,9 +42,11 @@ const toDateInput = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).
 export type EdgeDraft = { from: AgentId; to: AgentId; topic: Topic; expiresAt: number };
 
 // Figma Canvas 2 Edge editor (56:407); low-balance variant 93:481.
-export function EdgeEditorModal({ from, to, onClose, onSign, returnFocus }: {
+export function EdgeEditorModal({ from, to, initialTopic, onClose, onSign, returnFocus }: {
   from: AgentId;
   to: AgentId;
+  /** Preselects this topic when editing an existing edge from the edge menu. */
+  initialTopic?: string;
   onClose(): void;
   onSign(draft: EdgeDraft & { update: boolean }): void;
   returnFocus?: RefObject<HTMLElement | null>;
@@ -55,9 +57,9 @@ export function EdgeEditorModal({ from, to, onClose, onSign, returnFocus }: {
   const toName = agents[to.toString()]?.name ?? `#${to}`;
 
   const liveEdges = useMemo(() => Object.values(edges).filter((e) => e.state !== "revoked"), [edges]);
-  const topics = useMemo(() => [...new Set([...SUGGESTED, ...liveEdges.map((e) => e.topic)])], [liveEdges]);
+  const topics = useMemo(() => [...new Set([...SUGGESTED, ...liveEdges.map((e) => e.topic), ...(initialTopic ? [initialTopic] : [])])], [liveEdges, initialTopic]);
 
-  const [topic, setTopic] = useState<string>(topics[0]);
+  const [topic, setTopic] = useState<string>(initialTopic ?? topics[0]);
   const [adding, setAdding] = useState(false);
   const [newTopic, setNewTopic] = useState("");
   const [expiry, setExpiry] = useState<ExpiryKey>("30d");

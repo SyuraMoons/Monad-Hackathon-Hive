@@ -46,4 +46,7 @@ body { background:var(--color-paper); color:var(--color-ink); font-family:var(--
 .hive-toast { animation:hive-toast-in .2s var(--ease-hive); }
 .hive-modal { animation:hive-modal-in .18s var(--ease-hive); }
 .hive-scrim { animation:hive-fade-in .18s var(--ease-hive); }
-@media (prefers-reduced-motion: reduce) { .hive-toast, .hive-modal, .hive-scrim { animation:none; } }
+/* the drawer slides 16 px from the right */
+@keyframes hive-drawer-in { from { opacity:0; transform:translateX(16px); } }
+.hive-drawer { animation:hive-drawer-in .18s var(--ease-hive); }
+@media (prefers-reduced-motion: reduce) { .hive-toast, .hive-modal, .hive-scrim, .hive-drawer { animation:none; } }

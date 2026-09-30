@@ -11,15 +11,20 @@ import {
   useReactFlow,
   type NodeChange,
 } from "@xyflow/react";
-import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type KeyboardEvent } from "react";
 import { cn } from "@/lib/cn";
+import { signEdge } from "@/lib/edgeActions";
 import type { Layout, XY } from "@/lib/layout";
-import { useGraph } from "@/lib/stores/graph";
-import { useUi } from "@/lib/stores/ui";
+import { GHOST_MS, useGraph } from "@/lib/stores/graph";
+import { useUi, type Anchor } from "@/lib/stores/ui";
 import { AgentNode, type AgentFlowNode } from "./AgentNode";
-import { EdgeEditorModal, type EdgeDraft } from "./EdgeEditorModal";
+import { EdgeEditorModal } from "./EdgeEditorModal";
+import { EdgeFocusLayer } from "./EdgeFocusLayer";
+import { EdgeMenu } from "./EdgeMenu";
 import { HiveEdge, type HiveFlowEdge } from "./HiveEdge";
 import { PulseLayer } from "./PulseLayer";
+import { RevokeConfirm } from "./RevokeConfirm";
+import { computeZones, ZoneLayer } from "./ZoneLayer";
 
 export const AGENT_MIME = "application/x-hive-agent";
 
@@ -43,27 +48,28 @@ export function GraphCanvas({ layout, place }: { layout: Layout; place(patch: La
   const [dragOver, setDragOver] = useState(false);
   const rf = useReactFlow();
   const canvasRef = useRef<HTMLDivElement>(null);
+  const connectEndedAt = useRef(0);
   const editor = useUi((s) => s.edgeEditor);
+  const edgeMenu = useUi((s) => s.edgeMenu);
+  const revoke = useUi((s) => s.revokeEdge);
+  const zonesOn = useUi((s) => s.zones);
   const setUi = useUi((s) => s.set);
-  const toast = useUi((s) => s.toast);
 
-  // Sign: the edge draws pending (dashed) at once, then turns solid on the receipt (golden rule 6, rules §5.6).
-  async function sign({ from, to, topic, expiresAt, update }: EdgeDraft & { update: boolean }) {
-    setUi({ edgeEditor: null });
-    const name = (id: bigint) => agents[id.toString()]?.name ?? `#${id}`;
-    const label = `${name(from)} → ${name(to)}  ·  ${topic}`;
-    const id = toast({ status: "pending", message: `Signing edge  ·  ${label}` });
-    const result = await useGraph.getState().addEdge({ from, to, topic, expiresAt });
-    if (result.status === "confirmed") {
-      toast({ id, status: "success", message: `${update ? "Expiry updated" : "Edge signed"}  ·  ${label}`, link: { href: result.explorerUrl, label: "View on Monadscan →" } });
-    } else {
-      toast({ id, status: "error", message: `Couldn’t sign the edge  ·  ${result.error.message}` });
-    }
-  }
+  /** A popover anchor inside the canvas, kept on screen. */
+  const anchor = useCallback((clientX: number, clientY: number, w = 400, h = 320): Anchor => {
+    const r = canvasRef.current?.getBoundingClientRect();
+    if (!r) return { x: 16, y: 16 };
+    return { x: Math.min(Math.max(16, clientX - r.left), r.width - w - 16), y: Math.min(Math.max(16, clientY - r.top), r.height - h - 16) };
+  }, []);
 
-  const liveEdges = useMemo(() => Object.values(edges).filter((e) => e.state !== "revoked"), [edges]);
+  // Revoked edges stay for GHOST_MS as a fading ghost (Canvas 4 Revoked, 61:260).
+  const drawnEdges = useMemo(
+    () => Object.values(edges).filter((e) => e.state !== "revoked" || (e.revokedAt && Date.now() - e.revokedAt < GHOST_MS + 200)),
+    [edges],
+  );
   // Only confirmed edges make a node non-isolated: a pending edge must not look final (golden rule 6).
-  const linked = useMemo(() => new Set(liveEdges.filter((e) => e.state !== "pending").flatMap((e) => [e.from.toString(), e.to.toString()])), [liveEdges]);
+  const confirmed = useMemo(() => drawnEdges.filter((e) => e.state === "signed" || e.state === "revoking"), [drawnEdges]);
+  const linked = useMemo(() => new Set(confirmed.flatMap((e) => [e.from.toString(), e.to.toString()])), [confirmed]);
 
   // A new browser has no saved layout: give every agent that has an edge a position, so the graph from chain
   // shows up (rules T9). Agents without edges stay as chips until they're dropped.
@@ -74,26 +80,36 @@ export function GraphCanvas({ layout, place }: { layout: Layout; place(patch: La
     const taken = Object.values(layout);
     const patch: Layout = {};
     missing.forEach((id, i) => {
-      const slot = freeSlot([...taken, ...Object.values(patch)], i, Object.keys(agents).length);
-      patch[id] = slot;
+      patch[id] = freeSlot([...taken, ...Object.values(patch)], i, Object.keys(agents).length);
     });
     place(patch);
   }, [status, agents, linked, layout, place]);
 
+  const placedIds = useMemo(() => Object.keys(agents).filter((id) => layout[id]), [agents, layout]);
+
   const nodes: AgentFlowNode[] = useMemo(
-    () =>
-      Object.keys(agents)
-        .filter((id) => layout[id])
-        .map((id) => ({ id, type: "agent", position: layout[id], data: { agentId: id, isolated: !linked.has(id) }, selected: id === selected })),
-    [agents, layout, linked, selected],
+    () => placedIds.map((id) => ({ id, type: "agent", position: layout[id], data: { agentId: id, isolated: !linked.has(id) }, selected: id === selected })),
+    [placedIds, layout, linked, selected],
   );
 
   const flowEdges: HiveFlowEdge[] = useMemo(
     () =>
-      liveEdges
+      drawnEdges
         .filter((e) => layout[e.from.toString()] && layout[e.to.toString()])
-        .map((e) => ({ id: e.key, source: e.from.toString(), target: e.to.toString(), type: "hive", data: { edgeKey: e.key } })),
-    [liveEdges, layout],
+        .map((e) => ({ id: e.key, source: e.from.toString(), target: e.to.toString(), type: "hive", data: { edgeKey: e.key }, focusable: false })),
+    [drawnEdges, layout],
+  );
+
+  const zones = useMemo(
+    () =>
+      zonesOn
+        ? computeZones(
+            placedIds,
+            confirmed.map((e) => ({ from: e.from.toString(), to: e.to.toString(), topic: e.topic })),
+            (id) => agents[id]?.name ?? `#${id}`,
+          )
+        : [],
+    [zonesOn, placedIds, confirmed, agents],
   );
 
   const onNodesChange = useCallback(
@@ -115,14 +131,33 @@ export function GraphCanvas({ layout, place }: { layout: Layout; place(patch: La
     place({ [id]: { x: Math.round(p.x - 110), y: Math.round(p.y - 36) } });
   }
 
+  // Enter on a focused node opens its drawer (design.md §10).
+  function onKeyDown(e: KeyboardEvent) {
+    if (e.key !== "Enter") return;
+    const node = (e.target as HTMLElement).closest<HTMLElement>(".react-flow__node");
+    const id = node?.getAttribute("data-id");
+    if (id && agents[id]) {
+      e.preventDefault();
+      setUi({ drawerAgentId: agents[id].agentId, edgeMenu: null, revokeEdge: null });
+    }
+  }
+
+  function openEdge(key: string, el: HTMLElement, action: "menu" | "revoke") {
+    const r = el.getBoundingClientRect();
+    if (action === "menu") setUi({ edgeMenu: { key, at: anchor(r.left, r.bottom + 6, 240, 130) }, revokeEdge: null });
+    else setUi({ revokeEdge: { key, at: anchor(r.left, r.bottom + 6) }, edgeMenu: null });
+  }
+
   const empty = status === "ready" && nodes.length === 0;
-  const hasEdges = flowEdges.length > 0;
+  const hasEdges = confirmed.some((e) => layout[e.from.toString()] && layout[e.to.toString()]);
 
   return (
     <div
       ref={canvasRef}
+      data-hive-canvas
       tabIndex={-1}
       className="relative h-full min-h-0 focus:outline-none"
+      onKeyDown={onKeyDown}
       onDragOver={(e) => {
         if (!e.dataTransfer.types.includes(AGENT_MIME)) return;
         e.preventDefault();
@@ -139,12 +174,28 @@ export function GraphCanvas({ layout, place }: { layout: Layout; place(patch: La
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         onNodesChange={onNodesChange}
-        onPaneClick={() => setSelected(null)}
+        onNodeClick={(_, n) => {
+          // Finishing a drag-to-connect over a node also fires a click; that should open the editor, not the drawer.
+          if (Date.now() - connectEndedAt.current < 400) return;
+          if (agents[n.id]) setUi({ drawerAgentId: agents[n.id].agentId, edgeMenu: null, revokeEdge: null });
+        }}
+        onConnectEnd={() => { connectEndedAt.current = Date.now(); }}
+        onPaneClick={() => {
+          setSelected(null);
+          setUi({ drawerAgentId: null, edgeMenu: null, revokeEdge: null });
+        }}
+        onEdgeContextMenu={(e, edge) => {
+          e.preventDefault();
+          if (useGraph.getState().edges[edge.id]?.state === "signed") setUi({ edgeMenu: { key: edge.id, at: anchor(e.clientX, e.clientY, 240, 130) }, revokeEdge: null });
+        }}
         onConnect={({ source, target }) => {
           if (source && target && source !== target) setUi({ edgeEditor: { from: BigInt(source), to: BigInt(target) } });
         }}
         isValidConnection={({ source, target }) => source !== target}
         connectionLineStyle={{ stroke: "var(--color-ink-3)", strokeWidth: 1.5, strokeDasharray: "4 4" }}
+        // Delete opens the revoke confirm instead of deleting locally; edges get focus from EdgeFocusLayer.
+        deleteKeyCode={null}
+        edgesFocusable={false}
         defaultViewport={{ x: 0, y: 0, zoom: 1 }}
         minZoom={0.4}
         maxZoom={1.75}
@@ -152,8 +203,10 @@ export function GraphCanvas({ layout, place }: { layout: Layout; place(patch: La
         aria-label="Permission graph"
       >
         <Background variant={BackgroundVariant.Lines} gap={40} color="var(--color-line)" lineWidth={1} />
+        {zonesOn && <ZoneLayer zones={zones} layout={layout} />}
         <Controls showInteractive={false} position="bottom-left" style={{ left: 20, bottom: 20 }} />
         <PulseLayer />
+        <EdgeFocusLayer edges={confirmed.filter((e) => layout[e.from.toString()] && layout[e.to.toString()])} onOpen={openEdge} />
       </ReactFlow>
 
       {empty && (
@@ -171,13 +224,25 @@ export function GraphCanvas({ layout, place }: { layout: Layout; place(patch: La
       )}
 
       <p className="pointer-events-none absolute right-0 bottom-6 left-0 text-center font-mono text-[14px] whitespace-pre text-ink-3">
-        {empty || !hasEdges
-          ? "Nothing is connected yet, so nothing can leak."
-          : "Drag between two agents to draw an edge"}
+        {zonesOn && zones.length
+          ? `${zones.length} ${zones.length === 1 ? "zone" : "zones"}  ·  no edge crosses between them`
+          : empty || !hasEdges
+            ? "Nothing is connected yet, so nothing can leak."
+            : "Drag between two agents to draw an edge  ·  right-click an edge to revoke"}
       </p>
 
+      {edgeMenu && <EdgeMenu edgeKey={edgeMenu.key} at={edgeMenu.at} />}
+      {revoke && <RevokeConfirm edgeKey={revoke.key} at={revoke.at} />}
       {editor && (
-        <EdgeEditorModal from={editor.from} to={editor.to} onClose={() => setUi({ edgeEditor: null })} onSign={sign} returnFocus={canvasRef} />
+        <EdgeEditorModal
+          key={`${editor.from}-${editor.to}-${editor.topic ?? ""}`}
+          from={editor.from}
+          to={editor.to}
+          initialTopic={editor.topic}
+          onClose={() => setUi({ edgeEditor: null })}
+          onSign={(d) => void signEdge(d)}
+          returnFocus={canvasRef}
+        />
       )}
     </div>
   );

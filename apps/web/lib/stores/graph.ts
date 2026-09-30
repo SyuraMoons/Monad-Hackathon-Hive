@@ -14,7 +14,11 @@ export type EdgeView = Omit<Edge, "edgeId" | "addedTx"> & {
   addedTx: TxHash | null;
   state: "pending" | "signed" | "revoking" | "revoked";
   explorerUrl?: string;
+  /** ms timestamp of the revoke receipt; the ghost edge is drawn for GHOST_MS after it. */
+  revokedAt?: number;
 };
+
+export const GHOST_MS = 3000;
 
 type GraphState = {
   status: "idle" | "loading" | "ready" | "error";
@@ -104,7 +108,12 @@ export const useGraph = create<GraphState>()((set, get) => ({
     const client = await getHiveClient();
     const result = await client.tx.removeEdge(edge.edgeId).wait().catch((e: HiveError) => failed(e));
     if (result.status === "confirmed") {
-      set({ edges: { ...get().edges, [key]: { ...edge, active: false, removedTx: result.txHash, state: "revoked", explorerUrl: result.explorerUrl } } });
+      set({ edges: { ...get().edges, [key]: { ...edge, active: false, removedTx: result.txHash, state: "revoked", revokedAt: Date.now(), explorerUrl: result.explorerUrl } } });
+      // The ghost edge fades out over 3 s (design.md §8), then leaves the graph.
+      setTimeout(() => {
+        const { [key]: gone, ...rest } = get().edges;
+        if (gone?.state === "revoked") set({ edges: rest });
+      }, GHOST_MS + 200);
     } else {
       set({ edges: { ...get().edges, [key]: edge } });
     }

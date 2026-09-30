@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { StatusDot } from "@/components/ui/StatusDot";
 import { cn } from "@/lib/cn";
-import { clockTime } from "@/lib/format";
+import { explorerTx } from "@/lib/explorer";
+import { clockTime, shortHash } from "@/lib/format";
 import { useFeed, type FeedRow as Row } from "@/lib/stores/feed";
 import { useGraph } from "@/lib/stores/graph";
 import { useUi } from "@/lib/stores/ui";
@@ -26,6 +27,7 @@ function FeedRow({ row, newest }: { row: Row; newest: boolean }) {
   const name = (id: bigint) => agents[id.toString()]?.name ?? `#${id}`;
 
   let who: string, topic: string | undefined, message: React.ReactNode, meta: string;
+  let txLink: string | undefined;
   if (row.kind === "written") {
     who = name(row.agentId);
     topic = row.topic;
@@ -39,10 +41,12 @@ function FeedRow({ row, newest }: { row: Row; newest: boolean }) {
     message = `Read ${row.count} ${row.count === 1 ? "memory" : "memories"} from ${joinNames(row.fromAgentIds.map(name))}.`;
     meta = "read  ·  decrypted on bridge";
   } else {
-    who = name(row.from);
+    // Canvas 4 Revoked (61:431)
+    who = "Edge revoked";
     topic = row.topic;
-    message = `${name(row.from)} ✕ ${name(row.to)}`;
-    meta = "edge revoked";
+    message = `${name(row.from)} ✕ ${name(row.to)} on “${row.topic}”. ${name(row.to)}’s next read returns nothing from ${name(row.from)}.`;
+    meta = "signed with passkey  ·  ";
+    txLink = row.txHash;
   }
 
   return (
@@ -53,7 +57,14 @@ function FeedRow({ row, newest }: { row: Row; newest: boolean }) {
         <time className="font-mono text-[14px] text-ink-3" dateTime={new Date(row.at * 1000).toISOString()}>{clockTime(row.at)}</time>
       </div>
       <p className="text-[15px] leading-[1.45] break-words text-ink">{message}</p>
-      <p className="font-mono text-[14px] whitespace-pre-wrap text-ink-3">{meta}</p>
+      <p className="font-mono text-[14px] whitespace-pre-wrap text-ink-3">
+        {meta}
+        {txLink && (
+          <a href={explorerTx(txLink)} target="_blank" rel="noreferrer" className="underline underline-offset-2 hover:text-ink" aria-label={`Revoke transaction ${shortHash(txLink)} on Monadscan`}>
+            tx {shortHash(txLink)}
+          </a>
+        )}
+      </p>
     </li>
   );
 }

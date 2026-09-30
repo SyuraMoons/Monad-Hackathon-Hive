@@ -5,6 +5,8 @@ import { usePathname } from "next/navigation";
 import { Logo } from "@/components/ui/Logo";
 import { Stepper } from "@/components/ui/Stepper";
 import { WalletChip } from "@/components/ui/WalletChip";
+import { ZoneToggle } from "@/components/ui/ZoneToggle";
+import { WalletMenu } from "./WalletMenu";
 import { cn } from "@/lib/cn";
 import { useSession } from "@/lib/stores/session";
 import { useUi } from "@/lib/stores/ui";
@@ -21,6 +23,7 @@ export function TopBar() {
   const owner = useSession((s) => s.owner);
   const mode = useSession((s) => s.mode);
   const walletMenu = useUi((s) => s.walletMenu);
+  const zones = useUi((s) => s.zones);
   const setUi = useUi((s) => s.set);
 
   return (
@@ -53,7 +56,13 @@ export function TopBar() {
             Demo data
           </span>
         )}
-        {owner && <WalletChip address={owner} open={walletMenu} onClick={() => setUi({ walletMenu: !walletMenu })} />}
+        {pathname === "/canvas" && <ZoneToggle on={zones} onChange={(on) => setUi({ zones: on })} />}
+        {owner && (
+          <div className="relative">
+            <WalletChip address={owner} open={walletMenu} onClick={() => setUi({ walletMenu: !walletMenu })} />
+            {walletMenu && <WalletMenu address={owner} />}
+          </div>
+        )}
       </div>
     </header>
   );

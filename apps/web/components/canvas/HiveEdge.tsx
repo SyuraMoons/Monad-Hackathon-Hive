@@ -49,9 +49,30 @@ function HiveEdgeImpl({ data, source, target }: EdgeProps<HiveFlowEdge>) {
   const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
 
   const pending = edge.state === "pending";
-  const color = pending ? "var(--color-ink-3)" : topicColor(edge.topic);
+  const ghost = edge.state === "revoked";
+  const color = ghost ? "var(--color-status-revoked)" : pending ? "var(--color-ink-3)" : topicColor(edge.topic);
   const markerId = `${edgePathId(data.edgeKey)}-arrow`;
-  const txHash = edge.addedTx;
+  const txHash = ghost ? edge.removedTx : edge.addedTx;
+
+  if (ghost) {
+    // Revoked ghost: dashed status-revoked at 45%, fading to 0 over 3 s (design.md §6 Edge, §8).
+    return (
+      <>
+        <g className="hive-ghost" style={{ color }}>
+          <path d={path} fill="none" stroke="currentColor" strokeWidth={2} strokeDasharray="4 4" />
+        </g>
+        <EdgeLabelRenderer>
+          <div
+            className="hive-ghost-label pointer-events-none absolute rounded-sm border border-status-revoked bg-paper px-2.5 py-[5px] font-mono text-[14px] whitespace-pre text-status-revoked"
+            style={{ transform: `translate(-50%, 0) translate(${mid.x}px, ${mid.y + 20}px)` }}
+          >
+            revoked {edge.revokedAt ? new Date(edge.revokedAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : ""}
+            {txHash ? `  ·  tx ${shortHash(txHash)}` : ""}
+          </div>
+        </EdgeLabelRenderer>
+      </>
+    );
+  }
 
   return (
     <>
@@ -80,7 +101,7 @@ function HiveEdgeImpl({ data, source, target }: EdgeProps<HiveFlowEdge>) {
           style={{ transform: `translate(-50%, 0) translate(${mid.x}px, ${mid.y + 22}px)`, borderColor: color }}
         >
           <span className="font-mono font-medium whitespace-pre text-ink">
-            {edge.topic}  ·  {pending ? "pending" : expiresIn(edge.expiresAt)}
+            {edge.topic}  ·  {pending ? "pending" : edge.state === "revoking" ? "revoking…" : expiresIn(edge.expiresAt)}
           </span>
           {txHash && !pending && (
             <a
@@ -88,6 +109,7 @@ function HiveEdgeImpl({ data, source, target }: EdgeProps<HiveFlowEdge>) {
               target="_blank"
               rel="noreferrer"
               aria-label={`View edge transaction ${shortHash(txHash)} on Monadscan`}
+              tabIndex={-1} // keyboard users reach it through the edge menu, so Tab stays nodes → edges (design.md §10)
               className="font-mono whitespace-pre text-ink-2 underline underline-offset-2 hover:text-ink"
             >
               tx {shortHash(txHash)}  ↗

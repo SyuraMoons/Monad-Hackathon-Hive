@@ -47,10 +47,17 @@ export function AppShell({ children }: { children: ReactNode }) {
   const signedIn = status === "signed-in" && !!owner;
 
   useEffect(() => {
-    if (!signedIn) router.replace(`/login?next=${encodeURIComponent(pathname)}`);
+    if (!signedIn) router.replace(useSession.getState().signedOutOnPurpose ? "/" : `/login?next=${encodeURIComponent(pathname)}`);
   }, [signedIn, pathname, router]);
 
   useHiveBootstrap(signedIn ? owner : undefined);
+
+  // Esc closes the innermost open layer (design.md §10). Modals handle their own Esc first.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape" && useUi.getState().closeLayers()) e.preventDefault(); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
 
   if (!signedIn) return null;
 
