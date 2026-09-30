@@ -5,7 +5,6 @@ import { DottedDivider } from "@/components/landing/DottedDivider";
 import { Footer } from "@/components/landing/Footer";
 import { HowItWorks } from "@/components/landing/HowItWorks";
 import { Isolation } from "@/components/landing/Isolation";
-import { Positioning } from "@/components/landing/Positioning";
 import { WireUp } from "@/components/landing/WireUp";
 import { SiteHeader } from "@/components/site/SiteHeader";
 
@@ -22,8 +21,6 @@ export default function Home() {
         <DottedDivider />
         <HowItWorks />
         <DottedDivider />
-        <Positioning />
-        <DottedDivider className="mt-8" />
         <BuiltOn />
         <DottedDivider />
         <Closing />
