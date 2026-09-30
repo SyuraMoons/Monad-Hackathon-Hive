@@ -1,6 +1,6 @@
 "use client";
 
-import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
+import { Handle, Position, useConnection, type Node, type NodeProps } from "@xyflow/react";
 import Image from "next/image";
 import { memo } from "react";
 import { StatusDot } from "@/components/ui/StatusDot";
@@ -14,7 +14,9 @@ export type AgentFlowNode = Node<AgentNodeData, "agent">;
 const ICONS: Partial<Record<string, string>> = { claude: "/agents/claude.png", gpt: "/agents/gpt.png" };
 
 // Figma Canvas Node 55:118: Active · Isolated · Revoked · Selected. Data is read from the store by id.
-function AgentNodeImpl({ data, selected }: NodeProps<AgentFlowNode>) {
+function AgentNodeImpl({ id, data, selected }: NodeProps<AgentFlowNode>) {
+  const connection = useConnection();
+  const connecting = connection.inProgress;
   const agent = useGraph((s) => s.agents[data.agentId]);
   if (!agent) return null;
   const { isolated, revoked } = data;
@@ -44,9 +46,13 @@ function AgentNodeImpl({ data, selected }: NodeProps<AgentFlowNode>) {
           <span className="font-mono text-[14px] text-ink-3">{agentLabel(agent.agentId, agent.agentKey)}</span>
         </span>
         <StatusDot status={status} label={`${agent.name}: ${statusText}`} className="absolute top-[11px] right-[13px]" />
-        {/* Connection handles: drag from the right of one node to another to draw an edge (step 7). */}
-        <Handle type="target" position={Position.Left} className="hive-handle" />
-        <Handle type="source" position={Position.Right} className="hive-handle" />
+        {/* Drag from the right handle to another agent to draw an edge. While a connection is being dragged,
+            the whole node becomes the drop target, so it connects wherever you release on it. */}
+        <Handle id="in" type="target" position={Position.Left} className="hive-handle" />
+        {connecting && connection.fromNode?.id !== id && (
+          <Handle id="drop" type="target" position={Position.Left} isConnectableStart={false} className="hive-drop-target" />
+        )}
+        <Handle id="out" type="source" position={Position.Right} className="hive-handle" />
       </div>
       {isolated && <p className="absolute top-full left-0 mt-2.5 font-mono text-[14px] whitespace-nowrap text-ink-3">no edges · isolated</p>}
     </div>
