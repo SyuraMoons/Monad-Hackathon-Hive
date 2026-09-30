@@ -8,5 +8,7 @@ export default function config(phase: string): NextConfig {
   }
   return {
     transpilePackages: ["@hive/shared"],
+    // Hide Next's floating "N" badge in dev; build errors still show as an overlay.
+    devIndicators: false,
   };
 }
