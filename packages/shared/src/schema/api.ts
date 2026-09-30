@@ -15,7 +15,13 @@ export const zHealthResponse = z.object({
 export const zAuthChallengeBody = z.object({ owner: zAddress });
 export const zAuthChallengeResponse = z.object({ nonce: z.string().min(1), expiresAt: zUnixSeconds });
 
-export const zAuthVerifyBody = z.object({ owner: zAddress, nonce: z.string().min(1), signature: zHex });
+/**
+ * The exact text the owner signs for /v1/auth/verify (EIP-191). The bridge rebuilds it from
+ * `{ owner, nonce }` and checks it with viem `verifyMessage`, so both sides must use this function.
+ */
+export const authMessage = (owner: string, nonce: string) => `Sign in to Hive\n\nOwner: ${owner}\nNonce: ${nonce}`;
+
+export const zAuthVerifyBody =z.object({ owner: zAddress, nonce: z.string().min(1), signature: zHex });
 export const zAuthVerifyResponse = z.object({ userToken: z.string().min(1), expiresAt: zUnixSeconds });
 
 export const zAgentStatus = z.object({

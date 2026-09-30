@@ -8,6 +8,7 @@ import type {
   ContentHash,
   EdgeId,
   GraphSnapshot,
+  Hex,
   HiveError,
   HiveEvent,
   Provenance,
@@ -36,8 +37,10 @@ export type BridgeStatus = "connecting" | "open" | "reconnecting" | "offline";
 export interface HiveClient {
   readonly mode: HiveMode;
   auth: {
-    /** Passkey (Mera PRF) → derive keys → challenge/verify with the bridge. */
-    signIn(): Promise<Session>;
+    /** POST /v1/auth/challenge */
+    challenge(owner: Address): Promise<{ nonce: string; expiresAt: UnixSeconds }>;
+    /** POST /v1/auth/verify. `signature` is the owner's EIP-191 signature of `authMessage(owner, nonce)`. */
+    verify(body: { owner: Address; nonce: string; signature: Hex }): Promise<Session>;
     signOut(session: Session): Promise<void>;
   };
   agents: {

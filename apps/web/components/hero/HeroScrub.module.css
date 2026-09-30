@@ -12,10 +12,6 @@
 .poster { transition:opacity .4s var(--ease-hive); }
 .ready .poster { opacity:0; }
 .wavesWrap { display:none; }
-.waves  { position:absolute; inset:0 0 auto 0; pointer-events:none; }
-.waves svg { position:absolute; top:0; left:0; width:100%; }
-.wave1  { fill:var(--color-wave-1); }
-.wave3  { fill:var(--color-wave-2); opacity:.9; }
 
 /* Veil: calms the footage behind the headline and fades the stage into the next section.
    Grain: fine noise over everything, which also hides video banding in the flat paper. */

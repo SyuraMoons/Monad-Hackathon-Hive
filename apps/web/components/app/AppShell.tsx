@@ -39,16 +39,17 @@ function useHiveBootstrap(owner: Address | undefined) {
 export function AppShell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { hydrated, status, owner } = useSession();
+  const status = useSession((s) => s.status);
+  const owner = useSession((s) => s.owner);
   const signedIn = status === "signed-in" && !!owner;
 
   useEffect(() => {
-    if (hydrated && !signedIn) router.replace(`/login?next=${encodeURIComponent(pathname)}`);
-  }, [hydrated, signedIn, pathname, router]);
+    if (!signedIn) router.replace(`/login?next=${encodeURIComponent(pathname)}`);
+  }, [signedIn, pathname, router]);
 
   useHiveBootstrap(signedIn ? owner : undefined);
 
-  if (!hydrated || !signedIn) return null;
+  if (!signedIn) return null;
 
   return (
     <div className="flex min-h-svh flex-col">

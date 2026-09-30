@@ -10,7 +10,8 @@ export function createLiveClient(): HiveClient {
   return {
     mode: "live",
     auth: {
-      signIn: async () => todo("auth.signIn"),
+      challenge: async () => todo("auth.challenge"),
+      verify: async () => todo("auth.verify"),
       signOut: async () => todo("auth.signOut"),
     },
     agents: {

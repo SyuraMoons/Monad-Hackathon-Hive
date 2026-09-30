@@ -16,11 +16,12 @@ function Arrow() {
   );
 }
 
-type PillButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant; arrow?: boolean };
+type PillButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant; arrow?: boolean; wide?: boolean };
 
-export function PillButton({ variant = "default", arrow = true, className, children, type = "button", ...rest }: PillButtonProps) {
+/** `wide` fills its container (login card, modals); otherwise the pill is capped at 320px. */
+export function PillButton({ variant = "default", arrow = true, wide = false, className, children, type = "button", ...rest }: PillButtonProps) {
   return (
-    <button type={type} className={cn(s.pill, variant === "danger" && s.danger, className)} {...rest}>
+    <button type={type} className={cn(s.pill, wide && s.wide, variant === "danger" && s.danger, className)} {...rest}>
       {children}
       {arrow && <Arrow />}
     </button>

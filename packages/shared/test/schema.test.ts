@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  authMessage,
   zAgentsResponse,
   zAuditEvent,
   zProvenance,
@@ -25,6 +26,10 @@ const HASH = "0x" + "4f1c".repeat(16);
 const TX = "0x" + "9a2e".repeat(16);
 
 describe("api", () => {
+  it("builds the sign-in message the bridge verifies", () => {
+    expect(authMessage(OWNER, "n0nce")).toBe(`Sign in to Hive\n\nOwner: ${OWNER}\nNonce: n0nce`);
+  });
+
   it("accepts valid bodies and responses", () => {
     expect(zHealthResponse.safeParse({ ok: true, chainId: 10143, rpcReachable: true, supabaseReachable: true, activeSessions: 2, version: "0.1.0" }).success).toBe(true);
     expect(zAuthChallengeBody.safeParse({ owner: OWNER }).success).toBe(true);

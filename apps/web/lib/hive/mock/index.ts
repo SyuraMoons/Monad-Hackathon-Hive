@@ -1,9 +1,11 @@
 import {
+  authMessage,
   HiveError,
   zAddress,
   zAgentsResponse,
   zAuditEvent,
   zAuthorizeResponse,
+  zAuthChallengeResponse,
   zAuthVerifyResponse,
   zGraphSnapshot,
   zHiveEvent,
@@ -13,6 +15,7 @@ import {
   type GraphSnapshotWire,
   type HiveEventWire,
 } from "@hive/shared";
+import { verifyMessage } from "viem";
 import { explorerTx } from "@/lib/explorer";
 import type { BridgeStatus, HiveClient, TxHandle, TxResult } from "../types";
 import { initialGraph, MOCK_LIVE_WRITES, MOCK_MEMORY, MOCK_OWNER, MOCK_SEED_EVENTS, now } from "./data";
@@ -35,6 +38,7 @@ export function createMockClient(): HiveClient {
     graph.agents.filter((a) => a.agentId !== "3").map((a) => [String(a.agentId), { lastCallAt: now() - 20, tokenExpiresAt: now() + DAY }]),
   );
   const listeners = new Set<(e: HiveEventWire) => void>();
+  const nonces = new Map<string, string>();
   let seq = 0, nextSlot = 1, nextEdge = 2, nextAgent = graph.agents.length + 1, writeIdx = 0;
 
   const emit = (e: Omit<HiveEventWire, "id" | "at"> & { at?: number }) => {
@@ -77,11 +81,23 @@ export function createMockClient(): HiveClient {
     mode: "mock",
 
     auth: {
-      async signIn() {
+      async challenge(owner) {
         await latency();
-        if (mockFlag("reject-passkey")) throw new HiveError("UNAUTHORIZED", "The passkey request was cancelled or isn't allowed.");
-        const { userToken, expiresAt } = zAuthVerifyResponse.parse({ userToken: "mock-user-token", expiresAt: now() + DAY });
-        return { owner: zAddress.parse(MOCK_OWNER), userToken, expiresAt };
+        if (mockFlag("bridge-offline")) throw offline();
+        const nonce = randomHex32().slice(2, 34);
+        nonces.set(nonce, zAddress.parse(owner));
+        return zAuthChallengeResponse.parse({ nonce, expiresAt: now() + 300 });
+      },
+      async verify({ owner, nonce, signature }) {
+        await latency();
+        const expected = nonces.get(nonce);
+        nonces.delete(nonce);
+        // A real signature check, same as the bridge will do (viem verifyMessage).
+        if (!expected || expected !== zAddress.parse(owner) || !(await verifyMessage({ address: expected, message: authMessage(expected, nonce), signature }))) {
+          throw new HiveError("UNAUTHORIZED", "The sign-in signature didn't match.");
+        }
+        const { userToken, expiresAt } = zAuthVerifyResponse.parse({ userToken: `mock-user-token-${nonce.slice(0, 8)}`, expiresAt: now() + DAY });
+        return { owner: expected, userToken, expiresAt };
       },
       async signOut() {
         await latency();
@@ -123,12 +139,13 @@ export function createMockClient(): HiveClient {
     graph: {
       async load(owner) {
         await latency();
-        const mine = owner.toLowerCase() === MOCK_OWNER;
-        return zGraphSnapshot.parse(mine ? structuredClone(graph) : { agents: [], edges: [] });
+        // The demo graph belongs to whoever signs in; the mock owner comes from the mock passkey.
+        const snapshot = structuredClone(graph);
+        snapshot.agents.forEach((a) => (a.owner = owner));
+        return zGraphSnapshot.parse(snapshot);
       },
-      async auditEvents(owner) {
+      async auditEvents() {
         await latency();
-        if (owner.toLowerCase() !== MOCK_OWNER) return [];
         const rows: unknown[] = [
           ...graph.agents.map((a) => ({ kind: "agent.registered", at: a.registeredAt, txHash: randomHex32(), agentId: a.agentId, name: a.name, agentType: a.agentType })),
           ...graph.edges.map((e) => ({ kind: "edge.added", at: e.expiresAt - 30 * DAY, txHash: e.addedTx, edgeId: e.edgeId, from: e.from, to: e.to, topic: e.topic, expiresAt: e.expiresAt })),

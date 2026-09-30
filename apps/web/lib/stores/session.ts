@@ -1,73 +1,109 @@
 "use client";
 
-import { HiveError, zAddress, zUnixSeconds, type Address } from "@hive/shared";
-import { z } from "zod";
+import { authMessage, HiveError, type Address } from "@hive/shared";
 import { create } from "zustand";
-import { createJSONStorage, persist } from "zustand/middleware";
 import { getHiveClient, HIVE_MODE } from "@/lib/hive/client";
 import type { HiveMode } from "@/lib/hive/types";
+import { getPasskeyService, PasskeyError, type HiveKeys, type PasskeyErrorCode } from "@/lib/passkey";
 
-type Status = "signed-out" | "signing-in" | "signed-in" | "error";
+/** Login screen states (Figma 05 · Login): 1 signed-out · 2 waiting · 3 verified · 4 error. */
+type Status = "signed-out" | "waiting" | "verified" | "signed-in" | "error";
+
+export type LoginError = { code: PasskeyErrorCode | "BRIDGE"; message: string };
 
 type SessionState = {
   status: Status;
+  mode: HiveMode;
   owner?: Address;
   userToken?: string;
   expiresAt?: number;
-  error?: { code: string; message: string };
-  mode: HiveMode;
-  hydrated: boolean;
-  signIn(): Promise<boolean>;
+  /** Derived from the passkey on this device. Memory only: never persisted, gone on reload. */
+  keys?: HiveKeys;
+  /** Which key rows on Login 3 are done. */
+  progress: { owner: boolean; encryption: boolean; scope: boolean };
+  /** Where to go after Login 3: /connect when no agent is connected yet (rules §6). */
+  destination?: "/connect" | "/canvas";
+  error?: LoginError;
+  signIn(options?: { create?: boolean }): Promise<void>;
+  cancel(): void;
+  reset(): void;
   signOut(): Promise<void>;
 };
 
-// Only the bridge user token survives a reload (sessionStorage, this tab only). Keys derived from the passkey never do.
-const zPersisted = z.object({ owner: zAddress, userToken: z.string().min(1), expiresAt: zUnixSeconds });
+let inFlight: AbortController | null = null;
 
-export const useSession = create<SessionState>()(
-  persist(
-    (set, get) => ({
-      status: "signed-out",
-      mode: HIVE_MODE,
-      hydrated: false,
-      async signIn() {
-        set({ status: "signing-in", error: undefined });
-        try {
-          const client = await getHiveClient();
-          const s = await client.auth.signIn();
-          set({ status: "signed-in", owner: s.owner, userToken: s.userToken, expiresAt: s.expiresAt });
-          return true;
-        } catch (e) {
-          const err = e instanceof HiveError ? { code: e.code, message: e.message } : { code: "INTERNAL", message: String(e) };
-          set({ status: "error", error: err });
-          return false;
-        }
-      },
-      async signOut() {
-        const { owner, userToken, expiresAt } = get();
-        try {
-          if (owner && userToken && expiresAt) await (await getHiveClient()).auth.signOut({ owner, userToken, expiresAt });
-        } finally {
-          set({ status: "signed-out", owner: undefined, userToken: undefined, expiresAt: undefined, error: undefined });
-        }
-      },
-    }),
-    {
-      name: "hive-session",
-      storage: createJSONStorage(() => sessionStorage),
-      partialize: (s) => ({ owner: s.owner, userToken: s.userToken, expiresAt: s.expiresAt }),
-      merge: (persisted, current) => {
-        const p = zPersisted.safeParse(persisted);
-        if (!p.success || p.data.expiresAt <= Date.now() / 1000) return current;
-        return { ...current, ...p.data, status: "signed-in" };
-      },
-    },
-  ),
-);
+const initial = { status: "signed-out" as Status, progress: { owner: false, encryption: false, scope: false } };
 
-// sessionStorage hydrates synchronously during create(), so check both orders.
-if (typeof window !== "undefined") {
-  const markHydrated = () => useSession.setState({ hydrated: true });
-  if (useSession.persist.hasHydrated()) markHydrated();
-  else useSession.persist.onFinishHydration(markHydrated);
-}
+export const useSession = create<SessionState>()((set, get) => ({
+  ...initial,
+  mode: HIVE_MODE,
+
+  async signIn({ create = false } = {}) {
+    inFlight?.abort();
+    const ac = new AbortController();
+    inFlight = ac;
+    get().keys?.end();
+    set({ ...initial, status: "waiting", keys: undefined, error: undefined, destination: undefined });
+
+    let keys: HiveKeys | undefined;
+    try {
+      const passkey = await getPasskeyService();
+      const secret = await (create ? passkey.create({ signal: ac.signal }) : passkey.signIn({ signal: ac.signal }));
+      set({ status: "verified" });
+
+      keys = await passkey.deriveKeys(secret);
+      secret.prfOutput.fill(0);
+      set({ progress: { owner: true, encryption: true, scope: false } });
+
+      // auth.challenge → sign → auth.verify (rules §6, Login 3)
+      const client = await getHiveClient();
+      const { nonce } = await client.auth.challenge(keys.ownerAddress);
+      const signature = await keys.owner.signMessage({ message: authMessage(keys.ownerAddress, nonce) });
+      const session = await client.auth.verify({ owner: keys.ownerAddress, nonce, signature });
+      const agents = await client.agents.list().catch(() => []);
+      if (ac.signal.aborted) throw new PasskeyError("CANCELLED", "Cancelled");
+
+      set({
+        status: "signed-in",
+        owner: session.owner,
+        userToken: session.userToken,
+        expiresAt: session.expiresAt,
+        keys,
+        progress: { owner: true, encryption: true, scope: true },
+        destination: agents.some((a) => a.connected) ? "/canvas" : "/connect",
+      });
+    } catch (e) {
+      keys?.end();
+      if (e instanceof PasskeyError && e.code === "CANCELLED") {
+        set({ ...initial });
+        return;
+      }
+      const error: LoginError =
+        e instanceof PasskeyError
+          ? { code: e.code, message: e.message }
+          : { code: "BRIDGE", message: e instanceof HiveError ? e.message : e instanceof Error ? e.message : String(e) };
+      set({ status: "error", error, keys: undefined });
+    } finally {
+      if (inFlight === ac) inFlight = null;
+    }
+  },
+
+  /** Login 2 → 1: aborts the open passkey prompt. */
+  cancel() {
+    inFlight?.abort();
+  },
+
+  reset() {
+    set({ ...initial, error: undefined });
+  },
+
+  async signOut() {
+    const { owner, userToken, expiresAt, keys } = get();
+    try {
+      if (owner && userToken && expiresAt) await (await getHiveClient()).auth.signOut({ owner, userToken, expiresAt });
+    } finally {
+      keys?.end();
+      set({ ...initial, owner: undefined, userToken: undefined, expiresAt: undefined, keys: undefined, destination: undefined, error: undefined });
+    }
+  },
+}));
