@@ -38,10 +38,18 @@ export function TopBar() {
           <Logo />
         </Link>
         {!onboarding && (
-          <p className="font-mono text-[14px] whitespace-pre text-ink-3">
+          <nav aria-label="Breadcrumb" className="font-mono text-[14px] whitespace-pre text-ink-3">
             <span aria-hidden="true">/   </span>
-            {CRUMBS[pathname] ?? ""}
-          </p>
+            {pathname === "/audit" ? (
+              <>
+                <Link href="/canvas" className="underline-offset-2 hover:text-ink hover:underline">My graph</Link>
+                <span aria-hidden="true">   /   </span>
+                <span aria-current="page">Audit trail</span>
+              </>
+            ) : (
+              <span aria-current="page">{CRUMBS[pathname] ?? ""}</span>
+            )}
+          </nav>
         )}
       </div>
       {onboarding && (

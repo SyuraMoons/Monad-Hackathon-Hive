@@ -41,6 +41,10 @@ export function createMockClient(): HiveClient {
   };
   const memory: Record<string, string> = { ...MOCK_MEMORY };
   const slots: SlotWire[] = [];
+  // Stable audit facts, like indexed events: one tx per registration, and when each edge was added / removed.
+  const registerTx = new Map<string, string>();
+  const edgeTimes = new Map<string, { addedAt: number; removedAt?: number }>(graph.edges.map((e) => [String(e.edgeId), { addedAt: now() - 25 * 60 }]));
+  const txFor = (agentId: string) => registerTx.get(agentId) ?? (registerTx.set(agentId, randomHex32()), registerTx.get(agentId)!);
   // Agents start disconnected, like after a bridge restart: the Connect page authorizes them (rules §5.1).
   const sessions = new Map<string, { lastCallAt: number; tokenExpiresAt: number }>();
   const listeners = new Set<(e: HiveEventWire) => void>();
@@ -168,9 +172,9 @@ export function createMockClient(): HiveClient {
       async auditEvents() {
         await latency();
         const rows: unknown[] = [
-          ...graph.agents.map((a) => ({ kind: "agent.registered", at: a.registeredAt, txHash: randomHex32(), agentId: a.agentId, name: a.name, agentType: a.agentType })),
-          ...graph.edges.map((e) => ({ kind: "edge.added", at: e.expiresAt - 30 * DAY, txHash: e.addedTx, edgeId: e.edgeId, from: e.from, to: e.to, topic: e.topic, expiresAt: e.expiresAt })),
-          ...graph.edges.filter((e) => e.removedTx).map((e) => ({ kind: "edge.removed", at: now(), txHash: e.removedTx, edgeId: e.edgeId, from: e.from, to: e.to, topic: e.topic })),
+          ...graph.agents.map((a) => ({ kind: "agent.registered", at: a.registeredAt, txHash: txFor(String(a.agentId)), agentId: a.agentId, name: a.name, agentType: a.agentType })),
+          ...graph.edges.map((e) => ({ kind: "edge.added", at: edgeTimes.get(String(e.edgeId))?.addedAt ?? now(), txHash: e.addedTx, edgeId: e.edgeId, from: e.from, to: e.to, topic: e.topic, expiresAt: e.expiresAt })),
+          ...graph.edges.filter((e) => e.removedTx).map((e) => ({ kind: "edge.removed", at: edgeTimes.get(String(e.edgeId))?.removedAt ?? now(), txHash: e.removedTx, edgeId: e.edgeId, from: e.from, to: e.to, topic: e.topic })),
           ...slots.flatMap((s) => [
             { kind: "memory.written", at: s.writtenAt, txHash: s.txHash, slotId: s.slotId, agentId: s.agentId, contentHash: s.contentHash, topic: s.topic, propagatedCount: s.propagatedTo.length },
             ...s.propagatedTo.map((to) => ({ kind: "memory.propagated", at: s.writtenAt, txHash: s.txHash, slotId: s.slotId, from: s.agentId, to, contentHash: s.contentHash, topic: s.topic })),
@@ -264,6 +268,7 @@ export function createMockClient(): HiveClient {
           }
           const edgeId = String(nextEdge++);
           graph.edges.push({ edgeId, from: String(from), to: String(to), topic, expiresAt, active: true, addedTx: randomHex32(), removedTx: null });
+          edgeTimes.set(edgeId, { addedAt: now() });
           return { edgeId: BigInt(edgeId) };
         });
       },
@@ -273,6 +278,7 @@ export function createMockClient(): HiveClient {
           if (!edge) return new HiveError("CHAIN_ERROR", `EdgeInactive: edge #${edgeId} is not active.`);
           edge.active = false;
           edge.removedTx = randomHex32();
+          edgeTimes.set(String(edge.edgeId), { addedAt: edgeTimes.get(String(edge.edgeId))?.addedAt ?? now(), removedAt: now() });
           return {};
         });
       },
