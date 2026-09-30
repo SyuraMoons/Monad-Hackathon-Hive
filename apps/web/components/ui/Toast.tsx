@@ -10,27 +10,38 @@ const DOT: Record<ToastStatus, DotStatus> = {
   error: "revoked",
 };
 
-// Visual only for now (step 1). Canvas 55:46: h 42, radius 10, ink surface, amber link.
-export function Toast({ status, message, link, className }: {
+// Canvas 55:46: h 42, radius 10, ink surface, amber link. Errors persist and get a dismiss button.
+export function Toast({ status, message, link, onDismiss, className }: {
   status: ToastStatus;
   message: string;
   link?: { href: string; label: string };
+  onDismiss?: () => void;
   className?: string;
 }) {
   return (
     <div
       role={status === "error" ? "alert" : "status"}
       className={cn(
-        "inline-flex h-[42px] items-center gap-[14px] rounded-card bg-ink py-3 pr-[18px] pl-4 text-[15px] leading-none font-medium text-paper shadow-toast",
+        "hive-toast inline-flex min-h-[42px] max-w-full items-center gap-[14px] rounded-card bg-ink py-3 pr-[18px] pl-4 text-[15px] leading-snug font-medium text-paper shadow-toast",
         className,
       )}
     >
       <StatusDot status={DOT[status]} />
-      <span className="whitespace-nowrap">{message}</span>
+      <span className="min-w-0 whitespace-pre-wrap">{message}</span>
       {link && (
-        <a href={link.href} target="_blank" rel="noreferrer" className="whitespace-nowrap text-amber underline-offset-4 hover:underline focus-visible:outline-paper">
+        <a href={link.href} target="_blank" rel="noreferrer" className="shrink-0 whitespace-nowrap text-amber underline underline-offset-4 focus-visible:outline-paper">
           {link.label}
         </a>
+      )}
+      {onDismiss && (
+        <button
+          type="button"
+          onClick={onDismiss}
+          aria-label="Dismiss"
+          className="-my-2 -mr-2 grid size-9 shrink-0 cursor-pointer place-items-center rounded-chip text-paper/80 hover:bg-paper/10 hover:text-paper focus-visible:outline-paper"
+        >
+          ✕
+        </button>
       )}
     </div>
   );

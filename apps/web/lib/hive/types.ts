@@ -40,6 +40,11 @@ export interface HiveClient {
   status: {
     /** GET /health: network status dots in the canvas sidebar. */
     health(): Promise<HealthResponse>;
+    /**
+     * Only for the ADR-002 fallback (the owner EOA pays gas): the balance, e.g. "0.001 MON", when it may not
+     * cover a signature. With Pimlico-sponsored userOps (rules A5) this is always null.
+     */
+    lowBalance(): Promise<string | null>;
   };
   auth: {
     /** POST /v1/auth/challenge */

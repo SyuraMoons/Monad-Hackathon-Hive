@@ -38,3 +38,12 @@ body { background:var(--color-paper); color:var(--color-ink); font-family:var(--
        font-variation-settings:"SOFT" 0, "WONK" 1; }
 
 :focus-visible { outline:2px solid var(--color-ink); outline-offset:2px; }
+
+/* design.md §8 motion: toast in 200 ms (slide 8 px + fade), modal 180 ms ease-hive scale .98 → 1 */
+@keyframes hive-toast-in { from { opacity:0; transform:translateY(-8px); } }
+@keyframes hive-modal-in { from { opacity:0; transform:scale(.98); } }
+@keyframes hive-fade-in  { from { opacity:0; } }
+.hive-toast { animation:hive-toast-in .2s var(--ease-hive); }
+.hive-modal { animation:hive-modal-in .18s var(--ease-hive); }
+.hive-scrim { animation:hive-fade-in .18s var(--ease-hive); }
+@media (prefers-reduced-motion: reduce) { .hive-toast, .hive-modal, .hive-scrim { animation:none; } }

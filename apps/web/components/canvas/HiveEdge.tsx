@@ -1,8 +1,7 @@
 "use client";
 
-import { EdgeLabelRenderer, getStraightPath, type Edge, type EdgeProps } from "@xyflow/react";
+import { EdgeLabelRenderer, useInternalNode, type Edge, type EdgeProps, type InternalNode } from "@xyflow/react";
 import { memo } from "react";
-import { cn } from "@/lib/cn";
 import { shortHash } from "@/lib/format";
 import { explorerTx } from "@/lib/explorer";
 import { useGraph } from "@/lib/stores/graph";
@@ -14,14 +13,43 @@ export type HiveFlowEdge = Edge<HiveEdgeData, "hive">;
 /** DOM id of an edge's path, so the pulse layer can follow it with getPointAtLength. */
 export const edgePathId = (edgeKey: string) => `hive-edge-path-${edgeKey.replace(/[^a-zA-Z0-9_-]/g, "_")}`;
 
+type Pt = { x: number; y: number };
+
+function center(n: InternalNode): Pt {
+  const p = n.internals.positionAbsolute;
+  return { x: p.x + (n.measured.width ?? 0) / 2, y: p.y + (n.measured.height ?? 0) / 2 };
+}
+
+/** Where the line from `n`'s centre towards `toward` crosses `n`'s border (floating edges). */
+function borderPoint(n: InternalNode, toward: Pt): Pt {
+  const w = (n.measured.width ?? 0) / 2;
+  const h = (n.measured.height ?? 0) / 2;
+  const c = center(n);
+  const dx = toward.x - c.x;
+  const dy = toward.y - c.y;
+  if (!dx && !dy) return c;
+  const scale = 1 / Math.max(Math.abs(dx) / w, Math.abs(dy) / h);
+  return { x: c.x + dx * scale, y: c.y + dy * scale };
+}
+
 // Pending: 1.5px dashed ink-3 · Signed: 2px solid topic colour with an arrowhead · Hover: 3px (design.md §6).
-function HiveEdgeImpl({ data, sourceX, sourceY, targetX, targetY }: EdgeProps<HiveFlowEdge>) {
+// Edges float: they run straight between the facing borders of the two nodes, wherever those are.
+function HiveEdgeImpl({ data, source, target }: EdgeProps<HiveFlowEdge>) {
   const edge = useGraph((s) => (data ? s.edges[data.edgeKey] : undefined));
-  if (!edge || !data) return null;
+  const from = useInternalNode(source);
+  const to = useInternalNode(target);
+  if (!edge || !data || !from || !to || !from.measured.width || !to.measured.width) return null;
+
+  const a = borderPoint(from, center(to));
+  const bRaw = borderPoint(to, center(from));
+  // stop a few px short of the border so the arrowhead's tip touches it
+  const len = Math.hypot(bRaw.x - a.x, bRaw.y - a.y) || 1;
+  const b = { x: bRaw.x - ((bRaw.x - a.x) / len) * 3, y: bRaw.y - ((bRaw.y - a.y) / len) * 3 };
+  const path = `M ${a.x},${a.y} L ${b.x},${b.y}`;
+  const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
 
   const pending = edge.state === "pending";
   const color = pending ? "var(--color-ink-3)" : topicColor(edge.topic);
-  const [path, labelX, labelY] = getStraightPath({ sourceX, sourceY, targetX: targetX - 6, targetY });
   const markerId = `${edgePathId(data.edgeKey)}-arrow`;
   const txHash = edge.addedTx;
 
@@ -49,7 +77,7 @@ function HiveEdgeImpl({ data, sourceX, sourceY, targetX, targetY }: EdgeProps<Hi
       <EdgeLabelRenderer>
         <div
           className="nodrag nopan pointer-events-auto absolute flex flex-col items-center gap-1 rounded-sm border bg-paper px-2.5 py-1.5 text-[14px] leading-none"
-          style={{ transform: `translate(-50%, 0) translate(${labelX}px, ${labelY + 22}px)`, borderColor: color }}
+          style={{ transform: `translate(-50%, 0) translate(${mid.x}px, ${mid.y + 22}px)`, borderColor: color }}
         >
           <span className="font-mono font-medium whitespace-pre text-ink">
             {edge.topic}  ·  {pending ? "pending" : expiresIn(edge.expiresAt)}
@@ -60,7 +88,7 @@ function HiveEdgeImpl({ data, sourceX, sourceY, targetX, targetY }: EdgeProps<Hi
               target="_blank"
               rel="noreferrer"
               aria-label={`View edge transaction ${shortHash(txHash)} on Monadscan`}
-              className={cn("font-mono whitespace-pre text-ink-2 underline underline-offset-2 hover:text-ink")}
+              className="font-mono whitespace-pre text-ink-2 underline underline-offset-2 hover:text-ink"
             >
               tx {shortHash(txHash)}  ↗
             </a>

@@ -1,6 +1,7 @@
 "use client";
 
 import { ReactFlowProvider } from "@xyflow/react";
+import { Toaster } from "@/components/app/Toaster";
 import { GraphCanvas } from "@/components/canvas/GraphCanvas";
 import { LiveFeed } from "@/components/canvas/LiveFeed";
 import { Sidebar } from "@/components/canvas/Sidebar";
@@ -20,6 +21,7 @@ function Canvas({ owner }: { owner: string }) {
         <Sidebar layout={layout} place={place} />
         <main className="relative min-h-0 bg-paper">
           <GraphCanvas layout={layout} place={place} />
+          <Toaster />
           {error && (
             <p role="alert" className="absolute top-5 left-1/2 -translate-x-1/2 rounded-card bg-ink px-4 py-3 text-[15px] text-paper shadow-toast">
               Couldn’t load your graph: {error}

@@ -11,11 +11,13 @@ import {
   useReactFlow,
   type NodeChange,
 } from "@xyflow/react";
-import { useCallback, useEffect, useMemo, useState, type DragEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { cn } from "@/lib/cn";
 import type { Layout, XY } from "@/lib/layout";
 import { useGraph } from "@/lib/stores/graph";
+import { useUi } from "@/lib/stores/ui";
 import { AgentNode, type AgentFlowNode } from "./AgentNode";
+import { EdgeEditorModal, type EdgeDraft } from "./EdgeEditorModal";
 import { HiveEdge, type HiveFlowEdge } from "./HiveEdge";
 import { PulseLayer } from "./PulseLayer";
 
@@ -40,9 +42,28 @@ export function GraphCanvas({ layout, place }: { layout: Layout; place(patch: La
   const [selected, setSelected] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const rf = useReactFlow();
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const editor = useUi((s) => s.edgeEditor);
+  const setUi = useUi((s) => s.set);
+  const toast = useUi((s) => s.toast);
+
+  // Sign: the edge draws pending (dashed) at once, then turns solid on the receipt (golden rule 6, rules §5.6).
+  async function sign({ from, to, topic, expiresAt, update }: EdgeDraft & { update: boolean }) {
+    setUi({ edgeEditor: null });
+    const name = (id: bigint) => agents[id.toString()]?.name ?? `#${id}`;
+    const label = `${name(from)} → ${name(to)}  ·  ${topic}`;
+    const id = toast({ status: "pending", message: `Signing edge  ·  ${label}` });
+    const result = await useGraph.getState().addEdge({ from, to, topic, expiresAt });
+    if (result.status === "confirmed") {
+      toast({ id, status: "success", message: `${update ? "Expiry updated" : "Edge signed"}  ·  ${label}`, link: { href: result.explorerUrl, label: "View on Monadscan →" } });
+    } else {
+      toast({ id, status: "error", message: `Couldn’t sign the edge  ·  ${result.error.message}` });
+    }
+  }
 
   const liveEdges = useMemo(() => Object.values(edges).filter((e) => e.state !== "revoked"), [edges]);
-  const linked = useMemo(() => new Set(liveEdges.flatMap((e) => [e.from.toString(), e.to.toString()])), [liveEdges]);
+  // Only confirmed edges make a node non-isolated: a pending edge must not look final (golden rule 6).
+  const linked = useMemo(() => new Set(liveEdges.filter((e) => e.state !== "pending").flatMap((e) => [e.from.toString(), e.to.toString()])), [liveEdges]);
 
   // A new browser has no saved layout: give every agent that has an edge a position, so the graph from chain
   // shows up (rules T9). Agents without edges stay as chips until they're dropped.
@@ -99,7 +120,9 @@ export function GraphCanvas({ layout, place }: { layout: Layout; place(patch: La
 
   return (
     <div
-      className="relative h-full min-h-0"
+      ref={canvasRef}
+      tabIndex={-1}
+      className="relative h-full min-h-0 focus:outline-none"
       onDragOver={(e) => {
         if (!e.dataTransfer.types.includes(AGENT_MIME)) return;
         e.preventDefault();
@@ -117,7 +140,11 @@ export function GraphCanvas({ layout, place }: { layout: Layout; place(patch: La
         edgeTypes={edgeTypes}
         onNodesChange={onNodesChange}
         onPaneClick={() => setSelected(null)}
-        nodesConnectable={false}
+        onConnect={({ source, target }) => {
+          if (source && target && source !== target) setUi({ edgeEditor: { from: BigInt(source), to: BigInt(target) } });
+        }}
+        isValidConnection={({ source, target }) => source !== target}
+        connectionLineStyle={{ stroke: "var(--color-ink-3)", strokeWidth: 1.5, strokeDasharray: "4 4" }}
         defaultViewport={{ x: 0, y: 0, zoom: 1 }}
         minZoom={0.4}
         maxZoom={1.75}
@@ -146,8 +173,12 @@ export function GraphCanvas({ layout, place }: { layout: Layout; place(patch: La
       <p className="pointer-events-none absolute right-0 bottom-6 left-0 text-center font-mono text-[14px] whitespace-pre text-ink-3">
         {empty || !hasEdges
           ? "Nothing is connected yet, so nothing can leak."
-          : "Memory moves only along the edges you signed"}
+          : "Drag between two agents to draw an edge"}
       </p>
+
+      {editor && (
+        <EdgeEditorModal from={editor.from} to={editor.to} onClose={() => setUi({ edgeEditor: null })} onSign={sign} returnFocus={canvasRef} />
+      )}
     </div>
   );
 }

@@ -43,7 +43,7 @@ export function Sidebar({ layout, place }: { layout: Layout; place(patch: Layout
 
   const list = useMemo(() => Object.values(agents).sort((a, b) => Number(a.agentId - b.agentId)), [agents]);
   const topics = useMemo(
-    () => [...new Set(Object.values(edges).filter((e) => e.state !== "revoked").map((e) => e.topic))].sort(),
+    () => [...new Set(Object.values(edges).filter((e) => e.state === "signed" || e.state === "revoking").map((e) => e.topic))].sort(),
     [edges],
   );
 

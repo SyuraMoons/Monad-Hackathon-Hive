@@ -11,6 +11,8 @@ export function createLiveClient(): HiveClient {
     mode: "live",
     status: {
       health: async () => todo("status.health"),
+      // Gas is sponsored (ADR-002), so there is no balance to warn about.
+      lowBalance: async () => null,
     },
     auth: {
       challenge: async () => todo("auth.challenge"),

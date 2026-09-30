@@ -92,6 +92,8 @@ export function createMockClient(): HiveClient {
         if (mockFlag("bridge-offline")) throw offline();
         return zHealthResponse.parse({ ok: true, chainId: 10143, rpcReachable: true, supabaseReachable: true, activeSessions: sessions.size, version: "mock" });
       },
+      // ?mock=low-balance previews the ADR-002 fallback warning (Figma 93:481).
+      lowBalance: async () => (mockFlag("low-balance") ? "0.001 MON" : null),
     },
 
     auth: {

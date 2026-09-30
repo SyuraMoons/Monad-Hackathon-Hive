@@ -16,8 +16,15 @@
 .hive-flow .react-flow__node:focus-visible { outline: none; }
 .hive-flow .react-flow__node:focus-visible .hive-node { outline: 2px solid var(--color-ink); outline-offset: 2px; }
 
-/* Handles exist for step 7's drag-to-connect; they stay invisible until then. */
-.hive-flow .hive-handle { width: 10px; height: 10px; border: none; background: var(--color-ink); opacity: 0; }
+/* Drag from a node's right handle to another node to draw an edge. Handles show on hover and while connecting. */
+.hive-flow .hive-handle {
+  width: 12px; height: 12px; border: 2px solid var(--color-paper); background: var(--color-ink);
+  opacity: 0; transition: opacity .15s var(--ease-hive);
+}
+.hive-flow .react-flow__node:hover .hive-handle,
+.hive-flow.react-flow .react-flow__handle.connectingfrom,
+.hive-flow .react-flow__handle.connectionindicator:hover { opacity: 1; }
+.hive-flow .react-flow__node:hover .hive-handle.react-flow__handle-left { opacity: .45; }
 
 .hive-edge:hover .hive-edge-path { stroke-width: 3; }
 
