@@ -21,7 +21,7 @@ export const zAuthChallengeResponse = z.object({ nonce: z.string().min(1), expir
  */
 export const authMessage = (owner: string, nonce: string) => `Sign in to Hive\n\nOwner: ${owner}\nNonce: ${nonce}`;
 
-export const zAuthVerifyBody =z.object({ owner: zAddress, nonce: z.string().min(1), signature: zHex });
+export const zAuthVerifyBody = z.object({ owner: zAddress, nonce: z.string().min(1), signature: zHex });
 export const zAuthVerifyResponse = z.object({ userToken: z.string().min(1), expiresAt: zUnixSeconds });
 
 export const zAgentStatus = z.object({
