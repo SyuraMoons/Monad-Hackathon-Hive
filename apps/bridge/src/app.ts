@@ -4,7 +4,10 @@ import {
 } from "@hive/shared";
 import express, { type ErrorRequestHandler, type Express, type Request, type RequestHandler, type Response } from "express";
 import { ChallengeStore, verifySignIn, type VerifySignature } from "./auth.js";
+import { mcpHandler } from "./mcp.js";
+import type { SessionStore } from "./sessions.js";
 import type { TokenService } from "./tokens.js";
+import type { ChainReader, CiphertextStore } from "./types.js";
 
 export type AppDeps = {
   corsOrigins: string[];
@@ -13,7 +16,10 @@ export type AppDeps = {
   challenges?: ChallengeStore;
   /** Cheap reachability probes for /health. Unconfigured services report false. */
   probes: { rpc: () => Promise<boolean>; supabase: () => Promise<boolean> };
-  activeSessions: () => number;
+  sessions: SessionStore;
+  chain: ChainReader;
+  store: CiphertextStore;
+  now?: () => bigint;
   version?: string;
 };
 
@@ -59,7 +65,7 @@ export function createApp(deps: AppDeps): Express {
   app.get("/health", wrap(async (_req, res) => {
     const settle = (p: () => Promise<boolean>) => p().catch(() => false);
     const [rpcReachable, supabaseReachable] = await Promise.all([settle(deps.probes.rpc), settle(deps.probes.supabase)]);
-    const body: HealthResponse = { ok: true, chainId: monadTestnet.id, rpcReachable, supabaseReachable, activeSessions: deps.activeSessions(), version: deps.version ?? "0.0.0" };
+    const body: HealthResponse = { ok: true, chainId: monadTestnet.id, rpcReachable, supabaseReachable, activeSessions: deps.sessions.count(), version: deps.version ?? "0.0.0" };
     res.json(body);
   }));
 
@@ -78,6 +84,8 @@ export function createApp(deps: AppDeps): Express {
     const body: AuthVerifyResponse = { userToken: token, expiresAt };
     res.json(body);
   }));
+
+  app.post("/mcp", wrap(mcpHandler({ tokens: deps.tokens, sessions: deps.sessions, chain: deps.chain, store: deps.store, now: deps.now ?? (() => BigInt(Math.floor(Date.now() / 1000))) })));
 
   // STUB: replace when the agent registry is readable from chain (AK-7). Empty list is a valid response.
   app.get("/v1/agents", requireUser, (_req, res) => {

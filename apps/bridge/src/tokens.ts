@@ -4,6 +4,7 @@ import { jwtVerify, SignJWT } from "jose";
 export const USER_TOKEN_TTL_S = 24 * 60 * 60;
 
 export type UserClaims = { owner: string; expiresAt: number };
+export type AgentClaims = { agentId: bigint; owner: string; expiresAt: number };
 
 /** HS256, 24 h, `{ sub: owner, typ: "user" }` (docs/backend-handoff.md). */
 export class TokenService {
@@ -28,6 +29,26 @@ export class TokenService {
     } catch (e) {
       if (e instanceof HiveError) throw e;
       if (e instanceof Error && e.name === "JWTExpired") throw new HiveError("SESSION_EXPIRED", "Session expired. Sign in again.");
+      throw new HiveError("UNAUTHORIZED", "Invalid token.");
+    }
+  }
+
+  /** Agent tokens carry `{ sub: agentId, owner, typ: "agent" }`. The caller's identity always comes from here, never from a tool argument. */
+  async signAgent(agentId: bigint, owner: string): Promise<{ token: string; expiresAt: number }> {
+    const iat = this.now();
+    const expiresAt = iat + USER_TOKEN_TTL_S;
+    const token = await new SignJWT({ typ: "agent", owner }).setProtectedHeader({ alg: "HS256" }).setSubject(agentId.toString()).setIssuedAt(iat).setExpirationTime(expiresAt).sign(this.key);
+    return { token, expiresAt };
+  }
+
+  async verifyAgent(token: string): Promise<AgentClaims> {
+    try {
+      const { payload } = await jwtVerify(token, this.key, { algorithms: ["HS256"], currentDate: new Date(this.now() * 1000) });
+      if (payload.typ !== "agent" || !payload.sub || typeof payload.owner !== "string") throw new HiveError("UNAUTHORIZED", "Not an agent token.");
+      return { agentId: BigInt(payload.sub), owner: zAddress.parse(payload.owner), expiresAt: payload.exp ?? 0 };
+    } catch (e) {
+      if (e instanceof HiveError) throw e;
+      if (e instanceof Error && e.name === "JWTExpired") throw new HiveError("SESSION_EXPIRED", "Agent session expired. Authorize the agent again.");
       throw new HiveError("UNAUTHORIZED", "Invalid token.");
     }
   }

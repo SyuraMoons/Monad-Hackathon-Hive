@@ -7,6 +7,8 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { createApp } from "../src/app.js";
 import { ChallengeStore } from "../src/auth.js";
 import { loadConfig } from "../src/config.js";
+import { SessionStore } from "../src/sessions.js";
+import { InMemoryChain, InMemoryCiphertextStore } from "../src/stubs.js";
 import { TokenService } from "../src/tokens.js";
 
 const SECRET = "s".repeat(40);
@@ -24,7 +26,9 @@ function build(overrides: Partial<Parameters<typeof createApp>[0]> = {}) {
     challenges: new ChallengeStore(now),
     verifySignature: ({ owner, message, signature }) => verifyMessage({ address: owner as `0x${string}`, message, signature }),
     probes: { rpc: async () => true, supabase: async () => false },
-    activeSessions: () => 2,
+    sessions: (() => { const s = new SessionStore(now); for (const id of [1n, 2n]) s.put({ agentId: id, name: "a", owner: account.address, encryptionKey: "0x" + "00".repeat(32) as `0x${string}`, agentPrivateKey: "0x" + "00".repeat(32) as `0x${string}`, expiresAt: clock + 1000 }); return s; })(),
+    chain: new InMemoryChain(),
+    store: new InMemoryCiphertextStore(),
     ...overrides,
   });
 }
