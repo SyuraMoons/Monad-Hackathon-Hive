@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { PillLink } from "@/components/ui/Pill";
 import { Waves } from "@/components/ui/Waves";
 import { cn } from "@/lib/cn";
@@ -16,17 +16,64 @@ const CHIPS: Array<{ label: string; icon: string; dashed?: boolean }> = [
 const INK = "#171512", INK_3 = "#6B665B", AMBER = "#A86E00";
 const X0 = 298, X1 = 392, TIP = 402;     // the edge runs from Claude's right side to GPT's left side
 
+// Wide screens with motion allowed get the full-screen clip as a moving background (it contains the graph).
+// Phones, short windows and reduced motion get the drawn graph instead, and never download the clip.
+const VIDEO_QUERY = "(min-width: 721px) and (min-height: 601px) and (prefers-reduced-motion: no-preference)";
+const VIDEO_MP4 = "/hero/hero-scrub.mp4";
+const VIDEO_WEBM = "/hero/hero-scrub.webm"; // for browsers without H.264
+
 const step = (i: number) => ({ "--i": i }) as CSSProperties;
 
-// Figma hero 5:22. The graph is drawn in its signed state, so it is complete without JavaScript
-// and with reduced motion. GSAP then loops the story: memory flows, the edge is revoked, redrawn and signed.
+// Figma hero 5:22, one screen. On wide screens the clip plays behind the text. Elsewhere the graph is
+// drawn in its signed state (complete without JavaScript), and GSAP loops the story on it:
+// memory flows, the edge is revoked, redrawn and signed.
 export function Hero() {
   const sectionRef = useRef<HTMLElement>(null);
   const graphRef = useRef<SVGSVGElement>(null);
+  const clipRef = useRef<HTMLVideoElement>(null);
+  const [video, setVideo] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia(VIDEO_QUERY);
+    const sync = () => setVideo(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+
+  // The clip plays straight through (no seeking, so it stays smooth). At the end it fades out to the
+  // poster underneath, which is the clip's first frame, and starts again: a seamless loop.
+  useEffect(() => {
+    const section = sectionRef.current, clip = clipRef.current;
+    if (!video || !section || !clip) return;
+    let timer = 0;
+    let visible = true;
+    const play = () => { if (visible) clip.play().catch(() => {}); };
+    const onEnded = () => {
+      clip.classList.add(s.fading);
+      timer = window.setTimeout(() => { clip.currentTime = 0; clip.classList.remove(s.fading); play(); }, 500);
+    };
+    const observer = new IntersectionObserver(([entry]) => {
+      visible = entry.isIntersecting;
+      if (visible && !clip.ended) play(); else clip.pause();
+    });
+    clip.addEventListener("ended", onEnded);
+    clip.src = clip.canPlayType('video/mp4; codecs="avc1.640028"') || !clip.canPlayType('video/webm; codecs="vp9"') ? VIDEO_MP4 : VIDEO_WEBM;
+    observer.observe(section);
+    return () => {
+      clearTimeout(timer);
+      observer.disconnect();
+      clip.removeEventListener("ended", onEnded);
+      clip.pause();
+      clip.removeAttribute("src");
+      clip.load();
+      clip.classList.remove(s.fading);
+    };
+  }, [video]);
 
   useEffect(() => {
     const section = sectionRef.current, graph = graphRef.current;
-    if (!section || !graph || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (video || !section || !graph || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     let dead = false;
     let revert = () => {};
 
@@ -77,16 +124,23 @@ export function Hero() {
       else clearTimeout(id);
       revert();
     };
-  }, []);
+  }, [video]);
 
   return (
     <section ref={sectionRef} className={s.hero} aria-label="Hive introduction">
       <Waves />
-      <p className={cn(s.eyebrow, s.rise)} style={step(0)}>Hive · Agent memory, on Monad</p>
-      <h1 className={cn(s.h1, s.rise)} style={step(1)}>Connect at will.<br />Isolate by <em>default</em></h1>
-      <p className={cn(s.lead, s.rise)} style={step(2)}>
-        One MCP that carries memory across the models you use. Draw a permission, and only that topic flows. Draw nothing, and nothing leaks.
-      </p>
+      <div className={s.backdrop} aria-hidden="true">
+        {/* eslint-disable-next-line @next/next/no-img-element -- must paint before any JS; identical to the clip's first frame */}
+        <img src="/hero/poster-start.webp" alt="" width={1600} height={900} />
+        <video ref={clipRef} muted playsInline preload="none" disablePictureInPicture tabIndex={-1} />
+      </div>
+      <div className={s.top}>
+        <p className={cn(s.eyebrow, s.rise)} style={step(0)}>Hive · Agent memory, on Monad</p>
+        <h1 className={cn(s.h1, s.rise)} style={step(1)}>Connect at will.<br />Isolate by <em>default</em></h1>
+        <p className={cn(s.lead, s.rise)} style={step(2)}>
+          One MCP that carries memory across the models you use. Draw a permission, and only that topic flows. Draw nothing, and nothing leaks.
+        </p>
+      </div>
 
       <svg
         ref={graphRef}

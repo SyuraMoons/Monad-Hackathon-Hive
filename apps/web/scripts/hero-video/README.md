@@ -1,6 +1,6 @@
 # Hero video
 
-Renders the landing hero's scroll-scrubbed footage. The clip fills the whole hero behind the text. As you scroll the landing page, `HeroScrub` seeks through it frame by frame, so every frame has to be a keyframe.
+Renders the clip that plays behind the landing hero on wide screens (`components/hero/Hero.tsx`). It plays straight through and loops by fading to the poster, which is its first frame. Every frame is a keyframe, a leftover from when the hero scrubbed the clip with the scroll; it also makes the restart instant.
 
 ## The clip
 
@@ -14,11 +14,11 @@ Renders the landing hero's scroll-scrubbed footage. The clip fills the whole her
 
 ### Layout rule
 
-The graph is centred on x = 960 and its **top edge sits on the clip's centre line** (y = 540). It is 750 px wide and 320 px tall. `HeroScrub.module.css` relies on this: the text ends just above the stage's centre line and the button starts 318 clip pixels below it. If you move the graph, change those two numbers too. Keep the graph narrower than about 780 px so it survives the side crop on portrait tablets.
+The graph is centred on x = 960 and its **top edge sits on the clip's centre line** (y = 540). It is 750 px wide and 320 px tall. `Hero.module.css` relies on this: the text ends just above the stage's centre line and the button starts 318 clip pixels below it. If you move the graph, change those two numbers too. Keep the graph narrower than about 780 px so it survives the side crop on portrait tablets.
 
 ## Storyboard
 
-`t` runs 0..1 across the clip (frame = `t` × 240). It lines up with the three text panels in `components/hero/HeroScrub.tsx`.
+`t` runs 0..1 across the clip (frame = `t` × 240). Played straight through, the whole story takes 10 seconds.
 
 Running through the whole clip, so something moves on every scroll tick:
 
@@ -61,8 +61,6 @@ bash encode.sh                              # writes to apps/web/public/hero/
 ```
 
 Without a system ffmpeg or Playwright install, point the scripts at other copies: `PLAYWRIGHT_MODULE` (a file URL to `playwright-core/index.mjs`) and `PLAYWRIGHT_CHANNEL=chrome` for `render.mjs`, and `FFMPEG=/path/to/ffmpeg` for `encode.sh` (the `ffmpeg-static` npm package works). `CRF` and `VP9_CRF` change the quality and file size.
-
-After a re-render, bump `ASSET_V` in `components/hero/HeroScrub.tsx`: `/hero/*` is cached for a year, and the version in the URL is what makes browsers fetch the new files.
 
 `frames/` is scratch output; don't commit it.
 
