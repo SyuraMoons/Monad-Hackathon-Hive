@@ -113,6 +113,6 @@ Open http://localhost:3100/login. Failure switches: `?mock=reject`, `prf-unavail
 
 1. **Now:** open the PR stack in order (`feat/web-foundation` → … → `feat/web-audit`) so `@hive/shared` reaches `development` early. The hero video and stills are tracked from `feat/web-landing` onwards. Get the decisions in section 2 answered.
 2. **When the contracts are deployed:** runbook Step 10 for `chain` (Kernel + Pimlico, `registerAgent` / `addEdge` / `removeEdge` with explicit gas, receipts linked on Monadscan).
-3. **When the bridge serves these routes:** Step 10 for `bridge` (auth, agents, memory decrypt, SSE with resume).
+3. **When the bridge serves these routes:** Step 10 for `bridge` (memory decrypt, SSE with resume). Sign-in and agent sessions are already wired in `apps/web/lib/hive/live/bridge.ts`: `/health`, `/v1/auth/challenge`, `/v1/auth/verify`, `/v1/agents`, `/v1/agents/:id/authorize` and `DELETE /v1/agents/:id/session`, each response checked against the shared schema. Tested with a real Mera passkey against a stand-in bridge that uses viem `verifyMessage`; set `NEXT_PUBLIC_BRIDGE_URL` and it should work against the real one.
 4. **When Envio is indexing:** Step 10 for `envio` (graph, audit, provenance).
 5. Then Step 11 (projector, accessibility, polish) and Step 12 (real demo run, rules T9: new passkey, real Claude Code + GPT, S2–S8 through the canvas, nothing mocked).

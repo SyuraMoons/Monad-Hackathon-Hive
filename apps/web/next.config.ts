@@ -10,5 +10,7 @@ export default function config(phase: string): NextConfig {
     transpilePackages: ["@hive/shared"],
     // Hide Next's floating "N" badge in dev; build errors still show as an overlay.
     devIndicators: false,
+    // Lets a production build run next to a live `next dev` without overwriting its .next folder.
+    distDir: process.env.NEXT_DIST_DIR || ".next",
   };
 }

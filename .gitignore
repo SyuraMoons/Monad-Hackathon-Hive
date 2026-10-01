@@ -53,3 +53,6 @@ docs/claude-code-prompts.md
 # Hero video: the rendered files in apps/web/public/hero/ and the scripts are tracked.
 # Only the scratch frames from a re-render are ignored.
 apps/web/scripts/hero-video/frames/
+
+# extra build folders (NEXT_DIST_DIR)
+.next-*/

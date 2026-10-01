@@ -65,7 +65,7 @@ export function WalletMenu({ address }: { address: string }) {
       <div className="h-px bg-line" aria-hidden="true" />
       <div className="py-1.5">
         <a href={explorerAddress(address)} target="_blank" rel="noreferrer" className={item}>
-          View on explorer  →
+          View on Monadscan  →
         </a>
         <button type="button" onClick={() => void leave()} disabled={leaving} className={`${item} text-ink-2 disabled:opacity-45`}>
           {leaving ? "Signing out…" : "Sign out"}

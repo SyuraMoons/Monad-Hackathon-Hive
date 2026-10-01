@@ -1,36 +1,35 @@
 import type { HiveClient, TxHandle } from "../types";
+import { createBridgeApi } from "./bridge";
 
-// The real bridge, Envio and chain arrive in step 10, one service at a time.
+// Sign-in and agent sessions talk to the real bridge. The graph (Envio), live events, memory preview
+// and transactions arrive in step 10, one service at a time.
 const todo = (what: string): never => {
   throw new Error(`${what}: not implemented yet: see step 10`);
 };
 const txTodo = (what: string): TxHandle<never> => todo(what);
 
 export function createLiveClient(): HiveClient {
+  const bridge = createBridgeApi();
   return {
     mode: "live",
     status: {
-      health: async () => todo("status.health"),
+      health: bridge.health,
       // Gas is sponsored (ADR-002), so there is no balance to warn about.
       lowBalance: async () => null,
     },
-    auth: {
-      challenge: async () => todo("auth.challenge"),
-      verify: async () => todo("auth.verify"),
-      signOut: async () => todo("auth.signOut"),
-    },
-    agents: {
-      list: async () => todo("agents.list"),
-      authorize: async () => todo("agents.authorize"),
-      disconnect: async () => todo("agents.disconnect"),
-    },
+    auth: bridge.auth,
+    agents: bridge.agents,
     graph: {
       load: async () => todo("graph.load"),
       auditEvents: async () => todo("graph.auditEvents"),
       provenance: async () => todo("graph.provenance"),
     },
     events: {
-      subscribe: () => todo("events.subscribe"),
+// No stream yet (step 10): report it as offline instead of throwing inside the app shell.
+      subscribe: (_onEvent, onStatus) => {
+        onStatus?.("offline");
+        return () => {};
+      },
     },
     memory: {
       preview: async () => todo("memory.preview"),
