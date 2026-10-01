@@ -2,48 +2,47 @@
    The negative margin tucks the section under the sticky header, so the stage pins from the first pixel. */
 .hero   { position:relative; height:560vh; min-height:3200px; background:var(--color-paper);
           margin-top:calc(var(--nav-h, 60px) * -1); }
-.stage  { position:sticky; top:0; height:100svh; overflow:hidden;
-          display:grid; place-items:center; padding-top:var(--nav-h, 60px); }
+.stage  { position:sticky; top:0; height:100svh; overflow:hidden; container-type:size; }
+
+/* The footage fills the whole stage. Its graph is drawn with its top edge on the clip's centre
+   line, so with object-fit:cover the graph's top always lands on the stage's centre line and
+   the text can be placed against that line. */
+.backdrop { position:absolute; inset:0; background:var(--color-paper); }
+.backdrop video, .poster { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+.poster { transition:opacity .4s var(--ease-hive); }
+.ready .poster { opacity:0; }
+.wavesWrap { display:none; }
 .waves  { position:absolute; inset:0 0 auto 0; pointer-events:none; }
 .waves svg { position:absolute; top:0; left:0; width:100%; }
 .wave1  { fill:var(--color-wave-1); }
 .wave3  { fill:var(--color-wave-2); opacity:.9; }
 
-/* One grid holds the graph and all three panels in the SAME cells, so they stack
-   without absolute positioning, and the graph never moves between panels
-   (the rule the Figma frames were built on). */
-.column { position:relative; width:min(1000px, 100% - 32px);
-          display:grid;
-          grid-template-rows: var(--text-h) var(--graph-h) var(--cta-h);
-          row-gap:26px; justify-items:center;
-          --text-h: clamp(250px, 37svh, 334px);
-          --graph-h: clamp(170px, 25svh, 226px);
-          --cta-h: 48px; }
-.graph  { grid-row:2; grid-column:1; width:min(700px, 100%); height:100%;
-          position:relative; background:var(--color-paper);
-          /* hides any colour seam between the video and the page */
-          -webkit-mask-image: linear-gradient(90deg,#0000,#000 5%,#000 95%,#0000),
-                              linear-gradient(#0000,#000 8%,#000 92%,#0000);
-          mask-image: linear-gradient(90deg,#0000,#000 5%,#000 95%,#0000),
-                      linear-gradient(#0000,#000 8%,#000 92%,#0000);
-          -webkit-mask-composite: source-in; mask-composite: intersect; }
-.graph video, .poster { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; }
-.poster { transition:opacity .4s var(--ease-hive); }
-.ready .poster { opacity:0; }
+/* Veil: calms the footage behind the headline and fades the stage into the next section.
+   Grain: fine noise over everything, which also hides video banding in the flat paper. */
+.veil   { position:absolute; inset:0; pointer-events:none;
+          background:
+            radial-gradient(ellipse 58% 40% at 50% 31%, rgb(244 242 236 / .6), rgb(244 242 236 / 0) 72%),
+            linear-gradient(to bottom, rgb(244 242 236 / 0) 82%, var(--color-paper) 100%); }
+.grain  { position:absolute; inset:0; pointer-events:none; opacity:.28; mix-blend-mode:soft-light;
+          background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
 
-.panel  { grid-row:1 / 4; grid-column:1; display:grid; grid-template-rows:subgrid;
-          width:100%; justify-items:center; text-align:center;
+/* All three panels share the same box, so they cross-fade in place.
+   --u is one pixel of the 1920×1080 clip on screen (the same maths as object-fit:cover). */
+.column { position:absolute; inset:0; --u:max(100cqw / 1920, 100cqh / 1080); }
+.panel  { position:absolute; inset:0; text-align:center;
           opacity:0; will-change:opacity, transform; pointer-events:none; }
 /* Panel 1 is fully visible at progress 0, so it paints before any JS runs. */
 .first  { opacity:1; pointer-events:auto; }
-.top    { grid-row:1; align-self:end; display:flex; flex-direction:column; align-items:center; }
-.cta    { grid-row:3; }
+/* text ends just above the graph (the centre line); the button starts just below it (graph is 320 clip px tall) */
+.top    { position:absolute; inset-inline:0; bottom:calc(50% + 44px); padding-inline:16px;
+          display:flex; flex-direction:column; align-items:center; }
+.cta    { position:absolute; inset-inline:0; top:calc(50% + 318 * var(--u)); display:flex; justify-content:center; }
 .still  { display:none; }
 
 .eyebrow { font:400 14px/1.4 var(--font-mono); letter-spacing:.10em; color:var(--color-ink-2);
            margin-bottom:26px; }
 .h1      { font-family:var(--font-display); font-weight:400;
-           font-size:clamp(44px, min(6.4vw, 10.2svh), 92px); line-height:.97;
+           font-size:clamp(44px, min(6.4vw, 9.2svh), 92px); line-height:.97;
            letter-spacing:-.018em; color:var(--color-ink); max-width:14ch; text-wrap:balance; }
 .h1 em   { font-style:italic; color:var(--color-amber-strong); }
 .lead    { margin-top:26px; max-width:540px; font:400 19px/1.5 var(--font-body);
@@ -56,34 +55,43 @@
 /* Responsive (scrub mode, > 720px) */
 @media (max-width:1100px) { .lead { font-size:17px; } }
 @media (max-height:760px) {
-  .column  { --text-h:250px; --graph-h:170px; row-gap:18px; }
+  .top     { bottom:calc(50% + 40px); }
   .eyebrow { margin-bottom:16px; }
-  .lead    { margin-top:16px; }
+  .lead    { margin-top:16px; max-width:660px; font-size:17px; }
 }
+@media (max-height:680px) { .top { bottom:calc(50% + 20px); } }
+/* very wide, short windows: the line under the button would touch it */
+@media (min-aspect-ratio:2/1) { .baseline { display:none; } }
 
 /* Static mode (reduced motion, small screens, short landscape, Save-Data, failures).
    The media query covers the cases CSS can see, so the first paint is already right;
    JS adds .static for Save-Data and video failures. Keep both blocks identical. */
 .static        { height:auto; min-height:0; }
-.static .stage { position:relative; height:auto; padding-block:calc(var(--nav-h, 60px) + 40px) 64px;
-                 padding-inline:max(18px, env(safe-area-inset-left)) max(18px, env(safe-area-inset-right)); }
-.static .column{ display:flex; flex-direction:column; gap:72px; }
-.static .graph, .static .meter { display:none; }
-.static .panel { opacity:1 !important; transform:none !important; pointer-events:auto;
-                 display:flex; flex-direction:column; align-items:center; gap:24px; }
-.static .still { display:block; width:min(700px, 100%); height:auto; }
-.static .baseline { position:static; margin-top:40px; }
+.static .stage  { position:relative; height:auto; container-type:normal; display:grid; place-items:center;
+          padding-block:calc(var(--nav-h, 60px) + 40px) 64px;
+          padding-inline:max(18px, env(safe-area-inset-left)) max(18px, env(safe-area-inset-right)); }
+.static .column { position:relative; inset:auto; width:min(1000px, 100%); display:flex; flex-direction:column; gap:72px; }
+.static .backdrop, .static .veil, .static .grain, .static .meter { display:none; }
+.static .wavesWrap { display:block; }
+.static .panel  { position:static; opacity:1 !important; transform:none !important; pointer-events:auto;
+          display:flex; flex-direction:column; align-items:center; gap:24px; }
+.static .top, .static .cta { position:static; padding-inline:0; }
+.static .still  { display:block; width:min(760px, 100%); height:auto; }
+.static .baseline { display:block; position:static; margin-top:40px; }
 
 @media (prefers-reduced-motion: reduce), (max-width:720px), (max-height:600px) and (orientation:landscape) {
   .hero   { height:auto; min-height:0; }
-  .stage  { position:relative; height:auto; padding-block:calc(var(--nav-h, 60px) + 40px) 64px;
+  .stage  { position:relative; height:auto; container-type:normal; display:grid; place-items:center;
+            padding-block:calc(var(--nav-h, 60px) + 40px) 64px;
             padding-inline:max(18px, env(safe-area-inset-left)) max(18px, env(safe-area-inset-right)); }
-  .column { display:flex; flex-direction:column; gap:72px; }
-  .graph, .meter { display:none; }
-  .panel  { opacity:1 !important; transform:none !important; pointer-events:auto;
+  .column { position:relative; inset:auto; width:min(1000px, 100%); display:flex; flex-direction:column; gap:72px; }
+  .backdrop, .veil, .grain, .meter { display:none; }
+  .wavesWrap { display:block; }
+  .panel  { position:static; opacity:1 !important; transform:none !important; pointer-events:auto;
             display:flex; flex-direction:column; align-items:center; gap:24px; }
-  .still  { display:block; width:min(700px, 100%); height:auto; }
-  .baseline { position:static; margin-top:40px; }
+  .top, .cta { position:static; padding-inline:0; }
+  .still  { display:block; width:min(760px, 100%); height:auto; }
+  .baseline { display:block; position:static; margin-top:40px; }
 }
 
 /* the original's mobile type sizes, raised to the 14 px floor */

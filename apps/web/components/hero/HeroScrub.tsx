@@ -212,7 +212,7 @@ export function HeroScrub() {
             if (done) break;
             chunks.push(value);
             got += value.length;
-            setProgress(total ? got / total : Math.min(got / 4e6, 0.95));
+            setProgress(total ? got / total : Math.min(got / 5e6, 0.95));
           }
           clearTimeout(bail);
           if (disposed) return;
@@ -303,14 +303,17 @@ export function HeroScrub() {
   return (
     <section ref={sectionRef} className={s.hero} aria-label="Hive introduction">
       <div className={s.stage}>
-        <Waves />
+        {/* The waves are part of the footage in scrub mode; this copy only shows in static mode. */}
+        <div className={s.wavesWrap}><Waves /></div>
+        <div ref={graphRef} className={s.backdrop} aria-hidden="true">
+          {/* eslint-disable-next-line @next/next/no-img-element -- poster must paint before any JS, identical to frame 0 */}
+          <img src="/hero/poster-start.webp" alt="" className={s.poster} width={1920} height={1080} fetchPriority="high" />
+          <video ref={clipRef} muted playsInline preload="none" disablePictureInPicture tabIndex={-1} />
+        </div>
+        <div className={s.veil} aria-hidden="true" />
+        <div className={s.grain} aria-hidden="true" />
         <i ref={meterRef} className={s.meter} aria-hidden="true" />
         <div className={s.column}>
-          <div ref={graphRef} className={s.graph} aria-hidden="true">
-            {/* eslint-disable-next-line @next/next/no-img-element -- poster must paint before any JS, identical to frame 0 */}
-            <img src="/hero/poster-start.webp" alt="" className={s.poster} width={1400} height={452} fetchPriority="high" />
-            <video ref={clipRef} muted playsInline preload="none" disablePictureInPicture tabIndex={-1} />
-          </div>
           {PANELS.map((p, i) => (
             <article
               key={i}
@@ -325,7 +328,7 @@ export function HeroScrub() {
                 <p className={s.lead}>{p.lead}</p>
               </div>
               {/* eslint-disable-next-line @next/next/no-img-element -- static-mode still, hidden in scrub mode */}
-              <img className={s.still} src={`/hero/still-p${i + 1}.webp`} alt={p.stillAlt} width={1400} height={452} loading="lazy" />
+              <img className={s.still} src={`/hero/still-p${i + 1}.webp`} alt={p.stillAlt} width={1760} height={740} loading="lazy" />
               <div className={s.cta}>
                 {p.cta && <PillLink href="/login" tabIndex={i === 0 ? undefined : -1}>{p.cta}</PillLink>}
               </div>

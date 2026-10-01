@@ -1,39 +1,51 @@
 # Hero video
 
-Renders the landing hero's scroll-scrubbed graph animation (Figma `5:22`). As you scroll the landing page, `HeroScrub` seeks through this clip frame by frame, so every frame has to be a keyframe.
+Renders the landing hero's scroll-scrubbed footage. The clip fills the whole hero behind the text. As you scroll the landing page, `HeroScrub` seeks through it frame by frame, so every frame has to be a keyframe.
 
 ## The clip
 
 | Spec | Value |
 | --- | --- |
-| Canvas | 1400 × 452 px (2× the 700 × 226 graph zone on the page) |
+| Canvas | 1920 × 1080 px, shown with `object-fit: cover` |
 | Length | 10 s at 24 fps = 241 frames (0–240) |
-| Background | exactly `#F4F2EC`, the page's paper colour |
-| Encoding | all-intra H.264 MP4, plus a VP9 WebM for browsers without H.264 |
+| Background | `#F4F2EC`, the page's paper colour, with the page's waves and a faint dot grid |
+| Encoding | all-intra H.264 MP4 (about 4 MB), plus a VP9 WebM for browsers without H.264 |
 | Nodes | Claude and GPT as connected nodes, Therapy Bot as the isolated variant ("no edge, no read") |
+
+### Layout rule
+
+The graph is centred on x = 960 and its **top edge sits on the clip's centre line** (y = 540). It is 750 px wide and 320 px tall. `HeroScrub.module.css` relies on this: the text ends just above the stage's centre line and the button starts 318 clip pixels below it. If you move the graph, change those two numbers too. Keep the graph narrower than about 780 px so it survives the side crop on portrait tablets.
 
 ## Storyboard
 
 `t` runs 0..1 across the clip (frame = `t` × 240). It lines up with the three text panels in `components/hero/HeroScrub.tsx`.
 
+Running through the whole clip, so something moves on every scroll tick:
+
+- the waves sway
+- the dot grid drifts up and to the left
+- the dashes of the unsigned edge march toward GPT (until the edge is signed)
+- the camera pushes in on the graph (0.94 → 1.00 over 0.16–0.40, then to 1.03 over 0.60–1.00)
+
 | t | Frames | What the graph does |
 | --- | --- | --- |
-| 0.00–0.30 | 0–72 | At rest. The Claude → GPT arrow is dashed (unsigned). |
+| 0.00–0.30 | 0–72 | The Claude → GPT arrow is dashed (unsigned). |
 | 0.30–0.42 | 72–101 | The arrow draws solid from left to right, and the arrowhead turns solid. |
-| 0.42–0.50 | 101–120 | The tag `work · 30d · signed ✓` scales in below the edge. |
-| 0.50–0.72 | 120–173 | Hold. |
-| 0.72–0.86 | 173–206 | A pulse travels Claude → GPT with an ease-out. |
-| 0.84–0.90 | 202–216 | GPT's border flashes amber once, then settles back. |
-| 0.90–1.00 | 216–240 | Hold the final state. |
+| 0.42–0.52 | 101–125 | A ripple spreads from the edge and the tag `work · 30d · signed ✓` scales in below it. |
+| 0.52–0.70 | 125–168 | Hold. |
+| 0.70–0.82 | 168–197 | First pulse travels Claude → GPT with an ease-out. |
+| 0.80–0.92 | 192–221 | Second pulse. |
+| 0.80–0.86, 0.90–0.96 | 192–206, 216–230 | GPT's border flashes amber as each pulse lands. |
+| 0.96–1.00 | 230–240 | Hold the final state. |
 
-Therapy Bot never changes in any frame. The stills come from frame 0 (poster and panel 1), frame 130 (panel 2) and frame 186 (panel 3, mid-pulse).
+Therapy Bot never changes (only the camera moves it). The poster is frame 0. The static-mode stills are the graph alone, without waves or grid, at frame 0 (panel 1), frame 130 (panel 2) and frame 178 (panel 3, mid-pulse).
 
 ## Files
 
 | File | What |
 | --- | --- |
-| `render.html` | The scene. `window.render(t)` draws the graph for any `t` in 0..1. Open `render.html?t=0.8` to check one moment. |
-| `render.mjs` | Screenshots 241 frames (10 s at 24 fps) at 2×, 1400 × 452, into `frames/` |
+| `render.html` | The scene. `window.render(t)` draws it for any `t` in 0..1. Open `render.html?t=0.8` to check one moment; add `&bare=1` to hide the waves and grid. |
+| `render.mjs` | Screenshots 241 frames at 1920 × 1080 and the three stills (880 × 370 at 2×) into `frames/` |
 | `encode.sh` | Encodes `frames/` to all-intra `hero-scrub.mp4` + `hero-scrub.webm`, and exports the poster and stills to `apps/web/public/hero/` |
 | `assets/` | Fraunces and JetBrains Mono (OFL), plus the Claude and GPT icons exported from Figma |
 
@@ -48,10 +60,13 @@ npx -y -p playwright@1.56.0 node render.mjs
 bash encode.sh                              # writes to apps/web/public/hero/
 ```
 
+Without a system ffmpeg or Playwright install, point the scripts at other copies: `PLAYWRIGHT_MODULE` (a file URL to `playwright-core/index.mjs`) and `PLAYWRIGHT_CHANNEL=chrome` for `render.mjs`, and `FFMPEG=/path/to/ffmpeg` for `encode.sh` (the `ffmpeg-static` npm package works). `CRF` and `VP9_CRF` change the quality and file size.
+
 `frames/` is scratch output; don't commit it.
 
 ## Checks after a re-render
 
 - Every frame is a keyframe: `ffprobe -v error -select_streams v:0 -show_entries frame=key_frame -of csv=p=0 ../../public/hero/hero-scrub.mp4 | sort | uniq -c` shows `241 1`.
-- The decoded background is within one step of `#F4F2EC` (the CSS edge mask hides that).
+- The poster looks the same as the first frame of the video (no jump when the video takes over).
+- On the landing page at a few window sizes, the lead text ends above the graph and the button sits below Therapy Bot.
 - Therapy Bot looks identical in every frame.
