@@ -5,7 +5,7 @@
 <title>Hive hero graph — render scene</title>
 <!--
   Draws the hero graph (Figma 5:22, 700×226) for any t in 0..1, following the
-  storyboard in docs/hero-prompt.md §15. render.mjs calls window.render(f/240)
+  storyboard in README.md. render.mjs calls window.render(f/240)
   for each of the 241 frames and screenshots it at 2× (1400×452).
 -->
 <style>
@@ -83,7 +83,7 @@
   const $ = id => document.getElementById(id);
   const X0 = 298, X1 = 392, TIP = 402, Y = 40;
 
-  // ---- storyboard (docs/hero-prompt.md §15) -------------------------------
+  // ---- storyboard (see README.md) -----------------------------------------
   window.render = function (t) {
     // 0.30–0.42  edge draws solid from Claude to GPT
     const draw = smooth(seg(t, 0.30, 0.42));
