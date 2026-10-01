@@ -7,7 +7,7 @@
 | # | Layer | Tech | Package | Status |
 | --- | --- | --- | --- | --- |
 | 1 | Canvas: drag agents, draw permission edges, see propagation | Next.js 15 + React Flow | `apps/web` | ⏳ (Next.js shell ✅) |
-| 2 | Passkey auth: Face ID derives the user's keys | Mera (WebAuthn PRF) | `apps/web` | ⏳ |
+| 2 | Passkey auth: the passkey derives the user's keys | Mera (WebAuthn PRF) | `apps/web` | ⏳ |
 | 3 | Agent bridge: MCP tools for agents plus an event stream for the canvas | Node + MCP SDK | `apps/bridge` | ⏳ (`/health` ✅) |
 | 4 | Memory storage: encrypted memory content | Supabase | `supabase/` (planned) | ⏳ |
 | 5 | Permission graph: agents, edges, propagation events | Solidity on Monad testnet (10143) | `packages/contracts` | ⏳ |
@@ -37,7 +37,7 @@ Transactions are sent as ERC-4337 user operations through Pimlico's paymaster, s
 
 **Add a permission edge** (checkpoint CP1)
 ```
-Canvas: draw edge ─▶ Face ID (Mera) ─▶ KnowledgeGraph.addEdge (sponsored userOp)
+Canvas: draw edge ─▶ passkey (Mera) ─▶ KnowledgeGraph.addEdge (sponsored userOp)
        ─▶ EdgeAdded event ─▶ Envio indexes it ─▶ canvas and audit trail update
 ```
 

@@ -44,7 +44,7 @@ We build one layer at a time. Tick each step off here when it's done.
 
 - [x] Blank monorepo scaffold
 - [x] Docs (README, AGENTS.md, docs/)
-- [ ] Mera passkey smoke test: `/smoke` page with Face ID → address → one sponsored tx
+- [ ] Mera passkey smoke test: `/smoke` page with passkey → address → one sponsored tx
 - [ ] Contracts: AgentRegistry, KnowledgeGraph, MemorySlots, with tests and a deploy to testnet
 - [ ] Canvas: React Flow with 3 nodes and drawable edges
 - [ ] Wire edge creation → contract tx (CP1)
