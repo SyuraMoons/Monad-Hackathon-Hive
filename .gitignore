@@ -50,8 +50,6 @@ docs/design.md
 docs/hero-prompt.md
 docs/claude-code-prompts.md
 
-# Hero video: rendering scripts and scratch frames are local.
-# NOTE: apps/web/public/hero/ holds the files the landing page loads. It is ignored for now;
-# delete the next line and commit that folder before sharing the landing page.
-apps/web/public/hero/
-apps/web/scripts/hero-video/
+# Hero video: the rendered files in apps/web/public/hero/ and the scripts are tracked.
+# Only the scratch frames from a re-render are ignored.
+apps/web/scripts/hero-video/frames/
