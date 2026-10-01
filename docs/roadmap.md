@@ -36,7 +36,7 @@ Deadline: **13 Oct 2026, 23:59 UTC**. Demo freeze: **10 Oct**.
 | P0.10 | Envio indexer (audit trail) | P2 | ⏳ |
 | P0.11 | Demo script + rehearsal | P4 | ⏳ |
 
-P1 nice-to-haves, only after all P0 items are done: Claude Desktop MCP integration, colored isolation zones, provenance view, time-travel replay, Cursor integration.
+P1 nice-to-haves, only after all P0 items are done: Claude Desktop MCP integration, colored isolation zones, provenance view, time-travel replay, ChatGPT integration.
 
 ## Build steps
 
