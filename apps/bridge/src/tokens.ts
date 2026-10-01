@@ -1,0 +1,34 @@
+import { HiveError, zAddress } from "@hive/shared";
+import { jwtVerify, SignJWT } from "jose";
+
+export const USER_TOKEN_TTL_S = 24 * 60 * 60;
+
+export type UserClaims = { owner: string; expiresAt: number };
+
+/** HS256, 24 h, `{ sub: owner, typ: "user" }` (docs/backend-handoff.md). */
+export class TokenService {
+  private key: Uint8Array;
+  constructor(secret: string, private now: () => number = () => Math.floor(Date.now() / 1000)) {
+    this.key = new TextEncoder().encode(secret);
+  }
+
+  async signUser(owner: string): Promise<{ token: string; expiresAt: number }> {
+    const iat = this.now();
+    const expiresAt = iat + USER_TOKEN_TTL_S;
+    const token = await new SignJWT({ typ: "user" }).setProtectedHeader({ alg: "HS256" }).setSubject(owner).setIssuedAt(iat).setExpirationTime(expiresAt).sign(this.key);
+    return { token, expiresAt };
+  }
+
+  /** Throws `HiveError("UNAUTHORIZED" | "SESSION_EXPIRED")`. Only HS256 is accepted. */
+  async verifyUser(token: string): Promise<UserClaims> {
+    try {
+      const { payload } = await jwtVerify(token, this.key, { algorithms: ["HS256"], currentDate: new Date(this.now() * 1000) });
+      if (payload.typ !== "user" || !payload.sub) throw new HiveError("UNAUTHORIZED", "Not a user token.");
+      return { owner: zAddress.parse(payload.sub), expiresAt: payload.exp ?? 0 };
+    } catch (e) {
+      if (e instanceof HiveError) throw e;
+      if (e instanceof Error && e.name === "JWTExpired") throw new HiveError("SESSION_EXPIRED", "Session expired. Sign in again.");
+      throw new HiveError("UNAUTHORIZED", "Invalid token.");
+    }
+  }
+}
