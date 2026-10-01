@@ -1,12 +1,57 @@
+# dependencies
 node_modules/
+.pnpm-store/
+
+# build output and caches
 dist/
+build/
+out/
 .next/
 .turbo/
+.vercel/
+*.tsbuildinfo
+next-env.d.ts
+
+# env files (keep the example)
 .env
-.env.local
+.env.*
+!.env.example
+
+# logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# tests
+coverage/
+test-results/
+playwright-report/
+
+# OS and editors
 .DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# local AI assistant settings
+.claude/settings.local.json
 
 # foundry
 packages/contracts/out/
 packages/contracts/cache/
 packages/contracts/broadcast/
+
+# Private planning docs (local working notes; docs/backend-handoff.md is the shared version)
+docs/rules.md
+docs/design.md
+docs/hero-prompt.md
+docs/claude-code-prompts.md
+
+# Hero video: rendering scripts and scratch frames are local.
+# NOTE: apps/web/public/hero/ holds the files the landing page loads. It is ignored for now;
+# delete the next line and commit that folder before sharing the landing page.
+apps/web/public/hero/
+apps/web/scripts/hero-video/
