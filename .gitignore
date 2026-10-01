@@ -56,3 +56,11 @@ apps/web/scripts/hero-video/frames/
 
 # extra build folders (NEXT_DIST_DIR)
 .next-*/
+
+# keys and certificates (never commit a deployer or signing key)
+*.pem
+*.key
+keystore/
+
+# tool caches
+.eslintcache
