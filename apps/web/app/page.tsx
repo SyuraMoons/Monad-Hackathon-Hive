@@ -5,6 +5,7 @@ import { DottedDivider } from "@/components/landing/DottedDivider";
 import { Footer } from "@/components/landing/Footer";
 import { HowItWorks } from "@/components/landing/HowItWorks";
 import { Isolation } from "@/components/landing/Isolation";
+import { Reveal } from "@/components/landing/Reveal";
 import { WireUp } from "@/components/landing/WireUp";
 import { SiteHeader } from "@/components/site/SiteHeader";
 
@@ -26,6 +27,7 @@ export default function Home() {
         <Closing />
       </main>
       <Footer />
+      <Reveal />
     </>
   );
 }

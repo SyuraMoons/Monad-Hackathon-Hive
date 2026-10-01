@@ -8,8 +8,11 @@ import s from "./HeroScrub.module.css";
 
 // Same-origin, so fetch() has no CORS issues. The clip is all-intra (every frame is a keyframe),
 // which is why the scrub can land on an exact frame instead of the nearest keyframe.
-const VIDEO_MP4 = "/hero/hero-scrub.mp4";
-const VIDEO_WEBM = "/hero/hero-scrub.webm"; // for browsers without H.264 (some Linux Chromium / Firefox builds)
+// /hero/* is served with a one-year immutable cache (next.config.ts), so bump ASSET_V when the files change.
+const ASSET_V = "3";
+const VIDEO_MP4 = `/hero/hero-scrub.mp4?v=${ASSET_V}`;
+const VIDEO_WEBM = `/hero/hero-scrub.webm?v=${ASSET_V}`; // for browsers without H.264 (some Linux Chromium / Firefox builds)
+const FPS = 24;              // the clip's frame rate: seeks snap to whole frames
 
 type Panel = { eyebrow: string; title: ReactNode; lead: string; cta?: string; stillAlt: string };
 
@@ -34,6 +37,13 @@ const PANELS: Panel[] = [
     cta: "Get started with a passkey",
     stillAlt: "Memory flowing from Claude to GPT while Therapy Bot stays isolated.",
   },
+];
+
+// The line under the button, as chips. Icons: a signed edge, an isolated (dashed) node, the hive.
+const CHIPS: Array<{ label: string; icon: string; dashed?: boolean }> = [
+  { label: "Claude → GPT · work · 30d", icon: "M2 8h10M9 4.5 12.5 8 9 11.5" },
+  { label: "Therapy Bot · no edge, no read", icon: "M3 3h10v10H3z", dashed: true },
+  { label: "One graph, your permissions", icon: "M8 1.8 13.4 4.9v6.2L8 14.2 2.6 11.1V4.9z" },
 ];
 
 // [fadeInStart, fadeInEnd, fadeOutStart, fadeOutEnd]
@@ -96,6 +106,8 @@ export function HeroScrub() {
       let duration = 0;
       let seekTo = 0;
       let seekAt = 0;
+      let shownFrame = -1;
+      let painted = -1;
       let ready = false;
       let running = false;
       let raf = 0;
@@ -116,6 +128,8 @@ export function HeroScrub() {
       }
 
       function paint() {
+        if (progress === painted) return;            // nothing moved: skip the style writes
+        painted = progress;
         if (ready) meter!.style.transform = `scaleX(${progress})`;
         panels.forEach((el, i) => {
           const c = CUES[i], enter = ramp(progress, c[0], c[1]), leave = ramp(progress, c[2], c[3]);
@@ -137,7 +151,13 @@ export function HeroScrub() {
           const gap = seekTo - seekAt;
           if (Math.abs(gap) > 0.0008) {
             seekAt += gap * 0.115;                     // easing factor: do not change
-            if (clip!.readyState >= 2 && !clip!.seeking) { try { clip!.currentTime = seekAt; } catch {} }
+            // Seek only when the eased position reaches a new frame. The tail of the ease would
+            // otherwise ask the decoder for the same frame dozens of times.
+            const f = Math.round(seekAt * FPS);
+            if (f !== shownFrame && clip!.readyState >= 2 && !clip!.seeking) {
+              shownFrame = f;
+              try { clip!.currentTime = Math.min(f / FPS + 0.001, duration - 0.001); } catch {}
+            }
           }
         }
         paint();
@@ -151,6 +171,7 @@ export function HeroScrub() {
       function start() {
         if (ready) return;
         ready = true;
+        painted = -1;
         graph!.classList.add(s.ready);
       }
 
@@ -159,6 +180,7 @@ export function HeroScrub() {
         clip!.pause();
         readScroll();
         seekAt = seekTo;
+        shownFrame = -1;
         try { clip!.currentTime = seekAt; } catch {}
       }
 
@@ -292,7 +314,7 @@ export function HeroScrub() {
         <div className={s.wavesWrap}><Waves /></div>
         <div ref={graphRef} className={s.backdrop} aria-hidden="true">
           {/* eslint-disable-next-line @next/next/no-img-element -- poster must paint before any JS, identical to frame 0 */}
-          <img src="/hero/poster-start.webp" alt="" className={s.poster} width={1920} height={1080} fetchPriority="high" />
+          <img src={`/hero/poster-start.webp?v=${ASSET_V}`} alt="" className={s.poster} width={1600} height={900} fetchPriority="high" />
           <video ref={clipRef} muted playsInline preload="none" disablePictureInPicture tabIndex={-1} />
         </div>
         <div className={s.veil} aria-hidden="true" />
@@ -313,14 +335,23 @@ export function HeroScrub() {
                 <p className={s.lead}>{p.lead}</p>
               </div>
               {/* eslint-disable-next-line @next/next/no-img-element -- static-mode still, hidden in scrub mode */}
-              <img className={s.still} src={`/hero/still-p${i + 1}.webp`} alt={p.stillAlt} width={1760} height={740} loading="lazy" />
+              <img className={s.still} src={`/hero/still-p${i + 1}.webp?v=${ASSET_V}`} alt={p.stillAlt} width={1760} height={740} loading="lazy" />
               <div className={s.cta}>
                 {p.cta && <PillLink href="/login" tabIndex={i === 0 ? undefined : -1}>{p.cta}</PillLink>}
               </div>
             </article>
           ))}
         </div>
-        <p className={s.baseline}>Claude · GPT · Therapy Bot — one graph, your permissions</p>
+        <ul className={s.chips}>
+          {CHIPS.map((c) => (
+            <li key={c.label} className={s.chip}>
+              <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d={c.icon} strokeDasharray={c.dashed ? "2 2.4" : undefined} />
+              </svg>
+              {c.label}
+            </li>
+          ))}
+        </ul>
       </div>
     </section>
   );

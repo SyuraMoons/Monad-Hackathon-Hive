@@ -6,10 +6,10 @@ Renders the landing hero's scroll-scrubbed footage. The clip fills the whole her
 
 | Spec | Value |
 | --- | --- |
-| Canvas | 1920 × 1080 px, shown with `object-fit: cover` |
+| Canvas | rendered at 1920 × 1080, delivered at 1600 × 900 (fewer pixels to decode per scrubbed frame), shown with `object-fit: cover` |
 | Length | 10 s at 24 fps = 241 frames (0–240) |
 | Background | `#F4F2EC`, the page's paper colour, with the page's waves and a faint dot grid |
-| Encoding | all-intra H.264 MP4 (about 4 MB), plus a VP9 WebM for browsers without H.264 |
+| Encoding | all-intra H.264 MP4 (about 2.8 MB), plus a VP9 WebM for browsers without H.264 |
 | Nodes | Claude and GPT as connected nodes, Therapy Bot as the isolated variant ("no edge, no read") |
 
 ### Layout rule
@@ -61,6 +61,8 @@ bash encode.sh                              # writes to apps/web/public/hero/
 ```
 
 Without a system ffmpeg or Playwright install, point the scripts at other copies: `PLAYWRIGHT_MODULE` (a file URL to `playwright-core/index.mjs`) and `PLAYWRIGHT_CHANNEL=chrome` for `render.mjs`, and `FFMPEG=/path/to/ffmpeg` for `encode.sh` (the `ffmpeg-static` npm package works). `CRF` and `VP9_CRF` change the quality and file size.
+
+After a re-render, bump `ASSET_V` in `components/hero/HeroScrub.tsx`: `/hero/*` is cached for a year, and the version in the URL is what makes browsers fetch the new files.
 
 `frames/` is scratch output; don't commit it.
 

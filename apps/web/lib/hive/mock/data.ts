@@ -10,19 +10,19 @@ export const now = () => Math.floor(Date.now() / 1000);
 /** The mock passkey's fixed PRF output. The demo graph's keys are derived from it, like a real account. */
 export const MOCK_PRF = new Uint8Array(32).map((_, i) => (i * 37 + 11) & 0xff);
 
-export const mockKey = (n: number) => privateKeyToAddress(bytesToHex(HDKey.fromMasterSeed(MOCK_PRF).derive(`m/44'/60'/0'/0/${n}`).privateKey!));
+const mockKey = (n: number) => privateKeyToAddress(bytesToHex(HDKey.fromMasterSeed(MOCK_PRF).derive(`m/44'/60'/0'/0/${n}`).privateKey!));
 
 /** Owner key (n = 0) of the mock passkey. graph.load() hands the demo graph to whoever signs in anyway. */
 export const MOCK_OWNER = mockKey(0);
 
 /** Agent keys m/44'/60'/0'/0/{n} of the mock passkey, so authorize can prove them like the real bridge. */
-export const MOCK_AGENT_KEYS = {
+const MOCK_AGENT_KEYS = {
   claude: mockKey(1),
   gpt: mockKey(2),
   therapy: mockKey(3),
 } as const;
 
-export const MOCK_EDGE_TX = "0x4f1c" + "7d2e8b3a".repeat(7) + "9a2e";
+const MOCK_EDGE_TX = "0x4f1c" + "7d2e8b3a".repeat(7) + "9a2e";
 
 export function initialGraph(): GraphSnapshotWire {
   const t = now();

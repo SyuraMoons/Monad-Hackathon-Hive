@@ -12,7 +12,7 @@ const BAR_LABEL: Record<InstallTab, string> = {
 };
 
 /** Displays `hive_sk_7f3a…` / `eyJh…`: only the first 4 characters of the secret (step 5). */
-export function maskToken(token: string): string {
+function maskToken(token: string): string {
   const prefix = token.startsWith("hive_sk_") ? "hive_sk_" : "";
   return `${prefix}${token.slice(prefix.length, prefix.length + 4)}…`;
 }
