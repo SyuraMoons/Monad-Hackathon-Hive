@@ -2,7 +2,7 @@
 
 Status: 30 Sep 2026. The web app (`apps/web`) is finished against a mock backend: landing, login (real Mera passkey), connect, canvas (edges, signing, revoke, drawer, zones, wallet), and audit. Every screen reads through one interface, `HiveClient`, so plugging in the real services changes no screens. This page lists what each backend owner needs to ship so the web app can switch to live mode, and the decisions to close first.
 
-> `docs/rules.md` is the full spec, but it is still gitignored locally. Until it is shared, this page and `packages/shared` are the contract.
+> The detailed planning notes (`docs/rules.md` and friends) are private working notes and are not in the repo. This page and `packages/shared` are the shared contract.
 
 ## 1. Where the contract lives
 
@@ -111,7 +111,7 @@ Open http://localhost:3100/login. Failure switches: `?mock=reject`, `prf-unavail
 
 ## 6. Web next steps (after the backend lands)
 
-1. **Now:** open the PR stack in order (`feat/web-foundation` → … → `feat/web-audit`) so `@hive/shared` reaches `development` early. Share the docs and hero assets by removing the local `.gitignore` lines. Get the decisions in section 2 answered.
+1. **Now:** open the PR stack in order (`feat/web-foundation` → … → `feat/web-audit`) so `@hive/shared` reaches `development` early. The hero video and stills are tracked from `feat/web-landing` onwards. Get the decisions in section 2 answered.
 2. **When the contracts are deployed:** runbook Step 10 for `chain` (Kernel + Pimlico, `registerAgent` / `addEdge` / `removeEdge` with explicit gas, receipts linked on Monadscan).
 3. **When the bridge serves these routes:** Step 10 for `bridge` (auth, agents, memory decrypt, SSE with resume).
 4. **When Envio is indexing:** Step 10 for `envio` (graph, audit, provenance).
