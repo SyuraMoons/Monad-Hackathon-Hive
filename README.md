@@ -1,6 +1,6 @@
 # Hive
 
-**IFTTT for AI agent memory.** Draw lines between your AI agents on a canvas to decide who may share what, and with no line, nothing is shared. Every permission is signed with your passkey (Face ID) and recorded on Monad, so anyone can check it.
+**IFTTT for AI agent memory.** Draw lines between your AI agents on a canvas to decide who may share what, and with no line, nothing is shared. Every permission is signed with your passkey and recorded on Monad, so anyone can check it.
 
 > Monad Metropolis Hackathon · Track 4 (Trust, Identity & AI) · submission deadline 13 Oct 2026
 
