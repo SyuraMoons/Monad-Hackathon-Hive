@@ -50,6 +50,3 @@ docs/design.md
 docs/hero-prompt.md
 docs/claude-code-prompts.md
 
-# Hero video: the rendered files in apps/web/public/hero/ and the scripts are tracked.
-# Only the scratch frames from a re-render are ignored.
-apps/web/scripts/hero-video/frames/

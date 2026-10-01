@@ -10,9 +10,5 @@ export default function config(phase: string): NextConfig {
     transpilePackages: ["@hive/shared"],
     // Hide Next's floating "N" badge in dev; build errors still show as an overlay.
     devIndicators: false,
-    // Hero media never changes under the same URL (HeroScrub adds ?v=N), so browsers can keep it.
-    async headers() {
-      return [{ source: "/hero/:path*", headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }] }];
-    },
   };
 }

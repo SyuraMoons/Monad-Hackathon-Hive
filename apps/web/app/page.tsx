@@ -1,4 +1,4 @@
-import { HeroScrub } from "@/components/hero/HeroScrub";
+import { Hero } from "@/components/hero/Hero";
 import { BuiltOn } from "@/components/landing/BuiltOn";
 import { Closing } from "@/components/landing/Closing";
 import { DottedDivider } from "@/components/landing/DottedDivider";
@@ -15,7 +15,7 @@ export default function Home() {
     <>
       <SiteHeader />
       <main>
-        <HeroScrub />
+        <Hero />
         <Isolation />
         <DottedDivider className="mt-9" />
         <WireUp />
