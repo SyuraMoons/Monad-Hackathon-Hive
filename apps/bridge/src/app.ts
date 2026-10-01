@@ -1,12 +1,12 @@
 import {
-  HiveError, zAuthChallengeBody, zAuthVerifyBody, monadTestnet,
+  HiveError, zAgentId, zAuthChallengeBody, zAuthVerifyBody, monadTestnet,
   type AuthChallengeResponse, type AuthVerifyResponse, type HealthResponse,
 } from "@hive/shared";
 import express, { type ErrorRequestHandler, type Express, type Request, type RequestHandler, type Response } from "express";
 import { ChallengeStore, verifySignIn, type VerifySignature } from "./auth.js";
 import { mcpHandler } from "./mcp.js";
 import type { SessionStore } from "./sessions.js";
-import type { TokenService } from "./tokens.js";
+import type { TokenService, UserClaims } from "./tokens.js";
 import type { ChainReader, CiphertextStore } from "./types.js";
 
 export type AppDeps = {
@@ -90,6 +90,16 @@ export function createApp(deps: AppDeps): Express {
   // STUB: replace when the agent registry is readable from chain (AK-7). Empty list is a valid response.
   app.get("/v1/agents", requireUser, (_req, res) => {
     res.json([]);
+  });
+
+  // Ends the agent's bridge session: its scoped keys leave memory and its token stops working. Owner-only, idempotent.
+  app.delete("/v1/agents/:id/session", requireUser, (req, res) => {
+    const id = zAgentId.safeParse(req.params.id);
+    if (!id.success) throw new HiveError("INVALID_INPUT", "Agent id must be a decimal integer.");
+    const session = deps.sessions.get(id.data);
+    if (session && session.owner.toLowerCase() !== (res.locals.user as UserClaims).owner.toLowerCase()) throw new HiveError("FORBIDDEN", "That agent belongs to another owner.");
+    deps.sessions.delete(id.data);
+    res.sendStatus(204);
   });
 
   app.use((_req, _res, next) => next(new HiveError("NOT_FOUND", "No such route.")));
