@@ -1,10 +1,11 @@
+import { monadTestnet } from "@hive/shared";
 import { z } from "zod";
 
 const zConfig = z.object({
   BRIDGE_PORT: z.coerce.number().int().positive().default(4000),
-  BRIDGE_CORS_ORIGINS: z.string().default("http://localhost:3100"),
+  BRIDGE_CORS_ORIGINS: z.string().default("http://localhost:3000,http://localhost:3100"),
   BRIDGE_JWT_SECRET: z.string().min(32, "BRIDGE_JWT_SECRET must be at least 32 characters (openssl rand -hex 32)"),
-  NEXT_PUBLIC_MONAD_RPC: z.url().default("https://testnet-rpc.monad.xyz"),
+  NEXT_PUBLIC_MONAD_RPC: z.url().default(monadTestnet.rpcUrls.default.http[0]),
   SUPABASE_URL: z.string().optional(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
 });
