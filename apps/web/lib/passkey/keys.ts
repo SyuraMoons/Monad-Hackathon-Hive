@@ -1,8 +1,10 @@
 import { createSecp256k1SigningSession, getEvmAddress } from "@category-labs/mera";
 import { toViemAccount } from "@category-labs/mera/viem";
 import { zAddress, type Hex } from "@hive/shared";
+import { entropyToMnemonic, mnemonicToSeed, validateMnemonic } from "@scure/bip39";
+import { wordlist } from "@scure/bip39/wordlists/english";
 import { HDKey } from "viem/accounts";
-import type { HiveKeys, PrfSecret } from "./types";
+import type { HiveKeys } from "./types";
 
 const ownerPath = "m/44'/60'/0'/0/0";
 const agentPath = (n: number) => `m/44'/60'/0'/0/${n}`;
@@ -10,16 +12,25 @@ const ENCRYPT_INFO = new TextEncoder().encode("hive/encrypt");
 
 const toHex = (bytes: Uint8Array): Hex => `0x${Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("")}`;
 
-async function hkdfEncryptionKey(prf: Uint8Array): Promise<Uint8Array> {
-  const ikm = await crypto.subtle.importKey("raw", prf as BufferSource, "HKDF", false, ["deriveBits"]);
+/** The account's 24-word BIP-39 phrase: the 32-byte PRF output used as entropy. Same passkey, same phrase. */
+export function recoveryPhraseFromPrf(prfOutput: Uint8Array): string {
+  if (prfOutput.length !== 32) throw new Error("PRF output must be 32 bytes");
+  return entropyToMnemonic(prfOutput, wordlist);
+}
+
+async function hkdfEncryptionKey(seed: Uint8Array): Promise<Uint8Array> {
+  const ikm = await crypto.subtle.importKey("raw", seed as BufferSource, "HKDF", false, ["deriveBits"]);
   const bits = await crypto.subtle.deriveBits({ name: "HKDF", hash: "SHA-256", salt: new Uint8Array(0), info: ENCRYPT_INFO }, ikm, 256);
   return new Uint8Array(bits);
 }
 
-/** Same derivation for the real and mock passkey: only the PRF output differs. */
-export async function deriveHiveKeys({ prfOutput }: PrfSecret): Promise<HiveKeys> {
-  if (prfOutput.length !== 32) throw new Error("PRF output must be 32 bytes");
-  const seed = new Uint8Array(prfOutput); // private copy, zeroed by end()
+/**
+ * Every Hive key comes from the recovery phrase, so the same phrase restores the same account anywhere
+ * (MetaMask included: account 1 is the owner). JS strings can't be zeroed, so callers drop the phrase right away.
+ */
+export async function deriveKeysFromPhrase(phrase: string): Promise<HiveKeys> {
+  if (!validateMnemonic(phrase, wordlist)) throw new Error("Not a valid BIP-39 recovery phrase");
+  const seed = await mnemonicToSeed(phrase); // zeroed by end()
   const root = HDKey.fromMasterSeed(seed);
 
   const ownerKey = new Uint8Array(root.derive(ownerPath).privateKey!);

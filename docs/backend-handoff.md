@@ -107,7 +107,7 @@ pnpm --filter @hive/shared build
 pnpm --filter @hive/web exec next dev --turbopack -p 3100
 ```
 
-Open http://localhost:3100/login. Failure switches: `?mock=reject`, `prf-unavailable`, `tx-fail`, `bridge-offline`, `no-agents`, `stress`, `low-balance`. Mock mode shows a "Demo data" badge, and production builds refuse to run in mock mode.
+Open http://localhost:3100/login. Sign-in always uses a real Mera passkey. Failure switches: `?mock=tx-fail`, `bridge-offline`, `no-agents`, `stress`, `low-balance`. Mock mode shows a "Demo data" badge, and production builds refuse to run in mock mode.
 
 ## 6. Web next steps (after the backend lands)
 

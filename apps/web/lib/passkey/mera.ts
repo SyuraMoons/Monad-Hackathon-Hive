@@ -1,5 +1,5 @@
 import { createPasskeyWithPrfOutput, getPasskeyPrfOutput, isMeraError } from "@category-labs/mera";
-import { deriveHiveKeys } from "./keys";
+import { deriveKeysFromPhrase, recoveryPhraseFromPrf } from "./keys";
 import { PasskeyError, type PasskeyService } from "./types";
 import { abortableWebAuthnClient } from "./webauthn";
 
@@ -32,7 +32,6 @@ function toPasskeyError(e: unknown, signal?: AbortSignal): PasskeyError {
 
 export function createMeraPasskeyService(): PasskeyService {
   return {
-    kind: "mera",
     async create({ signal } = {}) {
       try {
         const r = await createPasskeyWithPrfOutput({
@@ -45,14 +44,18 @@ export function createMeraPasskeyService(): PasskeyService {
         throw toPasskeyError(e, signal);
       }
     },
-    async signIn({ signal } = {}) {
+    async signIn({ signal, credentialId } = {}) {
       try {
-        const r = await getPasskeyPrfOutput({ rpId: rpId(), webAuthnClient: abortableWebAuthnClient(signal) });
+        const r = await getPasskeyPrfOutput({
+          rpId: rpId(),
+          credential: credentialId ? { credentialId } : undefined,
+          webAuthnClient: abortableWebAuthnClient(signal),
+        });
         return { credentialId: r.credentialId, prfOutput: r.prfOutput };
       } catch (e) {
         throw toPasskeyError(e, signal);
       }
     },
-    deriveKeys: deriveHiveKeys,
+    deriveKeys: ({ prfOutput }) => deriveKeysFromPhrase(recoveryPhraseFromPrf(prfOutput)),
   };
 }

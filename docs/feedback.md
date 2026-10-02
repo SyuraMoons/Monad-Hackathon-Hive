@@ -4,6 +4,9 @@ Running notes on friction with the MCP SDK, tooling and Monad, for the team feed
 
 ## 2 Oct 2026
 
+- **Mera's default PRF salt is stable (`sha256("mera.prf.salt.v1")`, documented in the `getPasskeyPrfOutput` JSDoc).** That makes PRF output a safe source of BIP-39 entropy. The docs site should say this on the PRF concept page too; we found it only in the `.d.ts`.
+- **Mera's built-in WebAuthn client can't be cancelled.** There is no `signal` option, so a "Cancel" button needs a custom `WebAuthnClient` that passes `AbortSignal` to `navigator.credentials`. An `AbortSignal` option would remove ~60 lines.
+- **Secret vaults need a second prompt to sign in.** A vault's salt is random, so its owner can't be found until the passkey answers once (to learn the credential ID) and then again (to decrypt). A documented "vault keyed by the default salt" pattern, or returning PRF for two salts in one ceremony (`eval.second`), would make it one prompt.
 - **`@modelcontextprotocol/sdk` 1.31 works for a custom Streamable HTTP server on Node 22/24.** Stateless mode (`sessionIdGenerator: undefined`, `enableJsonResponse: true`) with one `McpServer` per request needs no session bookkeeping, which suits a bridge that identifies the agent from a bearer token. `registerTool` takes a zod raw shape, so the shared zod 4 schemas plug in directly. Tool results should carry `structuredContent` as well as text. Both must be JSON-safe: uint256 values (`bigint`) need converting to decimal strings first.
 - **KnowledgeGraph stores `keccak256(topic)` only.** The bridge can check permissions from the hash, but can't show a readable topic list (`hive_whoami.readableTopics`) without reading `EdgeAdded` logs or Envio. Worth a topic string in the `Edge` struct or an event-backed reader.
 - **`msg.sender == writer` on `MemorySlots.write`** forces every agent key to hold MON unless the bridge relays. Needs a team decision (see `docs/backend-handoff.md` §2, #4).

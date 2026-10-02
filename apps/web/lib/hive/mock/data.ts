@@ -7,15 +7,15 @@ import { HDKey, privateKeyToAddress } from "viem/accounts";
 const DAY = 86_400;
 export const now = () => Math.floor(Date.now() / 1000);
 
-/** The mock passkey's fixed PRF output. The demo graph's keys are derived from it, like a real account. */
-export const MOCK_PRF = new Uint8Array(32).map((_, i) => (i * 37 + 11) & 0xff);
+// Placeholder keys until someone signs in. The passkey is always real, so on sign-in adoptDemoAgents()
+// hands the demo agents to that owner and swaps in its m/44'/60'/0'/0/{n} addresses.
+const PLACEHOLDER_SEED = new Uint8Array(32).map((_, i) => (i * 37 + 11) & 0xff);
 
-const mockKey = (n: number) => privateKeyToAddress(bytesToHex(HDKey.fromMasterSeed(MOCK_PRF).derive(`m/44'/60'/0'/0/${n}`).privateKey!));
+const mockKey = (n: number) => privateKeyToAddress(bytesToHex(HDKey.fromMasterSeed(PLACEHOLDER_SEED).derive(`m/44'/60'/0'/0/${n}`).privateKey!));
 
-/** Owner key (n = 0) of the mock passkey. graph.load() hands the demo graph to whoever signs in anyway. */
 export const MOCK_OWNER = mockKey(0);
 
-/** Agent keys m/44'/60'/0'/0/{n} of the mock passkey, so authorize can prove them like the real bridge. */
+/** Replaced on sign-in, so authorize can prove the signed-in passkey's agent keys like the real bridge. */
 const MOCK_AGENT_KEYS = {
   claude: mockKey(1),
   gpt: mockKey(2),
