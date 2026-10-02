@@ -20,12 +20,12 @@ export class PasskeyError extends Error {
   }
 }
 
-/** Keys derived from one passkey (rules §5.5). Held in memory only; call `end()` on sign-out. */
+/** Keys derived from one recovery phrase (rules §5.5). Held in memory only; call `end()` on sign-out. */
 export type HiveKeys = {
   /** m/44'/60'/0'/0/0, a Mera signing session behind a viem account. */
   owner: LocalAccount;
   ownerAddress: Address;
-  /** HKDF(prf, info "hive/encrypt"): 32 raw bytes for AES-256-GCM. Delegated to the bridge on authorize. */
+  /** HKDF(BIP-39 seed, info "hive/encrypt"): 32 raw bytes for AES-256-GCM. Delegated to the bridge on authorize. */
   encryptionKey: Uint8Array;
   /** m/44'/60'/0'/0/{n}, the scoped key handed to the bridge for agent n (n ≥ 1). */
   agentPrivateKey(n: number): Hex;
@@ -33,13 +33,12 @@ export type HiveKeys = {
   end(): void;
 };
 
-/** Mera behind an interface, so the login screen doesn't care whether it's real or mocked. */
+/** Mera passkey ceremonies. Always real: there is no mock passkey, not even in mock mode. */
 export interface PasskeyService {
-  readonly kind: "mera" | "mock";
   /** Creates a new discoverable passkey with PRF and returns its first output. */
   create(options?: { signal?: AbortSignal }): Promise<PrfSecret>;
-  /** Asks for any Hive passkey on this device and returns its PRF output. */
-  signIn(options?: { signal?: AbortSignal }): Promise<PrfSecret>;
-  /** Derives the owner, encryption and agent keys from a PRF output (rules §5.5). */
+  /** Asks for a Hive passkey and returns its PRF output: any passkey for this site, or only `credentialId`. */
+  signIn(options?: { signal?: AbortSignal; credentialId?: string }): Promise<PrfSecret>;
+  /** PRF output → 24-word recovery phrase → owner, encryption and agent keys (rules §5.5). */
   deriveKeys(secret: PrfSecret): Promise<HiveKeys>;
 }

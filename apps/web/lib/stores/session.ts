@@ -7,6 +7,7 @@ import { create } from "zustand";
 import { getHiveClient, HIVE_MODE } from "@/lib/hive/client";
 import type { HiveMode } from "@/lib/hive/types";
 import { useGraph } from "./graph";
+import type { MockHiveClient } from "@/lib/hive/mock";
 import { getPasskeyService, PasskeyError, type HiveKeys, type PasskeyErrorCode } from "@/lib/passkey";
 
 /** Login screen states (Figma 05 · Login): 1 signed-out · 2 waiting · 3 verified · 4 error. */
@@ -22,6 +23,8 @@ type SessionState = {
   expiresAt?: number;
   /** Derived from the passkey on this device. Memory only: never persisted, gone on reload. */
   keys?: HiveKeys;
+  /** The passkey that signed in, so the recovery phrase is revealed by that passkey only. */
+  credentialId?: string;
   /** Which key rows on Login 3 are done. */
   progress: { owner: boolean; encryption: boolean; scope: boolean };
   /** Where to go after Login 3: /connect when no agent is connected yet (rules §6). */
@@ -34,6 +37,8 @@ type SessionState = {
   signIn(options?: { create?: boolean }): Promise<void>;
   /** Connect page: register the agent if needed (owner userOp), then authorize it with the bridge (rules O1, §5.1). */
   connectAgent(agentType: AgentType, name: string): Promise<void>;
+  /** Asks the signed-in passkey again and returns the 24-word recovery phrase. Never stored. */
+  revealRecoveryPhrase(): Promise<string>;
   cancel(): void;
   reset(): void;
   signOut(): Promise<void>;
@@ -76,7 +81,7 @@ export const useSession = create<SessionState>()((set, get) => ({
     const ac = new AbortController();
     inFlight = ac;
     get().keys?.end();
-    set({ ...initial, status: "waiting", keys: undefined, error: undefined, destination: undefined });
+    set({ ...initial, status: "waiting", keys: undefined, credentialId: undefined, error: undefined, destination: undefined });
 
     let keys: HiveKeys | undefined;
     try {
@@ -93,6 +98,10 @@ export const useSession = create<SessionState>()((set, get) => ({
       const { nonce } = await client.auth.challenge(keys.ownerAddress);
       const signature = await keys.owner.signMessage({ message: authMessage(keys.ownerAddress, nonce) });
       const session = await client.auth.verify({ owner: keys.ownerAddress, nonce, signature });
+      if (client.mode === "mock") {
+        const k = keys;
+        (client as MockHiveClient).adoptDemoAgents(session.owner, (n) => privateKeyToAddress(k.agentPrivateKey(n)));
+      }
       const agents = await client.agents.list().catch(() => []);
       if (ac.signal.aborted) throw new PasskeyError("CANCELLED", "Cancelled");
 
@@ -102,6 +111,7 @@ export const useSession = create<SessionState>()((set, get) => ({
         userToken: session.userToken,
         expiresAt: session.expiresAt,
         keys,
+        credentialId: secret.credentialId,
         progress: { owner: true, encryption: true, scope: true },
         destination: agents.some((a) => a.connected) ? "/canvas" : "/connect",
       });
@@ -153,6 +163,23 @@ export const useSession = create<SessionState>()((set, get) => ({
     }
   },
 
+  async revealRecoveryPhrase() {
+    const { credentialId, owner } = get();
+    if (!credentialId || !owner) throw new Error("Sign in first.");
+    const secret = await (await getPasskeyService()).signIn({ credentialId });
+    try {
+      const { deriveKeysFromPhrase, recoveryPhraseFromPrf } = await import("@/lib/passkey/keys");
+      const phrase = recoveryPhraseFromPrf(secret.prfOutput);
+      const check = await deriveKeysFromPhrase(phrase);
+      const same = check.ownerAddress === owner;
+      check.end();
+      if (!same) throw new Error("That passkey belongs to a different Hive account.");
+      return phrase;
+    } finally {
+      secret.prfOutput.fill(0);
+    }
+  },
+
   /** Login 2 → 1: aborts the open passkey prompt. */
   cancel() {
     inFlight?.abort();
@@ -168,7 +195,7 @@ export const useSession = create<SessionState>()((set, get) => ({
       if (owner && userToken && expiresAt) await (await getHiveClient()).auth.signOut({ owner, userToken, expiresAt });
     } finally {
       keys?.end();
-      set({ ...initial, signedOutOnPurpose: true, owner: undefined, userToken: undefined, expiresAt: undefined, keys: undefined, destination: undefined, error: undefined });
+      set({ ...initial, signedOutOnPurpose: true, owner: undefined, userToken: undefined, expiresAt: undefined, keys: undefined, credentialId: undefined, destination: undefined, error: undefined });
     }
   },
 }));

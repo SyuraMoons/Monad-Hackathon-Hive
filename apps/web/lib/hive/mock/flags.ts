@@ -1,5 +1,5 @@
-// Failure switches for development, comma-separated: /login?mock=reject · /canvas?mock=tx-fail,bridge-offline
-export type MockFlag = "reject" | "prf-unavailable" | "tx-fail" | "bridge-offline" | "no-agents" | "stress" | "low-balance";
+// Failure switches for development, comma-separated: /canvas?mock=tx-fail,bridge-offline. Passkeys are always real.
+export type MockFlag = "tx-fail" | "bridge-offline" | "no-agents" | "stress" | "low-balance";
 
 const urlFlags = () =>
   typeof window === "undefined" ? [] : (new URLSearchParams(window.location.search).get("mock") ?? "").split(",").map((s) => s.trim()).filter(Boolean);

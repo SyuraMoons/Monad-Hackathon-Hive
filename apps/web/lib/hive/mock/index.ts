@@ -12,6 +12,7 @@ import {
   zHiveEvent,
   zProvenance,
   zTxHash,
+  type Address,
   type AuditEvent,
   type GraphSnapshotWire,
   type HiveEventWire,
@@ -31,7 +32,12 @@ type SlotWire = {
 const DAY = 86_400;
 const offline = () => new HiveError("INTERNAL", "The Hive bridge is unreachable.");
 
-export function createMockClient(): HiveClient {
+export type MockHiveClient = HiveClient & {
+  /** The demo agents become the signed-in owner's, keyed m/44'/60'/0'/0/{n} (n = position + 1) of their passkey. */
+  adoptDemoAgents(owner: Address, agentKey: (n: number) => Address): void;
+};
+
+export function createMockClient(): MockHiveClient {
   const stress = mockFlag("stress");
   const graph: GraphSnapshotWire = mockFlag("no-agents") ? { agents: [], edges: [] } : stress ? stressGraph() : initialGraph();
   // Stress: a random agent writes on the topic of its outgoing edge, so every write pulses.
@@ -50,6 +56,8 @@ export function createMockClient(): HiveClient {
   const listeners = new Set<(e: HiveEventWire) => void>();
   const nonces = new Map<string, string>();
   let seq = 0, nextSlot = 1, nextEdge = 2, nextAgent = graph.agents.length + 1, writeIdx = 0;
+  let owner: Address = MOCK_OWNER;
+  const demoAgents = graph.agents.length;
 
   const emit = (e: Omit<HiveEventWire, "id" | "at"> & { at?: number }) => {
     const wire = { id: `mock-${++seq}`, at: e.at ?? now(), ...e } as HiveEventWire;
@@ -89,6 +97,15 @@ export function createMockClient(): HiveClient {
 
   return {
     mode: "mock",
+
+    adoptDemoAgents(newOwner, agentKey) {
+      owner = newOwner;
+      // Only the seeded agents: ones registered in this tab already carry a real passkey's keys.
+      graph.agents.slice(0, demoAgents).forEach((a, i) => {
+        a.owner = newOwner;
+        a.agentKey = agentKey(i + 1);
+      });
+    },
 
     status: {
       async health() {
@@ -164,7 +181,7 @@ export function createMockClient(): HiveClient {
     graph: {
       async load(owner) {
         await latency();
-        // The demo graph belongs to whoever signs in; the mock owner comes from the mock passkey.
+        // The demo graph belongs to whoever signs in (see adoptDemoAgents).
         const snapshot = structuredClone(graph);
         snapshot.agents.forEach((a) => (a.owner = owner));
         return zGraphSnapshot.parse(snapshot);
@@ -253,7 +270,7 @@ export function createMockClient(): HiveClient {
         return tx(() => {
           if (graph.agents.some((a) => a.agentKey.toLowerCase() === agentKey.toLowerCase())) return new HiveError("CHAIN_ERROR", "That agent key is already registered.");
           const agentId = String(nextAgent++);
-          graph.agents.push({ agentId, owner: MOCK_OWNER, agentKey, name, agentType, registeredAt: now() });
+          graph.agents.push({ agentId, owner, agentKey, name, agentType, registeredAt: now() });
           return { agentId: BigInt(agentId) };
         });
       },
