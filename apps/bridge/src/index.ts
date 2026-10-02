@@ -4,6 +4,13 @@ import { createApp } from "./app.js";
 import { loadConfig } from "./config.js";
 import { TokenService } from "./tokens.js";
 
+// The repo-root .env (src/ and dist/ are both three levels down). Variables already set win.
+try {
+  process.loadEnvFile(new URL("../../../.env", import.meta.url));
+} catch (e) {
+  if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e;
+}
+
 const config = loadConfig();
 const rpc = createPublicClient({ chain: monadTestnet, transport: http(config.rpcUrl) });
 
