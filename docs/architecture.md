@@ -9,7 +9,7 @@
 | 1 | Canvas: drag agents, draw permission edges, see propagation | Next.js 15 + React Flow | `apps/web` | ⏳ (Next.js shell ✅) |
 | 2 | Passkey auth: the passkey derives the user's keys | Mera (WebAuthn PRF) | `apps/web` | ⏳ |
 | 3 | Agent bridge: MCP tools for agents plus an event stream for the canvas | Node + MCP SDK | `apps/bridge` | ⏳ (`/health` ✅) |
-| 4 | Memory storage: encrypted memory content | Supabase | `supabase/` (planned) | ⏳ |
+| 4 | Memory storage: encrypted memory content | Supabase | `supabase/` | ⏳ (`memory_content` migration ✅) |
 | 5 | Permission graph: agents, edges, propagation events | Solidity on Monad testnet (10143) | `packages/contracts` | ⏳ |
 | 5b | Audit trail: indexed onchain events | Envio HyperIndex | `packages/indexer` (planned) | ⏳ |
 
