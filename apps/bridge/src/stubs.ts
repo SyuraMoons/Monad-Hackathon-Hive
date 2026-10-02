@@ -1,5 +1,5 @@
 import type { Hex } from "@hive/shared";
-import type { ChainAgent, ChainEdge, ChainReader, ChainSlot, CiphertextStore, StoredCiphertext } from "./types.js";
+import type { ChainAgent, ChainEdge, ChainReader, ChainSlot, CiphertextStore, NewCiphertext, StoredCiphertext } from "./types.js";
 
 // STUB: replace when contracts are deployed (AK-7): a viem-backed ChainReader on the addresses from @hive/shared.
 export class InMemoryChain implements ChainReader {
@@ -20,13 +20,13 @@ export class InMemoryChain implements ChainReader {
   }
 }
 
-// STUB: replace when Supabase putCiphertext/getCiphertext lands (HF-2/3).
+// Used by tests, and by `pnpm dev` when SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY are unset. The real store is store.ts.
 export class InMemoryCiphertextStore implements CiphertextStore {
   private rows = new Map<string, StoredCiphertext>();
   async get(contentHash: Hex) {
     return this.rows.get(contentHash.toLowerCase());
   }
-  async put(contentHash: Hex, value: StoredCiphertext) {
-    this.rows.set(contentHash.toLowerCase(), value);
+  async put(contentHash: Hex, { ciphertext, iv }: NewCiphertext) {
+    this.rows.set(contentHash.toLowerCase(), { ciphertext, iv });
   }
 }

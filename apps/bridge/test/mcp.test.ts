@@ -43,7 +43,7 @@ beforeAll(async () => {
   }
   chain.edges.push({ id: 1n, from: CLAUDE, to: CHATGPT, topicHash: topicHash("work"), expiresAt: BigInt(nowS() + 3600), active: true });
   const sealed = await encrypt("Nexus, deadline 13 Okt", KEY);
-  await store.put(sealed.contentHash, sealed);
+  await store.put(sealed.contentHash, { ...sealed, owner: OWNER, keyId: "hive/encrypt" });
   chain.slots.push({ id: 7n, agentId: CLAUDE, contentHash: sealed.contentHash, topic: "work", writtenAt: BigInt(nowS() - 5) });
 
   const app = createApp({ corsOrigins: [], tokens, verifySignature: async () => false, probes: { rpc: async () => true, supabase: async () => true }, sessions, chain, store });

@@ -3,6 +3,7 @@ import { monadTestnet } from "@hive/shared";
 import { createApp } from "./app.js";
 import { loadConfig } from "./config.js";
 import { SessionStore } from "./sessions.js";
+import { SupabaseCiphertextStore } from "./store.js";
 import { InMemoryChain, InMemoryCiphertextStore } from "./stubs.js";
 import { TokenService } from "./tokens.js";
 
@@ -15,6 +16,8 @@ try {
 
 const config = loadConfig();
 const rpc = createPublicClient({ chain: monadTestnet, transport: http(config.rpcUrl) });
+const supabase = config.supabase && new SupabaseCiphertextStore(config.supabase.url, config.supabase.serviceKey);
+if (!supabase) console.warn("bridge: SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY unset, memory is kept in this process only");
 
 const app = createApp({
   corsOrigins: config.corsOrigins,
@@ -23,14 +26,12 @@ const app = createApp({
   verifySignature: ({ owner, message, signature }) => rpc.verifyMessage({ address: owner as `0x${string}`, message, signature }),
   probes: {
     rpc: async () => (await rpc.getChainId()) === monadTestnet.id,
-    // STUB: replace when Supabase lands (HF-2/3)
-    supabase: async () => false,
+    supabase: async () => (supabase ? supabase.reachable() : false),
   },
   sessions: new SessionStore(),
   // STUB: replace with the viem ChainReader once contracts are deployed (AK-7)
   chain: new InMemoryChain(),
-  // STUB: replace with Supabase once HF-2/3 land
-  store: new InMemoryCiphertextStore(),
+  store: supabase || new InMemoryCiphertextStore(),
 });
 
 app.listen(config.port, () => {
