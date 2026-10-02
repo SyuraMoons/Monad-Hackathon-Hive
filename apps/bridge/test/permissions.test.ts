@@ -9,11 +9,11 @@ import type { ChainEdge } from "../src/types.js";
 const KEY = ("0x" + "33".repeat(32)) as Hex;
 const NOW = 1_000_000n;
 const CLAUDE = 1n;
-const CURSOR = 2n;
+const CHATGPT = 2n;
 const THERAPY = 3n;
 
 const edge = (o: Partial<ChainEdge> = {}): ChainEdge => ({
-  id: 1n, from: CLAUDE, to: CURSOR, topicHash: topicHash("work"), expiresAt: NOW + 100n, active: true, ...o,
+  id: 1n, from: CLAUDE, to: CHATGPT, topicHash: topicHash("work"), expiresAt: NOW + 100n, active: true, ...o,
 });
 
 let chain: InMemoryChain;
@@ -33,15 +33,15 @@ beforeEach(() => {
   store = new InMemoryCiphertextStore();
   errors = [];
   nextSlot = 1n;
-  for (const [id, name] of [[CLAUDE, "Claude"], [CURSOR, "Cursor"], [THERAPY, "Therapy Bot"]] as const) chain.agents.set(id, { id, name, owner: "0x0000000000000000000000000000000000000001" });
+  for (const [id, name] of [[CLAUDE, "Claude"], [CHATGPT, "ChatGPT"], [THERAPY, "Therapy Bot"]] as const) chain.agents.set(id, { id, name, owner: "0x0000000000000000000000000000000000000001" });
   deps = { chain, store, encryptionKey: KEY, now: () => NOW, onError: (stage) => errors.push(stage) };
 });
 
 describe("AL-12: the four required cases", () => {
-  it("valid edge: Cursor reads Claude's work memory", async () => {
+  it("valid edge: ChatGPT reads Claude's work memory", async () => {
     chain.edges.push(edge());
     await write(CLAUDE, "work", "Nexus, deadline 13 Okt");
-    const out = await readMemory(deps, { agentId: CURSOR });
+    const out = await readMemory(deps, { agentId: CHATGPT });
     expect(out.memories).toHaveLength(1);
     expect(out.memories[0]).toMatchObject({ content: "Nexus, deadline 13 Okt", fromName: "Claude", topic: "work", fromAgentId: CLAUDE });
   });
@@ -55,15 +55,15 @@ describe("AL-12: the four required cases", () => {
   it("expired edge: denied, with the boundary exact (expiresAt == now is expired)", async () => {
     await write(CLAUDE, "work", "old news");
     chain.edges.push(edge({ expiresAt: NOW }));
-    expect((await readMemory(deps, { agentId: CURSOR })).memories).toEqual([]);
+    expect((await readMemory(deps, { agentId: CHATGPT })).memories).toEqual([]);
     chain.edges[0] = edge({ expiresAt: NOW + 1n });
-    expect((await readMemory(deps, { agentId: CURSOR })).memories).toHaveLength(1);
+    expect((await readMemory(deps, { agentId: CHATGPT })).memories).toHaveLength(1);
   });
 
   it("wrong topic: an edge for 'work' does not release 'health'", async () => {
     chain.edges.push(edge());
     await write(CLAUDE, "health", "private");
-    expect((await readMemory(deps, { agentId: CURSOR })).memories).toEqual([]);
+    expect((await readMemory(deps, { agentId: CHATGPT })).memories).toEqual([]);
   });
 });
 
@@ -71,36 +71,36 @@ describe("more deny cases", () => {
   it("a revoked edge denies immediately", async () => {
     await write(CLAUDE, "work", "x");
     chain.edges.push(edge({ active: false }));
-    expect((await readMemory(deps, { agentId: CURSOR })).memories).toEqual([]);
+    expect((await readMemory(deps, { agentId: CHATGPT })).memories).toEqual([]);
   });
 
-  it("edges are directional: Claude -> Cursor does not let Claude read Cursor", async () => {
+  it("edges are directional: Claude -> ChatGPT does not let Claude read ChatGPT", async () => {
     chain.edges.push(edge());
-    await write(CURSOR, "work", "cursor notes");
+    await write(CHATGPT, "work", "chatgpt notes");
     expect((await readMemory(deps, { agentId: CLAUDE })).memories).toEqual([]);
   });
 
   it("an edge from a different sender does not release this sender's memory", async () => {
     chain.edges.push(edge({ from: THERAPY }));
     await write(CLAUDE, "work", "x");
-    expect((await readMemory(deps, { agentId: CURSOR })).memories).toEqual([]);
+    expect((await readMemory(deps, { agentId: CHATGPT })).memories).toEqual([]);
   });
 
   it("an agent never reads its own slots through this path", () => {
-    const slots = [{ id: 1n, agentId: CURSOR, contentHash: "0x01" as Hex, topic: "work", writtenAt: 1n }];
-    expect(permittedSlots({ reader: CURSOR, edges: [edge({ from: CURSOR, to: CURSOR })], slots, now: NOW })).toEqual([]);
+    const slots = [{ id: 1n, agentId: CHATGPT, contentHash: "0x01" as Hex, topic: "work", writtenAt: 1n }];
+    expect(permittedSlots({ reader: CHATGPT, edges: [edge({ from: CHATGPT, to: CHATGPT })], slots, now: NOW })).toEqual([]);
   });
 
   it("denies slots whose topic is not a valid slug", () => {
     const e = edge({ topicHash: topicHash("Work!") });
     const slots = [{ id: 1n, agentId: CLAUDE, contentHash: "0x01" as Hex, topic: "Work!", writtenAt: 1n }];
-    expect(permittedSlots({ reader: CURSOR, edges: [e], slots, now: NOW })).toEqual([]);
+    expect(permittedSlots({ reader: CHATGPT, edges: [e], slots, now: NOW })).toEqual([]);
   });
 
   it("default deny: a chain error returns nothing and reports no content", async () => {
     await write(CLAUDE, "work", "never leaked");
     chain.edgesTo = async () => { throw new Error("rpc down"); };
-    expect((await readMemory(deps, { agentId: CURSOR })).memories).toEqual([]);
+    expect((await readMemory(deps, { agentId: CHATGPT })).memories).toEqual([]);
     expect(errors).toEqual(["permission-check"]);
   });
 
@@ -110,7 +110,7 @@ describe("more deny cases", () => {
     const bad = await encrypt("bad", ("0x" + "44".repeat(32)) as Hex);
     await store.put(bad.contentHash, bad);
     chain.slots.push({ id: 99n, agentId: CLAUDE, contentHash: bad.contentHash, topic: "work", writtenAt: NOW - 5n });
-    const out = await readMemory(deps, { agentId: CURSOR });
+    const out = await readMemory(deps, { agentId: CHATGPT });
     expect(out.memories.map((m) => m.content)).toEqual(["good"]);
     expect(errors).toEqual(["memory"]);
   });
@@ -122,15 +122,15 @@ describe("filters", () => {
     await write(CLAUDE, "work", "w1", NOW - 30n);
     await write(CLAUDE, "health", "h1", NOW - 20n);
     await write(CLAUDE, "work", "w2", NOW - 10n);
-    expect((await readMemory(deps, { agentId: CURSOR })).memories.map((m) => m.content)).toEqual(["w1", "h1", "w2"]);
-    expect((await readMemory(deps, { agentId: CURSOR, topic: "work" })).memories.map((m) => m.content)).toEqual(["w1", "w2"]);
-    expect((await readMemory(deps, { agentId: CURSOR, since: Number(NOW - 15n) })).memories.map((m) => m.content)).toEqual(["w2"]);
+    expect((await readMemory(deps, { agentId: CHATGPT })).memories.map((m) => m.content)).toEqual(["w1", "h1", "w2"]);
+    expect((await readMemory(deps, { agentId: CHATGPT, topic: "work" })).memories.map((m) => m.content)).toEqual(["w1", "w2"]);
+    expect((await readMemory(deps, { agentId: CHATGPT, since: Number(NOW - 15n) })).memories.map((m) => m.content)).toEqual(["w2"]);
   });
 });
 
 describe("edgeAllows", () => {
   it("compares topic hashes case-insensitively", () => {
     const e = edge({ topicHash: topicHash("work").toUpperCase().replace("0X", "0x") as Hex });
-    expect(edgeAllows(e, { from: CLAUDE, to: CURSOR, topic: "work", now: NOW })).toBe(true);
+    expect(edgeAllows(e, { from: CLAUDE, to: CHATGPT, topic: "work", now: NOW })).toBe(true);
   });
 });

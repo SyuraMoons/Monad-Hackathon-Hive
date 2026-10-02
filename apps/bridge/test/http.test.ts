@@ -142,6 +142,26 @@ describe("JWT guard (default deny)", () => {
   });
 });
 
+describe("DELETE /v1/agents/:id/session", () => {
+  it("needs a token, ends the owner's session, is idempotent, refuses other owners", async () => {
+    clock = 1_700_000_000;
+    const sessions = new SessionStore(now);
+    const key = ("0x" + "00".repeat(32)) as `0x${string}`;
+    sessions.put({ agentId: 1n, name: "a", owner: account.address, encryptionKey: key, agentPrivateKey: key, expiresAt: clock + 1000 });
+    sessions.put({ agentId: 2n, name: "b", owner: "0x00000000000000000000000000000000000000b2", encryptionKey: key, agentPrivateKey: key, expiresAt: clock + 1000 });
+    const app = build({ sessions });
+    const token = (await signIn(app)).res.body.userToken as string;
+    expect((await request(app).delete("/v1/agents/1/session")).status).toBe(401);
+    expect((await request(app).delete("/v1/agents/nope/session").set("Authorization", `Bearer ${token}`)).status).toBe(400);
+    expect((await request(app).delete("/v1/agents/2/session").set("Authorization", `Bearer ${token}`)).status).toBe(403);
+    expect(sessions.get(2n)).toBeDefined();
+    expect((await request(app).delete("/v1/agents/1/session").set("Authorization", `Bearer ${token}`)).status).toBe(204);
+    expect(sessions.get(1n)).toBeUndefined();
+    expect((await request(app).delete("/v1/agents/1/session").set("Authorization", `Bearer ${token}`)).status).toBe(204);
+    expect(sessions.count()).toBe(1);
+  });
+});
+
 describe("CORS and errors", () => {
   it("allows only the configured origin, answers preflight", async () => {
     const app = build();

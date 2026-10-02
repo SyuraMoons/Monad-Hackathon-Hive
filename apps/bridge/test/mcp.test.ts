@@ -13,7 +13,7 @@ import { TokenService } from "../src/tokens.js";
 
 const OWNER = "0x00000000000000000000000000000000000000a1";
 const KEY = ("0x" + "55".repeat(32)) as Hex;
-const [CLAUDE, CURSOR, THERAPY] = [1n, 2n, 3n];
+const [CLAUDE, CHATGPT, THERAPY] = [1n, 2n, 3n];
 
 const nowS = () => Math.floor(Date.now() / 1000);
 const tokens = new TokenService("m".repeat(40));
@@ -36,12 +36,12 @@ const call = async (client: Client, name: string, args: Record<string, unknown> 
 };
 
 beforeAll(async () => {
-  for (const [id, name] of [[CLAUDE, "Claude"], [CURSOR, "Cursor"], [THERAPY, "Therapy Bot"]] as const) {
+  for (const [id, name] of [[CLAUDE, "Claude"], [CHATGPT, "ChatGPT"], [THERAPY, "Therapy Bot"]] as const) {
     chain.agents.set(id, { id, name, owner: OWNER });
     sessions.put({ agentId: id, name, owner: OWNER, encryptionKey: KEY, agentPrivateKey: KEY, expiresAt: nowS() + 3600 });
     agentToken[name] = (await tokens.signAgent(id, OWNER)).token;
   }
-  chain.edges.push({ id: 1n, from: CLAUDE, to: CURSOR, topicHash: topicHash("work"), expiresAt: BigInt(nowS() + 3600), active: true });
+  chain.edges.push({ id: 1n, from: CLAUDE, to: CHATGPT, topicHash: topicHash("work"), expiresAt: BigInt(nowS() + 3600), active: true });
   const sealed = await encrypt("Nexus, deadline 13 Okt", KEY);
   await store.put(sealed.contentHash, sealed);
   chain.slots.push({ id: 7n, agentId: CLAUDE, contentHash: sealed.contentHash, topic: "work", writtenAt: BigInt(nowS() - 5) });
@@ -54,14 +54,14 @@ afterAll(() => new Promise<void>((r) => server.close(() => r())));
 
 describe("MCP over Streamable HTTP (official SDK client)", () => {
   it("lists the three Hive tools", async () => {
-    const client = await connect(agentToken["Cursor"]);
+    const client = await connect(agentToken["ChatGPT"]);
     const tools = (await client.listTools()).tools.map((t) => t.name).sort();
     expect(tools).toEqual(["hive_read_memory", "hive_whoami", "hive_write_memory"]);
     await client.close();
   });
 
-  it("Cursor reads Claude's work memory; ids go out as decimal strings", async () => {
-    const client = await connect(agentToken["Cursor"]);
+  it("ChatGPT reads Claude's work memory; ids go out as decimal strings", async () => {
+    const client = await connect(agentToken["ChatGPT"]);
     const { data } = await call(client, "hive_read_memory", {});
     expect(data.memories).toHaveLength(1);
     expect(data.memories[0]).toMatchObject({ slotId: "7", fromAgentId: "1", fromName: "Claude", topic: "work", content: "Nexus, deadline 13 Okt" });
@@ -76,8 +76,8 @@ describe("MCP over Streamable HTTP (official SDK client)", () => {
   });
 
   it("whoami takes identity from the token", async () => {
-    const client = await connect(agentToken["Cursor"]);
-    expect((await call(client, "hive_whoami")).data).toMatchObject({ agentId: "2", name: "Cursor", owner: "0x00000000000000000000000000000000000000A1" });
+    const client = await connect(agentToken["ChatGPT"]);
+    expect((await call(client, "hive_whoami")).data).toMatchObject({ agentId: "2", name: "ChatGPT", owner: "0x00000000000000000000000000000000000000A1" });
     await client.close();
   });
 

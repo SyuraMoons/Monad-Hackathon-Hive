@@ -54,4 +54,4 @@ Agent C (no edge) ─▶ read_memory ─▶ nothing returned   ← the demo's WO
 ## Trust model and honest limits
 
 - The bridge holds the per-agent keys of agents the user has authorized. It is a trusted component in the hackathon version.
-- The mock agents are deterministic scripts, which keeps the demo predictable. Real Claude Desktop and Cursor integration via MCP is a stretch goal.
+- The mock agents are deterministic scripts, which keeps the demo predictable. Real Claude Desktop and ChatGPT integration via MCP is a stretch goal.
