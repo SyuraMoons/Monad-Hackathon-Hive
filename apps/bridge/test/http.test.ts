@@ -166,5 +166,6 @@ describe("config", () => {
     expect(c.corsOrigins).toEqual(["http://a.test", "http://b.test"]);
     expect(c.port).toBe(4000);
     expect(c.supabase).toBeUndefined();
+    expect(loadConfig({ BRIDGE_JWT_SECRET: SECRET }).corsOrigins).toEqual(["http://localhost:3000", "http://localhost:3100"]);
   });
 });
