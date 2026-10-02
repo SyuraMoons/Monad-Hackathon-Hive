@@ -32,8 +32,11 @@ export interface ChainReader {
 
 export type StoredCiphertext = { ciphertext: Uint8Array; iv: Uint8Array };
 
-/** Offchain ciphertext, keyed by contentHash. Never holds plaintext. */
+/** What a write stores: the ciphertext plus whose it is and which key sealed it (memory_content.owner, key_id). */
+export type NewCiphertext = StoredCiphertext & { owner: Hex; keyId: string };
+
+/** Offchain ciphertext, keyed by contentHash = keccak256(iv ‖ ciphertext). Never holds plaintext. */
 export interface CiphertextStore {
   get(contentHash: Hex): Promise<StoredCiphertext | undefined>;
-  put(contentHash: Hex, value: StoredCiphertext): Promise<void>;
+  put(contentHash: Hex, value: NewCiphertext): Promise<void>;
 }

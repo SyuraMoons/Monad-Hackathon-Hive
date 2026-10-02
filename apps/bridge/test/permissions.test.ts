@@ -7,6 +7,7 @@ import { InMemoryChain, InMemoryCiphertextStore } from "../src/stubs.js";
 import type { ChainEdge } from "../src/types.js";
 
 const KEY = ("0x" + "33".repeat(32)) as Hex;
+const OWNER = "0x00000000000000000000000000000000000000a1";
 const NOW = 1_000_000n;
 const CLAUDE = 1n;
 const CHATGPT = 2n;
@@ -24,7 +25,7 @@ let nextSlot = 1n;
 
 async function write(agentId: bigint, topic: string, content: string, writtenAt = NOW - 10n) {
   const sealed = await encrypt(content, KEY);
-  await store.put(sealed.contentHash, sealed);
+  await store.put(sealed.contentHash, { ...sealed, owner: OWNER, keyId: "hive/encrypt" });
   chain.slots.push({ id: nextSlot++, agentId, contentHash: sealed.contentHash, topic, writtenAt });
 }
 
@@ -108,7 +109,7 @@ describe("more deny cases", () => {
     chain.edges.push(edge());
     await write(CLAUDE, "work", "good");
     const bad = await encrypt("bad", ("0x" + "44".repeat(32)) as Hex);
-    await store.put(bad.contentHash, bad);
+    await store.put(bad.contentHash, { ...bad, owner: OWNER, keyId: "hive/encrypt" });
     chain.slots.push({ id: 99n, agentId: CLAUDE, contentHash: bad.contentHash, topic: "work", writtenAt: NOW - 5n });
     const out = await readMemory(deps, { agentId: CHATGPT });
     expect(out.memories.map((m) => m.content)).toEqual(["good"]);
