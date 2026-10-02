@@ -36,8 +36,9 @@ Thumbs.db
 .vscode/
 *.swp
 
-# local AI assistant settings
+# local AI assistant settings and worktrees
 .claude/settings.local.json
+.kilo/
 
 # local Claude instructions
 claude.local.md
