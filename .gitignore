@@ -39,6 +39,10 @@ Thumbs.db
 # local AI assistant settings
 .claude/settings.local.json
 
+# local Claude instructions
+claude.local.md
+CLAUDE.local.md
+
 # foundry
 packages/contracts/out/
 packages/contracts/cache/
