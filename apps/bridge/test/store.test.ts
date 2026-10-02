@@ -15,8 +15,10 @@ const OWNER = "0x00000000000000000000000000000000000000A1";
 const written: Hex[] = [];
 
 describe.skipIf(!url || !serviceKey)("SupabaseCiphertextStore (live)", () => {
-  const store = new SupabaseCiphertextStore(url!, serviceKey!);
-  const admin = createClient(url!, serviceKey!, { auth: { persistSession: false } });
+  // The describe body runs even when skipped, and createClient throws on an empty URL.
+  if (!url || !serviceKey) return;
+  const store = new SupabaseCiphertextStore(url, serviceKey);
+  const admin = createClient(url, serviceKey, { auth: { persistSession: false } });
 
   afterAll(async () => {
     if (written.length) await admin.from("memory_content").delete().in("content_hash", written);
