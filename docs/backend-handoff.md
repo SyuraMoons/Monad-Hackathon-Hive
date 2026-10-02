@@ -83,7 +83,7 @@ Envio entities: `Agent`, `Edge` (`active`, `expiresAt`, `addedTx`, `removedTx`),
 | The owner's events, newest first | `zAuditEvent[]` | Audit table |
 | Provenance by `contentHash` | `zProvenance` | Audit card, node drawer |
 
-Supabase (bridge only, service role; RLS denies everyone else): `memory_content (content_hash text pk, owner text, ciphertext bytea, iv bytea, key_id text, created_at timestamptz)`.
+Supabase (bridge only, service role; RLS denies everyone else): `memory_content (content_hash text pk, owner text, ciphertext bytea, iv bytea, key_id text, created_at timestamptz)`. The bridge reads and writes it through `SupabaseCiphertextStore` (`apps/bridge/src/store.ts`) when `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are set, and falls back to an in-process store otherwise.
 
 The GPT agent is runbook Step 10a (`apps/agents`): a real OpenAI model that uses Hive only through the bridge's MCP tools.
 
