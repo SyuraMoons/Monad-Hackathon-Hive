@@ -11,10 +11,20 @@ import {MemorySlots} from "../src/MemorySlots.sol";
 /// @dev Deploys the Hive permission layer and records addresses to
 ///      deployments/monad-testnet.json.
 ///
-///      forge script script/Deploy.s.sol --rpc-url monad_testnet --broadcast
+///      DEPLOYER_PRIVATE_KEY=0x... forge script script/Deploy.s.sol --rpc-url monad_testnet --broadcast
 contract Deploy is Script {
     function run() external {
-        vm.startBroadcast();
+        uint256 deployerPrivateKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
+        address deployer = vm.addr(deployerPrivateKey);
+
+        // Fail fast: a dry deployer otherwise dies on forge's 4-retry gas error.
+        console2.log("Deployer:", deployer);
+        console2.log("Balance (wei):", deployer.balance);
+        if (deployer.balance == 0) {
+            revert("Deployer has 0 MON; claim from https://faucet.monad.xyz first.");
+        }
+
+        vm.startBroadcast(deployerPrivateKey);
 
         AgentRegistry registry = new AgentRegistry();
         KnowledgeGraph graph = new KnowledgeGraph(registry);
