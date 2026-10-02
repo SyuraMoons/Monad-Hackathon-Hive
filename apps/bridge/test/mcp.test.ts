@@ -88,6 +88,14 @@ describe("MCP over Streamable HTTP (official SDK client)", () => {
     await client.close();
   });
 
+  it("answers GET and DELETE with 405, since the transport is stateless", async () => {
+    for (const method of ["GET", "DELETE"]) {
+      const res = await fetch(url, { method });
+      expect(res.status).toBe(405);
+      expect(res.headers.get("allow")).toBe("POST");
+    }
+  });
+
   it("rejects missing, user-typed and revoked tokens with 401", async () => {
     const post = (token?: string) => fetch(url, { method: "POST", headers: { "content-type": "application/json", accept: "application/json, text/event-stream", ...(token && { authorization: `Bearer ${token}` }) }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }) });
     expect((await post()).status).toBe(401);

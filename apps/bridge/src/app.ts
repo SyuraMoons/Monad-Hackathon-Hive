@@ -86,6 +86,11 @@ export function createApp(deps: AppDeps): Express {
   }));
 
   app.post("/mcp", wrap(mcpHandler({ tokens: deps.tokens, sessions: deps.sessions, chain: deps.chain, store: deps.store, now: deps.now ?? (() => BigInt(Math.floor(Date.now() / 1000))) })));
+  // Stateless transport: no SSE stream to open and no session to end. SDK clients expect 405 here, not 404.
+  app.all("/mcp", (_req, res) => {
+    res.setHeader("Allow", "POST");
+    res.status(405).json({ jsonrpc: "2.0", error: { code: -32000, message: "Method not allowed." }, id: null });
+  });
 
   // STUB: replace when the agent registry is readable from chain (AK-7). Empty list is a valid response.
   app.get("/v1/agents", requireUser, (_req, res) => {
