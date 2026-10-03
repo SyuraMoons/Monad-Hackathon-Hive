@@ -51,3 +51,10 @@ export interface CiphertextStore {
   get(contentHash: Hex): Promise<StoredCiphertext | undefined>;
   put(contentHash: Hex, value: NewCiphertext): Promise<void>;
 }
+
+export type WriteReceipt = { txHash: Hex; slotId: bigint; propagatedTo: bigint[] };
+
+/** Sends `MemorySlots.write` from the agent's own key (ADR-007) and reads the result from the receipt. */
+export interface ChainWriter {
+  write(args: { agentKey: Hex; agentId: bigint; contentHash: Hex; topic: string }): Promise<WriteReceipt>;
+}

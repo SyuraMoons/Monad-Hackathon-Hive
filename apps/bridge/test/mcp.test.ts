@@ -1,10 +1,12 @@
 import { encrypt } from "@hive/crypto";
 import type { Hex } from "@hive/shared";
+import type { ChainWriter } from "../src/types.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { decrypt } from "@hive/crypto";
 import { createApp } from "../src/app.js";
 import { SessionStore } from "../src/sessions.js";
 import { InMemoryChain, InMemoryCiphertextStore } from "../src/stubs.js";
@@ -36,6 +38,17 @@ const call = async (client: Client, name: string, args: Record<string, unknown> 
   return { isError: res.isError, data: res.structuredContent as any, text: (res.content as { text: string }[])[0]?.text };
 };
 
+// Stands in for MemorySlots + PropagationEngine: records the slot and "propagates" along active, unexpired edges.
+let nextSlot = 100n;
+const writer: ChainWriter = {
+  async write({ agentId, contentHash, topic }) {
+    const slotId = nextSlot++;
+    chain.slots.push({ id: slotId, agentId, contentHash, topic, writtenAt: BigInt(nowS()) });
+    const propagatedTo = chain.edges.filter((e) => e.active && e.from === agentId && e.topicHash === topicHash(topic) && e.expiresAt > BigInt(nowS())).map((e) => e.to);
+    return { txHash: ("0x" + "ee".repeat(32)) as Hex, slotId, propagatedTo };
+  },
+};
+
 beforeAll(async () => {
   for (const [id, name] of [[CLAUDE, "Claude"], [CHATGPT, "ChatGPT"], [THERAPY, "Therapy Bot"]] as const) {
     chain.agents.set(id, { id, name, owner: OWNER, agentType: "other", writer: ZERO });
@@ -47,7 +60,7 @@ beforeAll(async () => {
   await store.put(sealed.contentHash, { ...sealed, owner: OWNER, keyId: "hive/encrypt" });
   chain.slots.push({ id: 7n, agentId: CLAUDE, contentHash: sealed.contentHash, topic: "work", writtenAt: BigInt(nowS() - 5) });
 
-  const app = createApp({ corsOrigins: [], tokens, verifySignature: async () => false, probes: { rpc: async () => true, supabase: async () => true }, sessions, chain, store });
+  const app = createApp({ corsOrigins: [], tokens, verifySignature: async () => false, probes: { rpc: async () => true, supabase: async () => true }, sessions, chain, store, writer });
   server = app.listen(0);
   url = `http://127.0.0.1:${(server.address() as AddressInfo).port}/mcp`;
 });
@@ -82,11 +95,46 @@ describe("MCP over Streamable HTTP (official SDK client)", () => {
     await client.close();
   });
 
-  it("write is an explicit not-yet-available error, not a silent success", async () => {
-    const client = await connect(agentToken["Claude"]);
-    const res = await call(client, "hive_write_memory", { topic: "work", content: "x" });
+  it("Claude writes through MCP; ChatGPT reads it; Therapy Bot (no edge) still gets nothing", async () => {
+    const claude = await connect(agentToken["Claude"]);
+    const w = await call(claude, "hive_write_memory", { topic: "work", content: "Launch moved to Friday" });
+    expect(w.isError).toBeFalsy();
+    expect(w.data).toMatchObject({ propagatedTo: ["2"], txHash: "0x" + "ee".repeat(32) });
+    expect(w.data.contentHash).toMatch(/^0x[0-9a-f]{64}$/);
+    await claude.close();
+
+    // The store holds ciphertext only, and it decrypts with the agent's key.
+    const sealed = await store.get(w.data.contentHash);
+    expect(Buffer.from(sealed!.ciphertext).toString("utf8")).not.toContain("Friday");
+    expect(await decrypt(sealed!, KEY)).toBe("Launch moved to Friday");
+
+    const chatgpt = await connect(agentToken["ChatGPT"]);
+    const read = (await call(chatgpt, "hive_read_memory", { topic: "work" })).data.memories.map((m: any) => m.content);
+    expect(read).toContain("Launch moved to Friday");
+    await chatgpt.close();
+
+    const therapy = await connect(agentToken["Therapy Bot"]);
+    expect((await call(therapy, "hive_read_memory", {})).data.memories).toEqual([]);
+    await therapy.close();
+  });
+
+  it("a write on a topic without an edge stays with the writer", async () => {
+    const claude = await connect(agentToken["Claude"]);
+    const w = await call(claude, "hive_write_memory", { topic: "health", content: "private note" });
+    expect(w.data.propagatedTo).toEqual([]);
+    await claude.close();
+    const chatgpt = await connect(agentToken["ChatGPT"]);
+    expect((await call(chatgpt, "hive_read_memory", { topic: "health" })).data.memories).toEqual([]);
+    await chatgpt.close();
+  });
+
+  it("rejects bad input before touching the chain", async () => {
+    const claude = await connect(agentToken["Claude"]);
+    const before = chain.slots.length;
+    const res = await claude.callTool({ name: "hive_write_memory", arguments: { topic: "Bad Topic!", content: "x" } });
     expect(res.isError).toBe(true);
-    await client.close();
+    expect(chain.slots.length).toBe(before);
+    await claude.close();
   });
 
   it("answers GET and DELETE with 405, since the transport is stateless", async () => {
