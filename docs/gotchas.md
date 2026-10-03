@@ -20,3 +20,8 @@ Known pitfalls. Add to this list when you hit a new one.
 - **Clone with submodules:** `git clone --recurse-submodules`, or run `git submodule update --init` afterwards. Otherwise `forge build` fails because `forge-std` is missing.
 - **pnpm 11 blocks dependency install scripts by default.** Allowed packages are listed under `allowBuilds` in `pnpm-workspace.yaml`. If a new dependency needs a postinstall (e.g. `esbuild`), add it there.
 - `@hive/shared` is consumed from `dist/`. `pnpm dev` builds it first, but if you run a single app with `--filter`, run `pnpm --filter @hive/shared build` first.
+- **A global `pnpm` on PATH may be v9.** It ignores `packageManager: pnpm@11.2.2` and offers to wipe `node_modules`. Run `corepack enable pnpm` once.
+- **`pnpm build` needs Foundry.** Without `forge`, turbo stops at `@hive/contracts` before building the other packages. `brew install foundry` gives 1.8.3, and the submodule must be initialised.
+- **Express 5 types:** a function returning `express()` needs an explicit `Express` return type under pnpm, or `tsc` reports TS2742.
+- **uint256 in JSON:** `bigint` throws in `JSON.stringify`. Send decimal strings (see `@hive/shared` ids) and convert at the edge.
+
