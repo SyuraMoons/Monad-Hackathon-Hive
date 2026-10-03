@@ -14,7 +14,7 @@
 ├─────────────────────────────────────────────┤
 │ 2. Passkey auth      Mera (WebAuthn PRF)    │  Face ID is the only key
 ├─────────────────────────────────────────────┤
-│ 3. Agent bridge      Node + MCP SDK         │  lets Claude / Cursor / bots talk to Hive
+│ 3. Agent bridge      Node + MCP SDK         │  lets Claude / ChatGPT / bots talk to Hive
 ├─────────────────────────────────────────────┤
 │ 4. Memory storage    Supabase (encrypted)   │  ciphertext only, server can't read it
 ├─────────────────────────────────────────────┤

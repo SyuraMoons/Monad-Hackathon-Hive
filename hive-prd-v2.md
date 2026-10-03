@@ -11,7 +11,7 @@
 
 ## 1. TL;DR (30 seconds)
 
-Hive is a visual permission graph for AI chatbots. Drag Claude, Cursor, and Therapy Bot onto a canvas, then draw an edge between Claude and Cursor tagged "work" so context flows automatically — but Therapy Bot stays isolated because no line touches it. Every permission is signed with Face ID and recorded on Monad. When Claude learns something, it auto-propagates to Cursor through the edge. No edge means no data flow. The user owns the topology.
+Hive is a visual permission graph for AI chatbots. Drag Claude, ChatGPT, and Therapy Bot onto a canvas, then draw an edge between Claude and ChatGPT tagged "work" so context flows automatically — but Therapy Bot stays isolated because no line touches it. Every permission is signed with Face ID and recorded on Monad. When Claude learns something, it auto-propagates to ChatGPT through the edge. No edge means no data flow. The user owns the topology.
 
 **One-liner:** *"LangGraph is a config file. Hive is the dashboard."*
 
@@ -23,7 +23,7 @@ By 2026, users run many AI chatbots in parallel. Three concrete pain points exis
 
 | Pain | Real example | Current workaround |
 |---|---|---|
-| Re-explanation tax | Told Claude about project "Rayban." Open Cursor — start over. | Copy-paste chat log. 3–5 min lost per switch. |
+| Re-explanation tax | Told Claude about project "Rayban." Open ChatGPT — start over. | Copy-paste chat log. 3–5 min lost per switch. |
 | Context contamination | Shared memory means the Work Assistant sees therapy notes. | Separate accounts, manual tracking. |
 | No user-owned trust | If OpenAI adds cross-app memory, they set the rules. | Trust the vendor's privacy policy. |
 
@@ -67,7 +67,7 @@ A canvas where the user draws a knowledge graph. Nodes are chatbots. Edges are s
 | Passkey auth | Mera SDK (P256 / WebAuthn PRF) | Face ID login + PRF-derived encryption keys | Akhnaf (wiring) + Nalen (UI) |
 | Encrypted storage | Supabase (Postgres + Storage) | Stores encrypted memory blobs — server cannot decrypt | Harfi |
 | Client-side encryption | Web Crypto API (AES-256-GCM) | Encrypts memory before Supabase upload | Altaf |
-| Agent bridge protocol | @modelcontextprotocol/sdk | Exposes memory read/write tools to Claude / Cursor / mocks | Altaf |
+| Agent bridge protocol | @modelcontextprotocol/sdk | Exposes memory read/write tools to Claude / ChatGPT / mocks | Altaf |
 | Mock agent runtime | Node.js 20 | Simulated chatbots for demo predictability | Harfi |
 | Indexer | Envio HyperIndex | Real-time subgraph of contract events | Harfi |
 | Frontend deploy | Vercel | Hosts Next.js app | Harfi |
@@ -149,12 +149,12 @@ Propagation flow:
 
 | Time | Screen | Voiceover |
 |---|---|---|
-| 0:00–0:20 | Empty canvas. Drag Claude, Cursor, Therapy Bot onto it. | "Three AI chatbots. All isolated. No lines yet." |
-| 0:20–0:50 | Draw edge Claude → Cursor with topic "work." Face ID prompt. Edge appears. HashScan tab confirms tx. | "One permission. Face ID signs it. Live on Monad." |
-| 0:50–1:30 | In Claude mock, send: "Working on project Nexus, deadline Oct 13." Canvas: light pulse Claude → Cursor. | "Claude learns. Propagation runs through the edge I drew." |
-| 1:30–2:00 | In Cursor mock (fresh session), ask: "What am I working on?" → "Nexus, deadline Oct 13." | "Zero re-explanation. Automatic because the edge exists." |
+| 0:00–0:20 | Empty canvas. Drag Claude, ChatGPT, Therapy Bot onto it. | "Three AI chatbots. All isolated. No lines yet." |
+| 0:20–0:50 | Draw edge Claude → ChatGPT with topic "work." Face ID prompt. Edge appears. HashScan tab confirms tx. | "One permission. Face ID signs it. Live on Monad." |
+| 0:50–1:30 | In Claude mock, send: "Working on project Nexus, deadline Oct 13." Canvas: light pulse Claude → ChatGPT. | "Claude learns. Propagation runs through the edge I drew." |
+| 1:30–2:00 | In ChatGPT mock (fresh session), ask: "What am I working on?" → "Nexus, deadline Oct 13." | "Zero re-explanation. Automatic because the edge exists." |
 | **2:00–2:30 ★** | In Therapy Bot mock, ask same question → "I don't have context on that." | "Therapy Bot knows nothing — no edge, no flow. Isolation preserved." |
-| 2:30–3:00 | Delete Claude → Cursor edge (Face ID). Open Envio dashboard: full audit trail visible. Closing line. | "You own the topology. Revoke anytime. Auditable without trusting us." |
+| 2:30–3:00 | Delete Claude → ChatGPT edge (Face ID). Open Envio dashboard: full audit trail visible. Closing line. | "You own the topology. Revoke anytime. Auditable without trusting us." |
 
 **WOW moment:** Beat 5 — Therapy Bot returns empty. Isolation *proven* live, not claimed.
 
@@ -207,7 +207,7 @@ Propagation flow:
 | NL-1 | Next.js 15 app scaffold | App Router, TS strict, Tailwind v4, Zustand. Dark theme. Fixed 1440×900 demo viewport. | P0 | 2h |
 | NL-2 | Landing / login page | Face ID login via Mera passkey. On success, redirect to canvas. Show "Not verified" state if no passkey. | P0 | 3h |
 | NL-3 | Canvas shell | Three regions: left sidebar (agent chips), center (React Flow canvas), right (live memory feed). | P0 | 4h |
-| NL-4 | Agent chip drag-drop | Drag Claude / Cursor / Therapy Bot from sidebar → drop → creates node → calls `hive_register_agent`. | P0 | 4h |
+| NL-4 | Agent chip drag-drop | Drag Claude / ChatGPT / Therapy Bot from sidebar → drop → creates node → calls `hive_register_agent`. | P0 | 4h |
 | NL-5 | Node component | Rounded card, icon, name, truncated agentId, status dot (green=active, gray=idle, red=revoked). Click opens detail drawer. | P0 | 3h |
 | NL-6 | Edge editor | Click between two nodes → modal with topic input + expiry picker (24h / 7d / 30d / custom). Confirm → Face ID → contract call → edge draws. | P0 | 5h |
 | NL-7 | Propagation animation | Subscribe to Envio websocket for `Propagate`. On event: light pulse travels source → target along edge (600ms ease-out). Color per topic. | P0 | 5h |
@@ -233,7 +233,7 @@ Propagation flow:
 | HF-6 | Envio deploy | Push indexer to Envio Cloud. Public GraphQL endpoint. Commit URL to README. | P0 | 2h |
 | HF-7 | Envio subscription hook | Wrap Envio websocket in Zustand-integrated hook for the frontend. Auto-reconnect on drop. | P0 | 3h |
 | HF-8 | Mock agent 1 — "Claude" | Node.js script speaking MCP client protocol to Altaf's bridge via `packages/mcp-client`. Actions: register, write, read. CLI: `pnpm mock:claude "message"`. | P0 | 4h |
-| HF-9 | Mock agent 2 — "Cursor" | Same as HF-8, different identity + name. | P0 | 2h |
+| HF-9 | Mock agent 2 — "ChatGPT" | Same as HF-8, different identity + name. | P0 | 2h |
 | HF-10 | Mock agent 3 — "Therapy Bot" | Same shape. Isolated by default (never draw edge to it in demo). | P0 | 1h |
 | HF-11 | Feedback document (running notes) | Create `docs/feedback.md` day 1. Update at end of every dev session: Monad DX, Mera SDK friction, Envio quirks, MCP pain, deploy issues. Target ≥ 15 concrete points. | P0 | 30min/day × 14 days |
 | HF-12 | README | Overview, setup, architecture diagram, sponsor tracks, HashScan links, demo instructions. | P0 | 3h |
