@@ -127,7 +127,7 @@ export default function SmokePage() {
     setBusy(true);
     setWriteError(null);
     try {
-      const name = which === "a" ? "Claude" : "Cursor";
+      const name = which === "a" ? "Claude" : "ChatGPT";
       const hash = await registerAgent(signer, name, "chatbot", keccak256(toHex(name)));
       setLastTx(hash);
       const receipt = await hivePublicClient.waitForTransactionReceipt({ hash, confirmations: 1 });
@@ -274,7 +274,7 @@ export default function SmokePage() {
                 onClick={() => register("b")}
                 className="rounded border border-zinc-700 px-2 py-1 hover:border-zinc-500 disabled:opacity-40"
               >
-                Register B (Cursor)
+                Register B (ChatGPT)
               </button>
             </div>
             <p className="text-zinc-400">
