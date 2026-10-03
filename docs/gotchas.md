@@ -15,6 +15,7 @@ Known pitfalls. Add to this list when you hit a new one.
 - Testnet chain ID is `10143` (`monadTestnet` in viem). Mainnet is `143`. Import it from `@hive/shared`.
 - **A failed broadcast still writes `deployments/monad-testnet.json`.** `vm.writeJson` runs during the pre-broadcast simulation, so a run that dies on gas still leaves (wrong) addresses on disk. Confirm `cast code <addr> --rpc-url monad_testnet` returns bytecode before trusting or committing it.
 - **`forge script` takes `DEPLOYER_PRIVATE_KEY` from the process environment.** The repo has no committed `.env` (it's gitignored), so export it in the shell (`$env:DEPLOYER_PRIVATE_KEY = "0x…"`) or create `packages/contracts/.env` before deploying. Foundry resolves `.env` relative to `foundry.toml`, not the monorepo root.
+- **The dev signer (`NEXT_PUBLIC_HIVE_DEV_SIGNER_PRIVATE_KEY`) is `NEXT_PUBLIC_`, so it ships inside the client bundle.** Testnet only — never fund it.
 
 ## Tooling
 

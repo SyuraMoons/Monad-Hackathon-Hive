@@ -44,3 +44,5 @@ Short architecture decision records. To add one, append the next number and don'
 **Decision.** AK-9 signs Monad transactions directly from the Mera-derived owner key (`m/44'/60'/0'/0/0`), faucet-funded, behind a `HiveSigner` interface. A dev-only raw-key fallback (gated by `NEXT_PUBLIC_HIVE_DEV_SIGNER`) enables local testing without a passkey. Every write carries an explicit `gas` limit (rule 5).
 
 **Consequences.** Users need MON for gas on each write. Kernel + Pimlico stays the later swap-in behind `HiveSigner`. The dev signer is bundled client-side, so it must never hold real value. This supersedes the smart-account portion of ADR-002; the Mera-key-as-owner intent is unchanged.
+
+**Verified (3 Oct):** the dev-signer path registered two agents and added an edge on testnet (evidence in [docs/roadmap.md](roadmap.md) → _Verified runs_). The Mera passkey path remains unproven.

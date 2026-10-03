@@ -4,7 +4,7 @@
 
 > Monad Metropolis Hackathon · Track 4 (Trust, Identity & AI) · submission deadline 13 Oct 2026
 
-> **Status:** early scaffold. Most layers below are *planned*. See [docs/roadmap.md](docs/roadmap.md) for what's done.
+> **Status:** early scaffold. Contracts are live on Monad testnet (10143) and the write path (register agents + add an edge) is verified through the `/smoke` harness; the canvas, bridge, and storage layers are still *planned*. See [docs/roadmap.md](docs/roadmap.md) for what's done.
 
 ## How it works
 

@@ -7,7 +7,7 @@
 | # | Layer | Tech | Package | Status |
 | --- | --- | --- | --- | --- |
 | 1 | Canvas: drag agents, draw permission edges, see propagation | Next.js 15 + React Flow | `apps/web` | ⏳ (Next.js shell ✅) |
-| 2 | Passkey auth: Face ID derives the user's keys | Mera (WebAuthn PRF) | `apps/web` | 🚧 |
+| 2 | Passkey auth: Face ID derives the user's keys | Mera (WebAuthn PRF) | `apps/web` | 🚧 (dev-signer path ✅, PRF ⏳) |
 | 3 | Agent bridge: MCP tools for agents plus an event stream for the canvas | Node + MCP SDK | `apps/bridge` | ⏳ (`/health` ✅) |
 | 4 | Memory storage: encrypted memory content | Supabase | `supabase/` (planned) | ⏳ |
 | 5 | Permission graph: agents, edges, propagation events | Solidity on Monad testnet (10143) | `packages/contracts` | ✅ |
@@ -31,13 +31,13 @@ One passkey produces several keys (this targets the Mera "One Passkey, Many Keys
 - `HKDF(prf, "hive/encrypt")` is the **encryption key** for memory content.
 - `m/44'/60'/0'/0/{n}` is a **per-agent scoped key**, handed to the bridge when the user authorizes agent *n*.
 
-Transactions are sent as ERC-4337 user operations through Pimlico's paymaster, so users need no MON. See [ADR-002](decisions.md).
+Transactions are sent as ERC-4337 user operations through Pimlico's paymaster, so users need no MON. See [ADR-002](decisions.md). Superseded for now by [ADR-005](decisions.md) — writes go from a faucet-funded EOA; Kernel + Pimlico return behind `HiveSigner`.
 
 ## Flows (planned)
 
 **Add a permission edge** (checkpoint CP1)
 ```
-Canvas: draw edge ─▶ Face ID (Mera) ─▶ KnowledgeGraph.addEdge (sponsored userOp)
+Canvas: draw edge ─▶ Face ID (Mera) ─▶ KnowledgeGraph.addEdge (direct tx, ADR-005)
        ─▶ EdgeAdded event ─▶ Envio indexes it ─▶ canvas and audit trail update
 ```
 
