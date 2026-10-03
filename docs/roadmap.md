@@ -24,9 +24,9 @@ Deadline: **13 Oct 2026, 23:59 UTC**. Demo freeze: **10 Oct**.
 
 | # | Feature | Owner | Status |
 | --- | --- | --- | --- |
-| P0.1 | AgentRegistry contract | P1 | ⏳ |
-| P0.2 | KnowledgeGraph contract (edges) | P1 | ⏳ |
-| P0.3 | MemorySlots + propagation | P1 | ⏳ |
+| P0.1 | AgentRegistry contract | P1 | ✅ |
+| P0.2 | KnowledgeGraph contract (edges) | P1 | ✅ |
+| P0.3 | MemorySlots + PropagationEngine | P1 | ✅ |
 | P0.4 | Passkey auth via Mera | P2 | ⏳ |
 | P0.5 | Encrypted storage (Supabase) | P2 | ⏳ |
 | P0.6 | MCP bridge server | P2 | ⏳ |
@@ -45,7 +45,7 @@ We build one layer at a time. Tick each step off here when it's done.
 - [x] Blank monorepo scaffold
 - [x] Docs (README, AGENTS.md, docs/)
 - [ ] Mera passkey smoke test: `/smoke` page with Face ID → address → one sponsored tx
-- [ ] Contracts: AgentRegistry, KnowledgeGraph, MemorySlots, with tests and a deploy to testnet
+- [x] Contracts: AgentRegistry, KnowledgeGraph, MemorySlots, PropagationEngine, with tests and a deploy to testnet
 - [ ] Canvas: React Flow with 3 nodes and drawable edges
 - [ ] Wire edge creation → contract tx (CP1)
 - [ ] Envio indexer

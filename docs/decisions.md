@@ -35,3 +35,12 @@ Short architecture decision records. To add one, append the next number and don'
 **Decision.** Onchain data is limited to agent identities, permission edges, and hashes of memory content. Content itself is AES-GCM encrypted on the client and stored in Supabase.
 
 **Consequences.** Anyone can audit permissions while content stays private. Supabase must never receive plaintext.
+
+## ADR-005: Direct EOA signer for AK-9; Kernel/Pimlico deferred
+**Date:** 2026-10-03 · **Status:** accepted
+
+**Context.** ADR-002 planned a Kernel smart account sponsored by Pimlico so graph changes are gasless. The first checkpoint (CP1) only needs a passkey-signed `addEdge`, and the smart-account path adds two external dependencies (a Pimlico API key and EntryPoint v0.7) before the demo.
+
+**Decision.** AK-9 signs Monad transactions directly from the Mera-derived owner key (`m/44'/60'/0'/0/0`), faucet-funded, behind a `HiveSigner` interface. A dev-only raw-key fallback (gated by `NEXT_PUBLIC_HIVE_DEV_SIGNER`) enables local testing without a passkey. Every write carries an explicit `gas` limit (rule 5).
+
+**Consequences.** Users need MON for gas on each write. Kernel + Pimlico stays the later swap-in behind `HiveSigner`. The dev signer is bundled client-side, so it must never hold real value. This supersedes the smart-account portion of ADR-002; the Mera-key-as-owner intent is unchanged.

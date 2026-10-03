@@ -7,10 +7,10 @@
 | # | Layer | Tech | Package | Status |
 | --- | --- | --- | --- | --- |
 | 1 | Canvas: drag agents, draw permission edges, see propagation | Next.js 15 + React Flow | `apps/web` | ⏳ (Next.js shell ✅) |
-| 2 | Passkey auth: Face ID derives the user's keys | Mera (WebAuthn PRF) | `apps/web` | ⏳ |
+| 2 | Passkey auth: Face ID derives the user's keys | Mera (WebAuthn PRF) | `apps/web` | 🚧 |
 | 3 | Agent bridge: MCP tools for agents plus an event stream for the canvas | Node + MCP SDK | `apps/bridge` | ⏳ (`/health` ✅) |
 | 4 | Memory storage: encrypted memory content | Supabase | `supabase/` (planned) | ⏳ |
-| 5 | Permission graph: agents, edges, propagation events | Solidity on Monad testnet (10143) | `packages/contracts` | ⏳ |
+| 5 | Permission graph: agents, edges, propagation events | Solidity on Monad testnet (10143) | `packages/contracts` | ✅ |
 | 5b | Audit trail: indexed onchain events | Envio HyperIndex | `packages/indexer` (planned) | ⏳ |
 
 ## What goes where
@@ -45,7 +45,7 @@ Canvas: draw edge ─▶ Face ID (Mera) ─▶ KnowledgeGraph.addEdge (sponsored
 ```
 Agent A ─▶ bridge write_memory(topic, text)
         ─▶ encrypt ─▶ Supabase (ciphertext)
-        ─▶ MemorySlots.write(topic, hash) ─▶ MemoryPropagated to every allowed edge
+        ─▶ MemorySlots.write(topic, hash) ─▶ Propagate to every allowed edge
         ─▶ bridge SSE /events ─▶ canvas pulse animation
 Agent B ─▶ bridge read_memory(topic) ─▶ onchain canRead check ─▶ decrypt ─▶ context
 Agent C (no edge) ─▶ read_memory ─▶ nothing returned   ← the demo's WOW moment
