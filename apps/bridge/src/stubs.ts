@@ -1,5 +1,5 @@
 import type { Hex } from "@hive/shared";
-import type { ChainAgent, ChainEdge, ChainReader, ChainSlot, CiphertextStore, NewCiphertext, StoredCiphertext } from "./types.js";
+import { UnknownAgentError, type ChainAgent, type ChainEdge, type ChainReader, type ChainSlot, type CiphertextStore, type NewCiphertext, type StoredCiphertext } from "./types.js";
 
 // STUB: replace when contracts are deployed (AK-7): a viem-backed ChainReader on the addresses from @hive/shared.
 export class InMemoryChain implements ChainReader {
@@ -15,8 +15,11 @@ export class InMemoryChain implements ChainReader {
   }
   async agent(agentId: bigint) {
     const a = this.agents.get(agentId);
-    if (!a) throw new Error(`unknown agent ${agentId}`);
+    if (!a) throw new UnknownAgentError(agentId);
     return a;
+  }
+  async agentsOf(owner: Hex) {
+    return [...this.agents.values()].filter((a) => a.owner.toLowerCase() === owner.toLowerCase()).sort((a, b) => Number(a.id - b.id));
   }
 }
 

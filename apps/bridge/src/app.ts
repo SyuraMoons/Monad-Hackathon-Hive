@@ -1,13 +1,16 @@
 import {
-  HiveError, zAgentId, zAuthChallengeBody, zAuthVerifyBody, monadTestnet,
-  type AuthChallengeResponse, type AuthVerifyResponse, type HealthResponse,
+  HiveError, zAgentId, zAgentType, zAgentsResponse, zAuthChallengeBody, zAuthVerifyBody, zAuthorizeBody, monadTestnet,
+  type AuthChallengeResponse, type AuthVerifyResponse, type AuthorizeResponse, type Hex, type HealthResponse,
 } from "@hive/shared";
+import type { z } from "zod";
+import { privateKeyToAddress } from "viem/accounts";
 import express, { type ErrorRequestHandler, type Express, type Request, type RequestHandler, type Response } from "express";
 import { ChallengeStore, verifySignIn, type VerifySignature } from "./auth.js";
+import { noGasFunder, type GasFunder } from "./funder.js";
 import { mcpHandler } from "./mcp.js";
 import type { SessionStore } from "./sessions.js";
 import type { TokenService, UserClaims } from "./tokens.js";
-import type { ChainReader, CiphertextStore } from "./types.js";
+import { UnknownAgentError, type ChainAgent, type ChainReader, type CiphertextStore } from "./types.js";
 
 export type AppDeps = {
   corsOrigins: string[];
@@ -19,6 +22,10 @@ export type AppDeps = {
   sessions: SessionStore;
   chain: ChainReader;
   store: CiphertextStore;
+  /** Tops up an agent key's gas on authorize (ADR-007). Default: no top-up. */
+  funder?: GasFunder;
+  /** Public base URL for `mcpUrl`. Default: taken from the request. */
+  publicUrl?: string;
   now?: () => bigint;
   version?: string;
 };
@@ -92,10 +99,63 @@ export function createApp(deps: AppDeps): Express {
     res.status(405).json({ jsonrpc: "2.0", error: { code: -32000, message: "Method not allowed." }, id: null });
   });
 
-  // STUB: replace when the agent registry is readable from chain (AK-7). Empty list is a valid response.
-  app.get("/v1/agents", requireUser, (_req, res) => {
-    res.json([]);
-  });
+  const ZERO = "0x0000000000000000000000000000000000000000";
+  const funder = deps.funder ?? noGasFunder;
+
+  /** "No such agent" is a 404, anything else the chain says is a 502. Never echoes the underlying error. */
+  const readAgent = async (id: bigint): Promise<ChainAgent> => {
+    try {
+      return await deps.chain.agent(id);
+    } catch (e) {
+      if (e instanceof UnknownAgentError) throw new HiveError("NOT_FOUND", "No such agent.");
+      throw new HiveError("CHAIN_ERROR", "Could not read the agent registry.");
+    }
+  };
+
+  app.get("/v1/agents", requireUser, wrap(async (_req, res) => {
+    const user = res.locals.user as UserClaims;
+    const agents = await deps.chain.agentsOf(user.owner as Hex).catch(() => {
+      throw new HiveError("CHAIN_ERROR", "Could not read the agent registry.");
+    });
+    // uint256 goes out as a decimal string (the wire format zAgentId parses).
+    const body: z.input<typeof zAgentsResponse> = agents.map((a) => {
+      const session = deps.sessions.get(a.id);
+      const type = zAgentType.safeParse(a.agentType);
+      return {
+        agentId: a.id.toString(),
+        name: a.name,
+        agentType: type.success ? type.data : "other",
+        connected: session?.lastCallAt != null,
+        lastCallAt: session?.lastCallAt ?? null,
+        tokenExpiresAt: session?.expiresAt ?? null,
+      };
+    });
+    res.json(body);
+  }));
+
+  // The owner hands the bridge the agent key and encryption key. Both stay in memory (SessionStore) and are never echoed.
+  app.post("/v1/agents/:id/authorize", requireUser, wrap(async (req, res) => {
+    const id = zAgentId.safeParse(req.params.id);
+    if (!id.success) throw new HiveError("INVALID_INPUT", "Agent id must be a decimal integer.");
+    const body = zAuthorizeBody.safeParse(req.body);
+    if (!body.success) throw new HiveError("INVALID_INPUT", "Expected { agentPrivateKey, encryptionKey } as 32-byte hex keys.");
+    const user = res.locals.user as UserClaims;
+
+    const agent = await readAgent(id.data);
+    if (agent.owner.toLowerCase() !== user.owner.toLowerCase()) throw new HiveError("FORBIDDEN", "That agent belongs to another owner.");
+    if (agent.writer.toLowerCase() === ZERO) throw new HiveError("FORBIDDEN", "This agent has no registered writer key yet. Register the key first.");
+    const agentAddress = privateKeyToAddress(body.data.agentPrivateKey as Hex);
+    if (agent.writer.toLowerCase() !== agentAddress.toLowerCase()) throw new HiveError("FORBIDDEN", "That key is not this agent's registered writer.");
+
+    const { token, expiresAt } = await deps.tokens.signAgent(id.data, user.owner);
+    deps.sessions.put({ agentId: id.data, name: agent.name, owner: user.owner, encryptionKey: body.data.encryptionKey as Hex, agentPrivateKey: body.data.agentPrivateKey as Hex, expiresAt });
+    // Best effort: a failed top-up must not block authorize. The first write then reports a chain error.
+    await funder.ensureFunded(user.owner, agentAddress).catch(() => console.error("bridge: gas top-up failed"));
+
+    const base = (deps.publicUrl ?? `${req.protocol}://${req.get("host")}`).replace(/\/+$/, "");
+    const out: AuthorizeResponse = { agentToken: token, expiresAt, mcpUrl: `${base}/mcp` };
+    res.json(out);
+  }));
 
   // Ends the agent's bridge session: its scoped keys leave memory and its token stops working. Owner-only, idempotent.
   app.delete("/v1/agents/:id/session", requireUser, (req, res) => {

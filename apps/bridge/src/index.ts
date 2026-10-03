@@ -3,6 +3,7 @@ import { monadTestnet } from "@hive/shared";
 import { createApp } from "./app.js";
 import { ViemChainReader } from "./chain.js";
 import { loadConfig } from "./config.js";
+import { noGasFunder, viemGasFunder } from "./funder.js";
 import { SessionStore } from "./sessions.js";
 import { SupabaseCiphertextStore } from "./store.js";
 import { InMemoryChain, InMemoryCiphertextStore } from "./stubs.js";
@@ -20,6 +21,8 @@ const rpc = createPublicClient({ chain: monadTestnet, transport: http(config.rpc
 const supabase = config.supabase && new SupabaseCiphertextStore(config.supabase.url, config.supabase.serviceKey);
 if (!supabase) console.warn("bridge: SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY unset, memory is kept in this process only");
 
+if (!config.funderKey) console.warn("bridge: BRIDGE_FUNDER_PRIVATE_KEY unset, agent keys will not be topped up with gas");
+
 const app = createApp({
   corsOrigins: config.corsOrigins,
   tokens: new TokenService(config.jwtSecret),
@@ -33,6 +36,8 @@ const app = createApp({
   // BRIDGE_CHAIN=memory keeps the in-process chain for offline dev. Default is live Monad testnet.
   chain: process.env.BRIDGE_CHAIN === "memory" ? new InMemoryChain() : new ViemChainReader(rpc),
   store: supabase || new InMemoryCiphertextStore(),
+  funder: config.funderKey ? viemGasFunder(rpc, config.rpcUrl, config.funderKey) : noGasFunder,
+  publicUrl: config.publicUrl,
 });
 
 app.listen(config.port, () => {
