@@ -36,6 +36,8 @@ These block the bridge and the indexer. Each needs one answer from its owner.
 | 6 | Who pays gas | rules/ADR-002: Kernel smart account + Pimlico (user pays nothing). Akhnaf's plan: Mera EOA signs directly, faucet-funded | The UI says "Gas sponsored by Hive". If the EOA path stays, the web turns on the balance/low-balance UI that is already built. | Akhnaf |
 | 7 | Demo domain (passkey `rp.id`) | not chosen | Choose before anyone creates a real passkey. Passkeys don't move between domains. | Harfi |
 
+**Status, 3 Oct:** #4 is decided in ADR-007 (the agent key sends the write, the bridge funds it). #5 is settled by the deployed contract: the event is `Propagate`. #6 is decided in ADR-006 (Mera EOA, faucet-funded, so "Gas sponsored" copy in the web must change). #3 and #7 are still open; the deployed `AgentRegistry` has two calls, `register` then `setAgentWriter`.
+
 Smaller contract gaps the indexer must cover: `MemoryWritten` has no `propagatedCount` (Envio counts `Propagate` events per slot), and `EdgeRemoved` has no `from/to/topic` (Envio joins them from the `Edge` entity).
 
 ## 3. What each owner ships
