@@ -28,14 +28,20 @@ function signerFromPrf(prfOutput: Uint8Array): HiveSigner {
   };
 }
 
-// Creates a passkey and returns its signer. On authenticators that don't
-// evaluate PRF during creation this prompts twice.
-export async function connectMeraSigner(user: MeraUser): Promise<HiveSigner> {
-  const { prfOutput } = await createPasskeyWithPrfOutput({
+// Creates a passkey and returns its signer plus the credential id (used to
+// resume later). On authenticators that don't evaluate PRF during creation
+// this prompts twice.
+export interface MeraConnection {
+  signer: HiveSigner;
+  credentialId: string;
+}
+
+export async function connectMeraSigner(user: MeraUser): Promise<MeraConnection> {
+  const { prfOutput, credentialId } = await createPasskeyWithPrfOutput({
     rp: { id: RP_ID, name: RP_NAME },
     user,
   });
-  return signerFromPrf(prfOutput);
+  return { signer: signerFromPrf(prfOutput), credentialId };
 }
 
 // Resumes a previously created passkey by credential id.

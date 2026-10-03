@@ -1,12 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { keccak256, toHex } from "viem";
 import { explorerAddressUrl, monadTestnet } from "@hive/shared";
 import { hiveAddresses, isHiveDeployed } from "@/lib/hive/config";
 import { useEdgeCount, useHasPermission, useSlotCount } from "@/lib/hive/hooks";
 import { addEdge, decodeAgentRegisteredId, devSigner, registerAgent } from "@/lib/hive/account";
-import { connectMeraSigner, describeMeraError } from "@/lib/hive/mera";
+import { connectMeraSigner, describeMeraError, resumeMeraSigner } from "@/lib/hive/mera";
 import type { HiveSigner } from "@/lib/hive/signer";
 import { useTxStatus } from "@/lib/hive/useTxStatus";
 import { hivePublicClient } from "@/lib/hive/clients";
@@ -28,6 +28,10 @@ const ADDRESS_ENTRIES: Array<[string, `0x${string}`]> = [
   ["PropagationEngine", hiveAddresses.propagationEngine],
 ];
 
+// Passkey credentials are domain-bound; keep the credential id so a user can
+// resume the same passkey after funding the derived address.
+const PASSKEY_CRED_KEY = "hive.passkey.credentialId";
+
 export default function SmokePage() {
   const deployed = isHiveDeployed();
   const edgeCount = useEdgeCount();
@@ -46,6 +50,7 @@ export default function SmokePage() {
   // dev-only raw-key fallback (D10). Register two agents, then add an edge.
   const [signer, setSigner] = useState<HiveSigner | null>(null);
   const [userName, setUserName] = useState("demo user");
+  const [resumeCredId, setResumeCredId] = useState<string | null>(null);
   const [agentA, setAgentA] = useState<bigint | null>(null);
   const [agentB, setAgentB] = useState<bigint | null>(null);
   const [expiryHours, setExpiryHours] = useState("24");
@@ -54,14 +59,43 @@ export default function SmokePage() {
   const [writeError, setWriteError] = useState<string | null>(null);
   const tx = useTxStatus(lastTx);
 
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem(PASSKEY_CRED_KEY);
+      if (stored) setResumeCredId(stored);
+    } catch {
+      // localStorage unavailable (private mode) — resume stays hidden
+    }
+  }, []);
+
   async function connectPasskey() {
     setBusy(true);
     setWriteError(null);
     try {
-      const s = await connectMeraSigner({
+      const { signer: s, credentialId } = await connectMeraSigner({
         name: userName.trim() || "demo",
         displayName: userName.trim() || "Demo User",
       });
+      setSigner(s);
+      setResumeCredId(credentialId);
+      try {
+        window.localStorage.setItem(PASSKEY_CRED_KEY, credentialId);
+      } catch {
+        // ignore storage failures
+      }
+    } catch (err) {
+      setWriteError(describeMeraError(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function resumePasskey() {
+    if (!resumeCredId) return;
+    setBusy(true);
+    setWriteError(null);
+    try {
+      const s = await resumeMeraSigner(resumeCredId);
       setSigner(s);
     } catch (err) {
       setWriteError(describeMeraError(err));
@@ -284,6 +318,15 @@ export default function SmokePage() {
             >
               Connect passkey
             </button>
+            {resumeCredId && (
+              <button
+                disabled={busy}
+                onClick={resumePasskey}
+                className="rounded border border-zinc-700 px-2 py-1 hover:border-zinc-500 disabled:opacity-40"
+              >
+                Resume passkey
+              </button>
+            )}
             <button
               disabled={busy}
               onClick={connectDev}
