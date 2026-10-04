@@ -45,6 +45,16 @@ Internal dependencies use `"workspace:*"`. The web app consumes `@hive/shared` t
 7. **No secrets in git.** Put config in `.env` and add new keys (without values) to `.env.example`.
 8. **Don't overclaim.** Docs and UI must mark unfinished features as planned.
 
+## Decisions in force
+
+Short list, details in [docs/decisions.md](docs/decisions.md) and [docs/gotchas.md](docs/gotchas.md).
+
+- **Gas:** testnet, the Mera EOA pays and is faucet-funded (ADR-006). Don't write "sponsored" in UI or docs.
+- **Writes:** the agent key sends `MemorySlots.write`; the bridge funds that key (ADR-007).
+- **Name:** the product is Mindshare, the code still says Hive until one scripted rename PR (ADR-008). Never rename the HKDF string `hive/encrypt`.
+- **Demo agents:** Claude and ChatGPT only.
+- **Before you start:** `git fetch && git merge --ff-only origin/development`. Stacked PR merges leave local `development` stale.
+
 ## Conventions
 
 - TypeScript strict mode everywhere, and ESM (`"type": "module"`) in Node packages.

@@ -2,6 +2,12 @@
 
 Running notes on friction with the MCP SDK, tooling and Monad, for the team feedback doc. Newest first.
 
+## 3 Oct 2026
+
+- **Stacked PRs merged on GitHub leave the local base branch stale, silently.** Six merged PRs and the local `development` still looked empty. A "fetch and fast-forward before you start" line in AGENTS.md now covers it.
+- **Deployed contracts lived on an unmerged branch for days.** `development` had only `Counter.sol` while the contracts were already on testnet. Landing deployments (ABIs and addresses in `@hive/shared`) separately from the rest of a feature branch would have unblocked the bridge earlier.
+- **A "sponsored gas" UI claim outlived the decision that backed it.** ADR-002 said sponsored, ADR-006 says faucet EOA, and the web copy still says sponsored. Decisions that change UI copy need a grep of the copy in the same PR.
+
 ## 2 Oct 2026
 
 - **Mera's default PRF salt is stable (`sha256("mera.prf.salt.v1")`, documented in the `getPasskeyPrfOutput` JSDoc).** That makes PRF output a safe source of BIP-39 entropy. The docs site should say this on the PRF concept page too; we found it only in the `.d.ts`.

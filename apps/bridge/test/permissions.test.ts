@@ -34,7 +34,7 @@ beforeEach(() => {
   store = new InMemoryCiphertextStore();
   errors = [];
   nextSlot = 1n;
-  for (const [id, name] of [[CLAUDE, "Claude"], [CHATGPT, "ChatGPT"], [THERAPY, "Therapy Bot"]] as const) chain.agents.set(id, { id, name, owner: "0x0000000000000000000000000000000000000001" });
+  for (const [id, name] of [[CLAUDE, "Claude"], [CHATGPT, "ChatGPT"], [THERAPY, "Therapy Bot"]] as const) chain.agents.set(id, { id, name, owner: "0x0000000000000000000000000000000000000001", agentType: "other", writer: "0x0000000000000000000000000000000000000000" });
   deps = { chain, store, encryptionKey: KEY, now: () => NOW, onError: (stage) => errors.push(stage) };
 });
 

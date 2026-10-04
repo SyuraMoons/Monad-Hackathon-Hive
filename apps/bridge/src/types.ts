@@ -21,13 +21,24 @@ export type ChainSlot = {
   writtenAt: bigint;
 };
 
-export type ChainAgent = { id: bigint; name: string; owner: Hex };
+export type ChainAgent = { id: bigint; name: string; owner: Hex; agentType: string; /** The key allowed to call MemorySlots.write for this agent. The zero address until setAgentWriter runs. */ writer: Hex };
+
+/** `ChainReader.agent` rejects with this when the agent is not registered, so callers can tell "no such agent" from "RPC down". */
+export class UnknownAgentError extends Error {
+  constructor(agentId: bigint) {
+    super(`unknown agent ${agentId}`);
+    this.name = "UnknownAgentError";
+  }
+}
 
 /** Live chain state. Every read-permission decision uses this, never Envio, so a revoke is effective immediately. */
 export interface ChainReader {
   edgesTo(agentId: bigint): Promise<ChainEdge[]>;
   slotsSince(agentId: bigint, since: bigint): Promise<ChainSlot[]>;
+  /** Rejects with `UnknownAgentError` for an unregistered id. Any other rejection is a chain/RPC failure. */
   agent(agentId: bigint): Promise<ChainAgent>;
+  /** Every agent the owner registered, oldest first. */
+  agentsOf(owner: Hex): Promise<ChainAgent[]>;
 }
 
 export type StoredCiphertext = { ciphertext: Uint8Array; iv: Uint8Array };
@@ -39,4 +50,11 @@ export type NewCiphertext = StoredCiphertext & { owner: Hex; keyId: string };
 export interface CiphertextStore {
   get(contentHash: Hex): Promise<StoredCiphertext | undefined>;
   put(contentHash: Hex, value: NewCiphertext): Promise<void>;
+}
+
+export type WriteReceipt = { txHash: Hex; slotId: bigint; propagatedTo: bigint[] };
+
+/** Sends `MemorySlots.write` from the agent's own key (ADR-007) and reads the result from the receipt. */
+export interface ChainWriter {
+  write(args: { agentKey: Hex; agentId: bigint; contentHash: Hex; topic: string }): Promise<WriteReceipt>;
 }
