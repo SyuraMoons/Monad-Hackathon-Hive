@@ -75,11 +75,11 @@ Short list, details in [docs/decisions.md](docs/decisions.md) and [docs/gotchas.
 - **MCP SDK:** `@modelcontextprotocol/sdk` 1.31 works with a stateless `StreamableHTTPServerTransport` (`sessionIdGenerator: undefined`, `enableJsonResponse: true`), one `McpServer` per request. `registerTool` takes a zod raw shape (`schema.shape`). Test it with the SDK's own `Client` over a real port, as `test/mcp.test.ts` does.
 - **Express 5 + pnpm:** exported functions that return an Express app need an explicit return type (`: Express`), otherwise `tsc` fails with TS2742.
 - **Errors** use the shared envelope `{ error: { code, message } }`. Messages are fixed strings and never contain request bodies, keys or memory content.
-- **Not decided yet** (see the open table in [docs/backend-handoff.md](docs/backend-handoff.md) §2): who sends `MemorySlots.write` (bridge relayer or the agent key), whether `register` and `setAgentWriter` become one call, and the demo domain (passkey `rp.id`). Don't build `authorize` or the write path until these are answered. Gas on testnet: the Mera EOA signs directly and is funded from the faucet.
+- **Writes and gas** follow ADR-007 and ADR-006 (see "Decisions in force"). Still open ([docs/backend-handoff.md](docs/backend-handoff.md) §2): whether `register` and `setAgentWriter` become one call, and the demo domain (passkey `rp.id`).
 
 ## Product name
 
-The product is **Mindshare** (renamed from Hive). Until the rename lands as one PR, keep the existing `@hive/*`, `hive_*` and `HIVE_*` names. Don't rename piecemeal: it breaks every open branch. The HKDF info string `"hive/encrypt"` must **never** change, because it is part of key derivation and changing it makes the same passkey derive a different key. Demo agents are Claude and ChatGPT.
+See ADR-008 and "Decisions in force". Until the rename lands as one PR, keep the existing `@hive/*`, `hive_*` and `HIVE_*` names. Don't rename piecemeal: it breaks every open branch.
 
 ## Working with PRs
 
