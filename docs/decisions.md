@@ -14,7 +14,7 @@ Short architecture decision records. To add one, append the next number and don'
 **Consequences.** We build the login UI ourselves. If Mera's PRF support blocks us, the PRD's risk table allows falling back to Privy, which gives up the Mera bounties but keeps the product working. That fallback needs a new ADR.
 
 ## ADR-002: Kernel smart account owned by the Mera key, sponsored by Pimlico
-**Date:** 2026-09-26 · **Status:** accepted (to be confirmed by the Mera smoke test)
+**Date:** 2026-09-26 · **Status:** superseded by ADR-006 (testnet: the Mera EOA pays gas, faucet-funded)
 
 **Context.** Mera derives a plain EOA, which would need MON for gas on every graph change. Monad's `next-serwist-privy-smart-wallet` template shows a working Kernel + Pimlico setup built with `permissionless`.
 
@@ -44,3 +44,28 @@ Short architecture decision records. To add one, append the next number and don'
 **Decision.** PRF output → BIP-39 24-word phrase (the output is the entropy) → BIP-39 seed → owner `m/44'/60'/0'/0/0`, agents `m/44'/60'/0'/0/{n}`, encryption key `HKDF(seed, "hive/encrypt")`. The passkey is always a real Mera ceremony, in mock mode too: only the backend is mocked.
 
 **Consequences.** Every owner address from before this change moves (nothing was deployed yet). The phrase opens the account in any BIP-39 wallet, so the UI only shows it behind a fresh passkey prompt and never stores it. Imported phrases and backup passkeys (secret vaults, #67) derive keys the same way.
+
+## ADR-006: Gas on Monad testnet is paid by the Mera EOA, funded from the faucet
+**Date:** 2026-10-02 · **Status:** accepted (confirmed by Harfi)
+
+**Context.** ADR-002 planned a Kernel smart account sponsored by Pimlico. We run on testnet, where the faucet makes that unnecessary.
+
+**Decision.** The Mera key signs and sends graph transactions directly (Akhnaf's Path A). No Pimlico, no Kernel.
+
+**Consequences.** The owner address needs testnet MON. UI copy that says gas is "sponsored" (`WalletMenu.tsx`, `WalletChip.tsx`) is no longer accurate and must change, or the low-balance UI already in `EdgeEditorModal.tsx` must be switched on. AGENTS.md rule 8 (don't overclaim) applies.
+
+## ADR-007: The agent key sends `MemorySlots.write`, and the bridge funds it
+**Date:** 2026-10-03 · **Status:** accepted (Altaf; Akhnaf please confirm, no contract change needed)
+
+**Context.** The deployed `MemorySlots.write` requires `msg.sender == registry.writerOf(agentId)`, so the agent's own key must send the transaction and hold MON.
+
+**Decision.** On `POST /v1/agents/:id/authorize` the bridge tops up the agent key from a testnet-only funder key (`BRIDGE_FUNDER_PRIVATE_KEY`, in `.env` only), with a per-agent cap and a per-owner daily limit. Every write sets explicit `gas`.
+
+**Consequences.** No redeploy, and users never fund agent keys by hand. The funder is a hot key: never reuse it anywhere else, and keep the balance small.
+
+## ADR-008: The product is named Mindshare, and the rename is one scripted PR later
+**Date:** 2026-10-02 · **Status:** accepted, rename not done
+
+**Decision.** Use "Mindshare" in new user-facing text. Code, packages (`@hive/*`), MCP tools (`hive_*`) and env vars keep "Hive" until a single scripted rename PR (`scripts/rename-to-mindshare.mjs`, dry-run by default) lands on `development` after the open PR stacks merge. The team is told before it lands because MCP tool names and `@hive/shared` imports change.
+
+**Consequences.** The HKDF info string `hive/encrypt` must never be renamed: it derives the encryption key from the passkey, and changing it makes all existing ciphertext unreadable. Demo and MCP focus is Claude and ChatGPT; Cursor is not a product we integrate.
