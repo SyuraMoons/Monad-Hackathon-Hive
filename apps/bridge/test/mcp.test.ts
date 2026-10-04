@@ -12,6 +12,7 @@ import { topicHash } from "../src/permissions.js";
 import { TokenService } from "../src/tokens.js";
 
 const OWNER = "0x00000000000000000000000000000000000000a1";
+const ZERO = "0x0000000000000000000000000000000000000000";
 const KEY = ("0x" + "55".repeat(32)) as Hex;
 const [CLAUDE, CHATGPT, THERAPY] = [1n, 2n, 3n];
 
@@ -37,7 +38,7 @@ const call = async (client: Client, name: string, args: Record<string, unknown> 
 
 beforeAll(async () => {
   for (const [id, name] of [[CLAUDE, "Claude"], [CHATGPT, "ChatGPT"], [THERAPY, "Therapy Bot"]] as const) {
-    chain.agents.set(id, { id, name, owner: OWNER });
+    chain.agents.set(id, { id, name, owner: OWNER, agentType: "other", writer: ZERO });
     sessions.put({ agentId: id, name, owner: OWNER, encryptionKey: KEY, agentPrivateKey: KEY, expiresAt: nowS() + 3600 });
     agentToken[name] = (await tokens.signAgent(id, OWNER)).token;
   }

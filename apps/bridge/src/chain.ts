@@ -1,6 +1,13 @@
 import { AgentRegistryAbi, KnowledgeGraphAbi, MemorySlotsAbi, hiveDeployment } from "@hive/shared";
-import type { PublicClient } from "viem";
-import type { ChainAgent, ChainEdge, ChainReader, ChainSlot } from "./types.js";
+import { BaseError, ContractFunctionRevertedError, type Hex, type PublicClient } from "viem";
+import { UnknownAgentError, type ChainAgent, type ChainEdge, type ChainReader, type ChainSlot } from "./types.js";
+
+const isUnknownAgentRevert = (e: unknown) =>
+  e instanceof BaseError && e.walk((x) => x instanceof ContractFunctionRevertedError && x.data?.errorName === "UnknownAgent") !== null;
+
+// AgentRegistry ids count up from 1 with no gaps and has no per-owner index, so agentsOf walks them in batches.
+const SCAN_BATCH = 8n;
+const SCAN_MAX = 256n;
 
 /**
  * Live Monad testnet state. Nothing is cached: a revoked edge must block the very next read, so every call hits the RPC.
@@ -20,7 +27,27 @@ export class ViemChainReader implements ChainReader {
   }
 
   async agent(agentId: bigint): Promise<ChainAgent> {
-    const a = await this.client.readContract({ address: hiveDeployment.agentRegistry, abi: AgentRegistryAbi, functionName: "agents", args: [agentId] });
-    return { id: agentId, name: a.name, owner: a.owner };
+    try {
+      const a = await this.client.readContract({ address: hiveDeployment.agentRegistry, abi: AgentRegistryAbi, functionName: "agents", args: [agentId] });
+      return { id: agentId, name: a.name, owner: a.owner, agentType: a.agentType, writer: a.writer };
+    } catch (e) {
+      if (isUnknownAgentRevert(e)) throw new UnknownAgentError(agentId);
+      throw e;
+    }
+  }
+
+  async agentsOf(owner: Hex): Promise<ChainAgent[]> {
+    const mine: ChainAgent[] = [];
+    for (let start = 1n; start <= SCAN_MAX; start += SCAN_BATCH) {
+      const ids = Array.from({ length: Number(SCAN_BATCH) }, (_, i) => start + BigInt(i));
+      for (const r of await Promise.allSettled(ids.map((id) => this.agent(id)))) {
+        if (r.status === "rejected") {
+          if (r.reason instanceof UnknownAgentError) return mine;
+          throw r.reason;
+        }
+        if (r.value.owner.toLowerCase() === owner.toLowerCase()) mine.push(r.value);
+      }
+    }
+    return mine;
   }
 }

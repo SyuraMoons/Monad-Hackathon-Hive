@@ -1,7 +1,9 @@
-import { hiveDeployment } from "@hive/shared";
+import { AgentRegistryAbi, hiveDeployment } from "@hive/shared";
+import { BaseError, ContractFunctionRevertedError, encodeErrorResult } from "viem";
 import { describe, expect, it } from "vitest";
 import { ViemChainReader } from "../src/chain.js";
 import { topicHash } from "../src/permissions.js";
+import { UnknownAgentError } from "../src/types.js";
 
 const OWNER = "0x00000000000000000000000000000000000000A1";
 
@@ -46,7 +48,7 @@ describe("ViemChainReader", () => {
   it("agent reads AgentRegistry and returns id, name, owner", async () => {
     const { client, calls } = fakeClient(() => ({ owner: OWNER, name: "Claude", agentType: "claude", pubKey: "0x", writer: OWNER, registeredAt: 1n }));
     const agent = await new ViemChainReader(client).agent(3n);
-    expect(agent).toEqual({ id: 3n, name: "Claude", owner: OWNER });
+    expect(agent).toEqual({ id: 3n, name: "Claude", owner: OWNER, agentType: "claude", writer: OWNER });
     expect(calls[0]).toMatchObject({ address: hiveDeployment.agentRegistry, functionName: "agents", args: [3n] });
   });
 
@@ -55,5 +57,35 @@ describe("ViemChainReader", () => {
     await expect(reader.edgesTo(1n)).rejects.toThrow("rpc down");
     await expect(reader.slotsSince(1n, 0n)).rejects.toThrow("rpc down");
     await expect(reader.agent(1n)).rejects.toThrow("rpc down");
+  });
+
+  const unknownAgentRevert = () => {
+    const data = encodeErrorResult({ abi: AgentRegistryAbi, errorName: "UnknownAgent", args: [9n] });
+    return new BaseError("call failed", { cause: new ContractFunctionRevertedError({ abi: AgentRegistryAbi, data, functionName: "agents" }) });
+  };
+
+  it("agent rejects with UnknownAgentError on an UnknownAgent revert, but not on other failures", async () => {
+    const reverting = new ViemChainReader({ readContract: async () => { throw unknownAgentRevert(); } } as never);
+    await expect(reverting.agent(9n)).rejects.toBeInstanceOf(UnknownAgentError);
+    const down = new ViemChainReader({ readContract: async () => { throw new BaseError("rpc down"); } } as never);
+    await expect(down.agent(9n)).rejects.not.toBeInstanceOf(UnknownAgentError);
+  });
+
+  it("agentsOf walks ids from 1 until the first unknown one and keeps only the owner's", async () => {
+    const other = "0x00000000000000000000000000000000000000B2";
+    const rows: Record<string, string> = { "1": OWNER, "2": other, "3": OWNER };
+    const { client, calls } = fakeClient((call) => {
+      const owner = rows[String(call.args[0])];
+      if (!owner) throw unknownAgentRevert();
+      return { owner, name: `agent-${call.args[0]}`, agentType: "claude", pubKey: "0x", writer: owner, registeredAt: 1n };
+    });
+    const mine = await new ViemChainReader(client).agentsOf(OWNER);
+    expect(mine.map((a) => a.id)).toEqual([1n, 3n]);
+    expect(calls.length).toBeLessThanOrEqual(16);
+  });
+
+  it("agentsOf lets an RPC failure propagate", async () => {
+    const reader = new ViemChainReader({ readContract: async () => { throw new BaseError("rpc down"); } } as never);
+    await expect(reader.agentsOf(OWNER)).rejects.toThrow("rpc down");
   });
 });
