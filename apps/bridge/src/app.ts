@@ -10,7 +10,7 @@ import { noGasFunder, type GasFunder } from "./funder.js";
 import { mcpHandler } from "./mcp.js";
 import type { SessionStore } from "./sessions.js";
 import type { TokenService, UserClaims } from "./tokens.js";
-import { UnknownAgentError, type ChainAgent, type ChainReader, type CiphertextStore } from "./types.js";
+import { UnknownAgentError, type ChainAgent, type ChainReader, type ChainWriter, type CiphertextStore } from "./types.js";
 
 export type AppDeps = {
   corsOrigins: string[];
@@ -22,6 +22,7 @@ export type AppDeps = {
   sessions: SessionStore;
   chain: ChainReader;
   store: CiphertextStore;
+  writer: ChainWriter;
   /** Tops up an agent key's gas on authorize (ADR-007). Default: no top-up. */
   funder?: GasFunder;
   /** Public base URL for `mcpUrl`. Default: taken from the request. */
@@ -92,7 +93,7 @@ export function createApp(deps: AppDeps): Express {
     res.json(body);
   }));
 
-  app.post("/mcp", wrap(mcpHandler({ tokens: deps.tokens, sessions: deps.sessions, chain: deps.chain, store: deps.store, now: deps.now ?? (() => BigInt(Math.floor(Date.now() / 1000))) })));
+  app.post("/mcp", wrap(mcpHandler({ tokens: deps.tokens, sessions: deps.sessions, chain: deps.chain, store: deps.store, writer: deps.writer, now: deps.now ?? (() => BigInt(Math.floor(Date.now() / 1000))) })));
   // Stateless transport: no SSE stream to open and no session to end. SDK clients expect 405 here, not 404.
   app.all("/mcp", (_req, res) => {
     res.setHeader("Allow", "POST");

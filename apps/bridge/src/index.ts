@@ -1,7 +1,7 @@
 import { createPublicClient, http } from "viem";
 import { monadTestnet } from "@hive/shared";
 import { createApp } from "./app.js";
-import { ViemChainReader } from "./chain.js";
+import { ViemChainReader, viemChainWriter } from "./chain.js";
 import { loadConfig } from "./config.js";
 import { noGasFunder, viemGasFunder } from "./funder.js";
 import { SessionStore } from "./sessions.js";
@@ -36,6 +36,7 @@ const app = createApp({
   // BRIDGE_CHAIN=memory keeps the in-process chain for offline dev. Default is live Monad testnet.
   chain: process.env.BRIDGE_CHAIN === "memory" ? new InMemoryChain() : new ViemChainReader(rpc),
   store: supabase || new InMemoryCiphertextStore(),
+  writer: viemChainWriter(rpc, config.rpcUrl),
   funder: config.funderKey ? viemGasFunder(rpc, config.rpcUrl, config.funderKey) : noGasFunder,
   publicUrl: config.publicUrl,
 });

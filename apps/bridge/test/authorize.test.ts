@@ -67,6 +67,7 @@ beforeEach(() => {
     sessions,
     chain,
     store: new InMemoryCiphertextStore(),
+    writer: { write: async () => { throw new Error("not used here"); } },
     funder,
     publicUrl: "https://bridge.example",
     now: () => BigInt(clock),

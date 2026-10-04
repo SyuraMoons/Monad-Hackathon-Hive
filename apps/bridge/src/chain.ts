@@ -1,6 +1,7 @@
-import { AgentRegistryAbi, KnowledgeGraphAbi, MemorySlotsAbi, hiveDeployment } from "@hive/shared";
-import { BaseError, ContractFunctionRevertedError, type Hex, type PublicClient } from "viem";
-import { UnknownAgentError, type ChainAgent, type ChainEdge, type ChainReader, type ChainSlot } from "./types.js";
+import { AgentRegistryAbi, HiveError, KnowledgeGraphAbi, MemorySlotsAbi, PropagationEngineAbi, hiveDeployment, monadTestnet } from "@hive/shared";
+import { BaseError, ContractFunctionRevertedError, InsufficientFundsError, createWalletClient, http, parseEventLogs, type Hex, type Log, type PublicClient } from "viem";
+import { privateKeyToAccount } from "viem/accounts";
+import { UnknownAgentError, type ChainAgent, type ChainEdge, type ChainReader, type ChainSlot, type ChainWriter, type WriteReceipt } from "./types.js";
 
 const isUnknownAgentRevert = (e: unknown) =>
   e instanceof BaseError && e.walk((x) => x instanceof ContractFunctionRevertedError && x.data?.errorName === "UnknownAgent") !== null;
@@ -50,4 +51,62 @@ export class ViemChainReader implements ChainReader {
     }
     return mine;
   }
+}
+
+// Gas for MemorySlots.write grows with the sender's outgoing edges. Monad charges the declared limit, so use the
+// estimate plus a margin instead of a big fixed number. Placeholder until AK-11 publishes measured limits.
+const GAS_MARGIN_PCT = 125n;
+const GAS_MIN = 100_000n;
+const GAS_MAX = 2_000_000n;
+
+type WriteCall = { agentId: bigint; contentHash: Hex; topic: string };
+
+type WriterDeps = {
+  estimate(agentKey: Hex, call: WriteCall): Promise<bigint>;
+  submit(agentKey: Hex, call: WriteCall & { gas: bigint }): Promise<Hex>;
+  receipt(hash: Hex): Promise<{ status: "success" | "reverted"; logs: Log[] }>;
+};
+
+const sameAddress = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
+
+export class ViemChainWriter implements ChainWriter {
+  constructor(private deps: WriterDeps) {}
+
+  async write({ agentKey, ...call }: { agentKey: Hex } & WriteCall): Promise<WriteReceipt> {
+    try {
+      const estimate = await this.deps.estimate(agentKey, call);
+      const gas = (estimate * GAS_MARGIN_PCT) / 100n;
+      const txHash = await this.deps.submit(agentKey, { ...call, gas: gas < GAS_MIN ? GAS_MIN : gas > GAS_MAX ? GAS_MAX : gas });
+      const receipt = await this.deps.receipt(txHash);
+      if (receipt.status !== "success") throw new HiveError("CHAIN_ERROR", "The memory write was reverted onchain.");
+
+      // Only logs from our own contracts count: anyone can emit a lookalike event from another address.
+      const written = parseEventLogs({ abi: MemorySlotsAbi, eventName: "MemoryWritten", logs: receipt.logs }).find((l) => sameAddress(l.address, hiveDeployment.memorySlots));
+      if (!written) throw new HiveError("CHAIN_ERROR", "The write receipt has no memory slot.");
+      const propagatedTo: bigint[] = [];
+      for (const l of parseEventLogs({ abi: PropagationEngineAbi, eventName: "Propagate", logs: receipt.logs })) {
+        if (sameAddress(l.address, hiveDeployment.propagationEngine) && !propagatedTo.includes(l.args.to)) propagatedTo.push(l.args.to);
+      }
+      return { txHash, slotId: written.args.slotId, propagatedTo };
+    } catch (e) {
+      if (e instanceof HiveError) throw e;
+      if (e instanceof BaseError && e.walk((x) => x instanceof InsufficientFundsError) !== null) throw new HiveError("CHAIN_ERROR", "The agent key has no MON for gas.");
+      throw e;
+    }
+  }
+}
+
+export function viemChainWriter(rpc: Pick<PublicClient, "estimateContractGas" | "waitForTransactionReceipt">, rpcUrl: string): ChainWriter {
+  const args = (c: WriteCall) => [c.agentId, c.contentHash, c.topic] as const;
+  return new ViemChainWriter({
+    estimate: (key, call) => rpc.estimateContractGas({ account: privateKeyToAccount(key), address: hiveDeployment.memorySlots, abi: MemorySlotsAbi, functionName: "write", args: args(call) }),
+    submit: (key, call) => {
+      const wallet = createWalletClient({ account: privateKeyToAccount(key), chain: monadTestnet, transport: http(rpcUrl) });
+      return wallet.writeContract({ address: hiveDeployment.memorySlots, abi: MemorySlotsAbi, functionName: "write", args: args(call), gas: call.gas });
+    },
+    receipt: async (hash) => {
+      const r = await rpc.waitForTransactionReceipt({ hash, timeout: 30_000 });
+      return { status: r.status, logs: r.logs };
+    },
+  });
 }

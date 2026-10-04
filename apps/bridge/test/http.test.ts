@@ -29,6 +29,7 @@ function build(overrides: Partial<Parameters<typeof createApp>[0]> = {}) {
     sessions: (() => { const s = new SessionStore(now); for (const id of [1n, 2n]) s.put({ agentId: id, name: "a", owner: account.address, encryptionKey: "0x" + "00".repeat(32) as `0x${string}`, agentPrivateKey: "0x" + "00".repeat(32) as `0x${string}`, expiresAt: clock + 1000 }); return s; })(),
     chain: new InMemoryChain(),
     store: new InMemoryCiphertextStore(),
+    writer: { write: async () => { throw new Error("not used here"); } },
     ...overrides,
   });
 }
