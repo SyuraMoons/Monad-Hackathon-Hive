@@ -1,6 +1,7 @@
 import { createPublicClient, http } from "viem";
 import { monadTestnet } from "@hive/shared";
 import { createApp } from "./app.js";
+import { ViemChainReader } from "./chain.js";
 import { loadConfig } from "./config.js";
 import { SessionStore } from "./sessions.js";
 import { SupabaseCiphertextStore } from "./store.js";
@@ -29,8 +30,8 @@ const app = createApp({
     supabase: async () => (supabase ? supabase.reachable() : false),
   },
   sessions: new SessionStore(),
-  // STUB: replace with the viem ChainReader once contracts are deployed (AK-7)
-  chain: new InMemoryChain(),
+  // BRIDGE_CHAIN=memory keeps the in-process chain for offline dev. Default is live Monad testnet.
+  chain: process.env.BRIDGE_CHAIN === "memory" ? new InMemoryChain() : new ViemChainReader(rpc),
   store: supabase || new InMemoryCiphertextStore(),
 });
 
