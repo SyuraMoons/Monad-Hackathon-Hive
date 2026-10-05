@@ -13,7 +13,7 @@ import { useFeed, type FeedRow } from "@/lib/stores/feed";
 import { useGraph, type AgentNode, type EdgeView } from "@/lib/stores/graph";
 import { useSession } from "@/lib/stores/session";
 import { useUi } from "@/lib/stores/ui";
-import { topicColor } from "@/lib/topics";
+import { topicColor, topicLabel } from "@/lib/topics";
 
 const ICONS: Partial<Record<string, string>> = { claude: "/agents/claude.png", gpt: "/agents/gpt.png" };
 const eyebrow = "font-mono text-[14px] tracking-[0.08em] whitespace-pre text-ink-3";
@@ -203,7 +203,7 @@ export function NodeDrawer({ agentId }: { agentId: string }) {
     <li className="flex items-center justify-between gap-3 rounded-chip border px-3 py-2.5" style={{ borderColor: e.state === "pending" ? "var(--color-ink-3)" : topicColor(e.topic) }}>
       <div className="flex min-w-0 flex-col gap-0.5">
         <p className="text-[15px] font-medium whitespace-pre text-ink">
-          {dir === "out" ? `→ ${name(e.to)}` : `← ${name(e.from)}`}  ·  {e.topic}
+          {dir === "out" ? `→ ${name(e.to)}` : `← ${name(e.from)}`}  ·  {topicLabel(e.topic)}
         </p>
         <p className="font-mono text-[14px] whitespace-pre text-ink-3">
           {e.state === "pending" ? "pending" : `until ${longDate(e.expiresAt).replace(/ \d{4}$/, "")}`}

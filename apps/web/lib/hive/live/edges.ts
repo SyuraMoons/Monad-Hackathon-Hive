@@ -1,4 +1,4 @@
-import { HiveError, type Topic } from "@hive/shared";
+import { ALL_TOPICS, HiveError, type Topic } from "@hive/shared";
 import { BaseError, keccak256, stringToBytes, type Hex } from "viem";
 import type { EdgeRow } from "../types";
 import type { EdgeNote } from "../edgeNotes";
@@ -42,9 +42,9 @@ export async function edgesOf(
   more?: () => Promise<string[]>,
 ): Promise<EdgeRow[]> {
   const chain = (await Promise.all(agentIds.map((id) => deps.edgesFrom(id)))).flat().filter((e) => e.active);
-  let byHash = resolver(known);
+  let byHash = resolver([ALL_TOPICS, ...known]);
   if (more && chain.some((e) => !byHash.has(e.topic.toLowerCase()))) {
-    byHash = resolver([...known, ...(await more().catch(() => []))]);
+    byHash = resolver([ALL_TOPICS, ...known, ...(await more().catch(() => []))]);
   }
   return chain.map((e) => {
     const topic = byHash.get(e.topic.toLowerCase());

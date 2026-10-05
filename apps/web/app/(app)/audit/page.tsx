@@ -12,6 +12,7 @@ import { getHiveClient } from "@/lib/hive/client";
 import { useFeed } from "@/lib/stores/feed";
 import { useGraph } from "@/lib/stores/graph";
 import { useSession } from "@/lib/stores/session";
+import { topicLabel } from "@/lib/topics";
 
 // Event names exactly as the contracts emit them (rules §4).
 const NAME: Record<AuditEvent["kind"], string> = {
@@ -107,8 +108,8 @@ export default function AuditPage() {
   function detail(e: AuditEvent): React.ReactNode {
     switch (e.kind) {
       case "agent.registered": return <>{e.name}{sep}{mono(`#${e.agentId}`)}</>;
-      case "edge.added": return <>{name(e.from)} → {name(e.to)}{sep}{e.topic}{sep}until {shortDate(e.expiresAt)}</>;
-      case "edge.removed": return <>{name(e.from)} ✕ {name(e.to)}{sep}{e.topic}</>;
+      case "edge.added": return <>{name(e.from)} → {name(e.to)}{sep}{topicLabel(e.topic)}{sep}until {shortDate(e.expiresAt)}</>;
+      case "edge.removed": return <>{name(e.from)} ✕ {name(e.to)}{sep}{topicLabel(e.topic)}</>;
       case "memory.written": return <>{name(e.agentId)}{sep}{e.topic}{sep}{e.propagatedCount ? mono(shortHash(e.contentHash)) : "0 edges match"}</>;
       case "memory.propagated": return <>{name(e.from)} → {name(e.to)}{sep}{e.topic}{sep}{mono(shortHash(e.contentHash))}</>;
     }

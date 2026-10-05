@@ -1,6 +1,6 @@
 "use client";
 
-import { zTopic, type AgentId, type Topic } from "@hive/shared";
+import { ALL_TOPICS, zEdgeTopic, zTopic, type AgentId, type Topic } from "@hive/shared";
 import { useEffect, useMemo, useState, type RefObject } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { OptionChip } from "@/components/ui/OptionChip";
@@ -59,17 +59,21 @@ export function EdgeEditorModal({ from, to, initialTopic, onClose, onSign, retur
   const toName = agents[to.toString()]?.name ?? `#${to}`;
 
   const liveEdges = useMemo(() => Object.values(edges).filter((e) => e.state !== "revoked"), [edges]);
-  const topics = useMemo(() => [...new Set([...SUGGESTED, ...liveEdges.map((e) => e.topic).filter((t) => t !== UNKNOWN_TOPIC), ...(initialTopic ? [initialTopic] : [])])], [liveEdges, initialTopic]);
+  const topics = useMemo(() => [...new Set([...SUGGESTED, ...liveEdges.map((e) => e.topic).filter((t) => t !== UNKNOWN_TOPIC && t !== ALL_TOPICS), ...(initialTopic && initialTopic !== ALL_TOPICS ? [initialTopic] : [])])], [liveEdges, initialTopic]);
 
-  const [topic, setTopic] = useState<string>(initialTopic ?? topics[0]);
+  // Default: the edge covers every topic. "Only one topic" is the opt-in restriction.
+  const [onlyOne, setOnlyOne] = useState(!!initialTopic && initialTopic !== ALL_TOPICS);
+  const [topic, setTopic] = useState<string>(initialTopic && initialTopic !== ALL_TOPICS ? initialTopic : topics[0]);
   const [adding, setAdding] = useState(false);
   const [newTopic, setNewTopic] = useState("");
   const [expiry, setExpiry] = useState<ExpiryKey>("30d");
   const tomorrow = toDateInput(new Date(Date.now() + 86_400_000));
   const [customDate, setCustomDate] = useState(toDateInput(new Date(Date.now() + 14 * 86_400_000)));
 
-  const typedTopic = adding ? newTopic.trim() : topic;
-  const topicCheck = zTopic.safeParse(typedTopic);
+  const typedTopic = !onlyOne ? ALL_TOPICS : adding ? newTopic.trim() : topic;
+  const topicCheck = zEdgeTopic.safeParse(typedTopic);
+  const topicText = topicCheck.success ? (topicCheck.data === ALL_TOPICS ? "all topics" : `“${topicCheck.data}”`) : "";
+  const slugCheck = zTopic.safeParse(newTopic.trim());
   const now = Math.floor(Date.now() / 1000);
   const expiresAt =
     expiry === "custom"
@@ -103,6 +107,11 @@ export function EdgeEditorModal({ from, to, initialTopic, onClose, onSign, retur
       <fieldset className="flex flex-col gap-2.5">
         <legend className="mb-2.5 text-[15px] font-medium text-ink">Topic</legend>
         <div className="flex flex-wrap gap-2">
+          <OptionChip selected={!onlyOne} onClick={() => setOnlyOne(false)} data-autofocus={!onlyOne ? true : undefined}>All topics</OptionChip>
+          <OptionChip selected={onlyOne} onClick={() => setOnlyOne(true)}>Only one topic</OptionChip>
+        </div>
+        {!onlyOne && <p className="text-[14px] text-ink-3">Everything {fromName} saves can reach {toName}, whatever its topic.</p>}
+        {onlyOne && <div className="flex flex-wrap gap-2">
           {topics.map((t) => (
             <OptionChip key={t} selected={!adding && topic === t} onClick={() => { setAdding(false); setTopic(t); }} data-autofocus={!adding && topic === t ? true : undefined}>
               <span aria-hidden="true" className="h-[3px] w-3.5" style={{ background: topicColor(t) }} />
@@ -110,8 +119,8 @@ export function EdgeEditorModal({ from, to, initialTopic, onClose, onSign, retur
             </OptionChip>
           ))}
           <OptionChip selected={adding} onClick={() => setAdding(true)}>+ new</OptionChip>
-        </div>
-        {adding && (
+        </div>}
+        {onlyOne && adding && (
           <div className="flex flex-col gap-1.5">
             <label htmlFor="new-topic" className="sr-only">New topic</label>
             <input
@@ -121,11 +130,11 @@ export function EdgeEditorModal({ from, to, initialTopic, onClose, onSign, retur
               onChange={(e) => setNewTopic(e.target.value.toLowerCase())}
               placeholder="e.g. travel-plans"
               maxLength={31}
-              aria-invalid={newTopic !== "" && !topicCheck.success}
+              aria-invalid={newTopic !== "" && !slugCheck.success}
               aria-describedby="new-topic-hint"
               className="h-10 rounded-chip border border-line bg-paper px-3 font-mono text-[14px] text-ink placeholder:text-ink-3 focus-visible:border-ink"
             />
-            <p id="new-topic-hint" className={cn("text-[14px]", newTopic && !topicCheck.success ? "text-status-revoked" : "text-ink-3")}>
+            <p id="new-topic-hint" className={cn("text-[14px]", newTopic && !slugCheck.success ? "text-status-revoked" : "text-ink-3")}>
               Lowercase letters, digits and dashes, up to 31 characters.
             </p>
           </div>
@@ -158,7 +167,7 @@ export function EdgeEditorModal({ from, to, initialTopic, onClose, onSign, retur
         {topicCheck.success && expiryValid ? (
           <>
             <p className="text-ink">
-              {fromName} can push “{topicCheck.data}” memory to {toName} until {longDate(expiresAt)}.
+              {fromName} can push {topicText} memory to {toName} until {longDate(expiresAt)}.
             </p>
             <p className="text-ink-2">
               {existing
@@ -193,7 +202,7 @@ export function EdgeEditorModal({ from, to, initialTopic, onClose, onSign, retur
           )}
           <PillButton
             disabled={!canSign}
-            onClick={() => topicCheck.success && onSign({ from, to, topic: topicCheck.data, expiresAt, update: !!existing })}
+            onClick={() => topicCheck.success && onSign({ from, to, topic: topicCheck.data as Topic, expiresAt, update: !!existing })}
           >
             {existing ? "Update with passkey" : "Sign with passkey"}
           </PillButton>

@@ -10,7 +10,7 @@ import { getHiveClient } from "@/lib/hive/client";
 import type { Layout } from "@/lib/layout";
 import { useGraph, visibleAgents } from "@/lib/stores/graph";
 import { useUi } from "@/lib/stores/ui";
-import { topicColor } from "@/lib/topics";
+import { topicColor, topicLabel } from "@/lib/topics";
 import { AGENT_MIME, freeSlot } from "./GraphCanvas";
 
 const ICONS: Partial<Record<string, string>> = { claude: "/agents/claude.png", gpt: "/agents/gpt.png" };
@@ -136,7 +136,7 @@ export function Sidebar({ layout, place }: { layout: Layout; place(patch: Layout
           {topics.map((t) => (
             <li key={t} className="flex items-center gap-2.5 font-mono text-[14px] text-ink-2">
               <span aria-hidden="true" className="h-[3px] w-[18px]" style={{ background: topicColor(t) }} />
-              {t}
+              {topicLabel(t)}
             </li>
           ))}
         </ul>

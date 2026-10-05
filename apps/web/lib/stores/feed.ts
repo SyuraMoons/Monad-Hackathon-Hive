@@ -1,6 +1,6 @@
 "use client";
 
-import type { AgentId, ContentHash, HiveEvent, SlotId, Topic, TxHash, UnixSeconds } from "@hive/shared";
+import type { AgentId, ContentHash, EdgeTopic, HiveEvent, SlotId, Topic, TxHash, UnixSeconds } from "@hive/shared";
 import { create } from "zustand";
 import { getHiveClient } from "@/lib/hive/client";
 import type { MemoryHistoryRow } from "@/lib/hive/types";
@@ -8,7 +8,7 @@ import type { MemoryHistoryRow } from "@/lib/hive/types";
 export type FeedRow =
   | { kind: "written"; id: string; at: UnixSeconds; agentId: AgentId; topic: Topic; slotId: SlotId; contentHash: ContentHash; txHash: TxHash; propagatedTo: AgentId[] }
   | { kind: "read"; id: string; at: UnixSeconds; readerAgentId: AgentId; fromAgentIds: AgentId[]; count: number }
-  | { kind: "edge-revoked"; id: string; at: UnixSeconds; from: AgentId; to: AgentId; topic: Topic; txHash: TxHash };
+  | { kind: "edge-revoked"; id: string; at: UnixSeconds; from: AgentId; to: AgentId; topic: EdgeTopic; txHash: TxHash };
 
 const MAX_ROWS = 200;
 

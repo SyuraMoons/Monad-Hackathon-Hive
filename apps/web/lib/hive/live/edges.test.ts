@@ -32,6 +32,13 @@ describe("edgesOf", () => {
     expect(out[0].topic).toBe("work");
   });
 
+  it("recognises the all-topics edge without asking for more topics", async () => {
+    const more = vi.fn(async () => []);
+    const out = await edgesOf(reader([edge(1, 1, 2, "*")]), [BigInt(1)], ["brain"], {}, more);
+    expect(out[0].topic).toBe("*");
+    expect(more).not.toHaveBeenCalled();
+  });
+
   it("keeps an edge whose topic can't be recovered", async () => {
     const out = await edgesOf(reader([edge(1, 1, 2, "secret-topic")]), [BigInt(1)], ["brain"], {}, async () => { throw new Error("down"); });
     expect(out).toHaveLength(1);

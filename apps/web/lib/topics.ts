@@ -8,6 +8,9 @@ const TOKENS: Record<string, string> = {
 
 export const topicColor = (topic: string) => TOKENS[topic] ?? "var(--color-ink-2)";
 
+/** Edge topic "*" covers every topic (ALL_TOPICS in @hive/shared). */
+export const topicLabel = (topic: string) => (topic === "*" ? "all topics" : topic);
+
 /** "expires 30d" · "expires 5h" · "expires 12m" · "expired" */
 export function expiresIn(expiresAt: number, now = Math.floor(Date.now() / 1000)): string {
   const s = expiresAt - now;
