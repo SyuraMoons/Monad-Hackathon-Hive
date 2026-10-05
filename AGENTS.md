@@ -14,7 +14,7 @@ pnpm install                          # install all workspaces
 pnpm dev                              # web :3000, bridge :4000, agents, shared (watch)
 pnpm build                            # build everything (turbo), including forge build
 pnpm lint                             # lint (web only for now)
-pnpm -r --if-present test             # unit tests: shared, crypto, bridge, contracts
+pnpm -r --if-present test             # unit tests: shared, crypto, bridge, web, contracts
 pnpm --filter @hive/web dev           # run a single workspace
 cd packages/contracts && forge test   # contract tests
 ```

@@ -1,9 +1,10 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Popover } from "@/components/ui/Popover";
-import { explorerAddress } from "@/lib/explorer";
+import { FAUCET_URL, explorerAddress } from "@/lib/explorer";
+import { getHiveClient } from "@/lib/hive/client";
 import { useSession } from "@/lib/stores/session";
 import { useUi } from "@/lib/stores/ui";
 
@@ -12,14 +13,15 @@ const item = "flex min-h-10 w-full cursor-pointer items-center px-[18px] py-2.5 
 /** `0x7f3a9c…e4b1c21e`: longer than a hash chip, so the address can be recognised at a glance. */
 const longAddress = (a: string) => `${a.slice(0, 8)}…${a.slice(-8)}`;
 
-// Figma Wallet menu (93:43, Canvas 7 93:290). Gas is sponsored, so the balance block and faucet row are replaced
-// by "Gas sponsored by Hive" (rules A5, design D3, and the component's own note).
+// Figma Wallet menu (93:43, Canvas 7 93:290). Gas is paid by this account (ADR-006), so it shows the balance and
+// points to the faucet when it runs low.
 export function WalletMenu({ address }: { address: string }) {
   const router = useRouter();
   const setUi = useUi((s) => s.set);
   const signOut = useSession((s) => s.signOut);
   const revealRecoveryPhrase = useSession((s) => s.revealRecoveryPhrase);
   const [copied, setCopied] = useState(false);
+  const [balance, setBalance] = useState<{ mon: string; low: boolean } | "error" | null>(null);
   const [leaving, setLeaving] = useState(false);
   // Held only while the menu is open; closing it unmounts the words.
   const [phrase, setPhrase] = useState<string[] | null>(null);
@@ -37,6 +39,19 @@ export function WalletMenu({ address }: { address: string }) {
       setRevealing(false);
     }
   }
+
+  async function loadBalance() {
+    setBalance(null);
+    try {
+      setBalance(await (await getHiveClient()).status.balance());
+    } catch {
+      setBalance("error");
+    }
+  }
+
+  useEffect(() => {
+    void loadBalance();
+  }, []);
 
   async function copy() {
     try {
@@ -101,9 +116,26 @@ export function WalletMenu({ address }: { address: string }) {
         </div>
       )}
       <div className="h-px bg-line" aria-hidden="true" />
-      <div className="flex flex-col gap-1 px-[18px] py-4">
-        <p className="font-display text-[24px] leading-tight text-ink">Gas sponsored by Hive</p>
-        <p className="font-mono text-[14px] whitespace-pre-wrap text-ink-3">Monad testnet  ·  signing costs you nothing</p>
+      <div className="flex flex-col gap-2 px-[18px] py-4">
+        <p className="font-mono text-[14px] text-ink-3">BALANCE  ·  MONAD TESTNET</p>
+        <p className="font-display text-[24px] leading-tight text-ink" aria-live="polite">
+          {balance === null ? "Checking…" : balance === "error" ? "Balance unavailable" : `${balance.mon} MON`}
+        </p>
+        {typeof balance === "object" && balance?.low ? (
+          <p role="status" className="text-[14px] leading-[1.5] text-status-revoked">
+            Low. This account pays gas, about 2 transactions per agent. Copy the address above, then get test MON from the faucet.
+          </p>
+        ) : (
+          <p className="text-[14px] leading-[1.5] text-ink-3">This account pays gas for what you sign. Testnet MON is free.</p>
+        )}
+        <div className="flex gap-4">
+          <a href={FAUCET_URL} target="_blank" rel="noreferrer" className="inline-flex min-h-9 items-center text-[14px] font-medium text-ink underline underline-offset-2">
+            Open faucet  →
+          </a>
+          <button type="button" onClick={() => void loadBalance()} className="min-h-9 cursor-pointer text-[14px] font-medium text-ink underline underline-offset-2">
+            Refresh
+          </button>
+        </div>
       </div>
       <div className="h-px bg-line" aria-hidden="true" />
       <div className="py-1.5">

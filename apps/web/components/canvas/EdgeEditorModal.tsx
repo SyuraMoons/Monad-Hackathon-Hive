@@ -7,6 +7,7 @@ import { OptionChip } from "@/components/ui/OptionChip";
 import { PillButton } from "@/components/ui/Pill";
 import { StatusDot } from "@/components/ui/StatusDot";
 import { cn } from "@/lib/cn";
+import { FAUCET_URL } from "@/lib/explorer";
 import { longDate } from "@/lib/format";
 import { getHiveClient } from "@/lib/hive/client";
 import { useGraph } from "@/lib/stores/graph";
@@ -21,7 +22,6 @@ const PRESETS = [
 ] as const;
 type ExpiryKey = (typeof PRESETS)[number]["key"] | "custom";
 
-const FAUCET_URL = "https://faucet.monad.xyz";
 
 /** Only for the ADR-002 fallback (EOA pays gas). With sponsored userOps lowBalance() is null (rules A5, design D3). */
 function useLowBalance() {

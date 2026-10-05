@@ -45,6 +45,8 @@ export interface HiveClient {
      * cover a signature. With Pimlico-sponsored userOps (rules A5) this is always null.
      */
     lowBalance(): Promise<string | null>;
+    /** The signed-in owner's MON balance for the wallet menu. `mon` is already formatted ("0.1234"); `low` means it may not cover a few transactions. */
+    balance(): Promise<{ mon: string; low: boolean }>;
   };
   auth: {
     /** POST /v1/auth/challenge */

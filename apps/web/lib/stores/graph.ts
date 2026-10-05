@@ -26,6 +26,7 @@ type GraphState = {
   agents: Record<string, AgentNode>;
   edges: Record<string, EdgeView>;
   load(owner: Address): Promise<void>;
+  loadNow(owner: Address): Promise<void>;
   refreshAgents(): Promise<void>;
   applyEvent(event: HiveEvent): void;
   addEdge(input: { from: AgentId; to: AgentId; topic: Topic; expiresAt: UnixSeconds }): Promise<TxResult<{ edgeId: EdgeId }>>;
@@ -47,12 +48,24 @@ const mergeStatus = (agents: Record<string, AgentNode>, statuses: AgentStatus[])
 
 const failed = (error: HiveError) => ({ status: "failed" as const, error });
 
+// Sign-in and AppShell both call load(); share one in-flight request per owner so the chain is scanned once.
+let inflight: { owner: Address; promise: Promise<void> } | null = null;
+
 export const useGraph = create<GraphState>()((set, get) => ({
   status: "idle",
   agents: {},
   edges: {},
 
-  async load(owner) {
+  load(owner) {
+    if (inflight && inflight.owner.toLowerCase() === owner.toLowerCase()) return inflight.promise;
+    const promise = get().loadNow(owner).finally(() => {
+      if (inflight?.promise === promise) inflight = null;
+    });
+    inflight = { owner, promise };
+    return promise;
+  },
+
+  async loadNow(owner) {
     set({ status: "loading", error: undefined });
     try {
       const client = await getHiveClient();
