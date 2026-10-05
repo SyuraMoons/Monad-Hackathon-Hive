@@ -49,7 +49,6 @@ export default function SmokePage() {
   // Write layer (CP1). A signer is either a Mera passkey account or the
   // dev-only raw-key fallback (D10). Register two agents, then add an edge.
   const [signer, setSigner] = useState<HiveSigner | null>(null);
-  const [userName, setUserName] = useState("demo user");
   const [resumeCredId, setResumeCredId] = useState<string | null>(null);
   const [agentA, setAgentA] = useState<bigint | null>(null);
   const [agentB, setAgentB] = useState<bigint | null>(null);
@@ -72,10 +71,7 @@ export default function SmokePage() {
     setBusy(true);
     setWriteError(null);
     try {
-      const { signer: s, credentialId } = await connectMeraSigner({
-        name: userName.trim() || "demo",
-        displayName: userName.trim() || "Demo User",
-      });
+      const { signer: s, credentialId } = await connectMeraSigner();
       setSigner(s);
       setResumeCredId(credentialId);
       try {
@@ -305,12 +301,6 @@ export default function SmokePage() {
           </div>
         ) : (
           <div className="flex items-center gap-2">
-            <input
-              className="w-40 rounded border border-zinc-700 bg-zinc-900 px-2 py-1"
-              value={userName}
-              onChange={(e) => setUserName(e.target.value)}
-              placeholder="user name"
-            />
             <button
               disabled={busy}
               onClick={connectPasskey}
