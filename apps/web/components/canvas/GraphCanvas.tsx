@@ -28,6 +28,8 @@ import { computeZones, ZoneLayer } from "./ZoneLayer";
 
 export const AGENT_MIME = "application/x-hive-agent";
 
+const NODE_W = 220;
+const NODE_H = 72;
 const nodeTypes = { agent: AgentNode };
 const edgeTypes = { hive: HiveEdge };
 
@@ -48,6 +50,9 @@ export function GraphCanvas({ layout, place }: { layout: Layout; place(patch: La
   const edges = useGraph((s) => s.edges);
   const [selected, setSelected] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  // React Flow hides a node until it has a size, and the nodes array is rebuilt on every change: keep the measured
+  // sizes here (applied from onNodesChange) so a rebuilt node is never left invisible.
+  const [sizes, setSizes] = useState<Record<string, { width: number; height: number }>>({});
   const rf = useReactFlow();
   const canvasRef = useRef<HTMLDivElement>(null);
   const connectEndedAt = useRef(0);
@@ -90,8 +95,18 @@ export function GraphCanvas({ layout, place }: { layout: Layout; place(patch: La
   const placedIds = useMemo(() => Object.keys(agents).filter((id) => layout[id]), [agents, layout]);
 
   const nodes: AgentFlowNode[] = useMemo(
-    () => placedIds.map((id) => ({ id, type: "agent", position: layout[id], data: { agentId: id, isolated: !linked.has(id) }, selected: id === selected })),
-    [placedIds, layout, linked, selected],
+    () =>
+      placedIds.map((id) => ({
+        id,
+        type: "agent",
+        position: layout[id],
+        data: { agentId: id, isolated: !linked.has(id) },
+        selected: id === selected,
+        initialWidth: NODE_W,
+        initialHeight: NODE_H,
+        measured: sizes[id],
+      })),
+    [placedIds, layout, linked, selected, sizes],
   );
 
   const flowEdges: HiveFlowEdge[] = useMemo(
@@ -118,6 +133,10 @@ export function GraphCanvas({ layout, place }: { layout: Layout; place(patch: La
     (changes: NodeChange<AgentFlowNode>[]) => {
       for (const c of changes) {
         if (c.type === "position" && c.position) place({ [c.id]: c.position }, !c.dragging);
+        if (c.type === "dimensions" && c.dimensions) {
+          const { width, height } = c.dimensions;
+          setSizes((cur) => (cur[c.id]?.width === width && cur[c.id]?.height === height ? cur : { ...cur, [c.id]: { width, height } }));
+        }
         if (c.type === "select") setSelected((cur) => (c.selected ? c.id : cur === c.id ? null : cur));
       }
     },
