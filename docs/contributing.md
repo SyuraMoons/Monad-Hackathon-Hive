@@ -30,12 +30,14 @@ docs: add ADR-005
 
 Scopes: `web`, `bridge`, `agents`, `contracts`, `shared`, `indexer`.
 
+Commit as yourself. Don't add AI attribution lines (`Co-Authored-By: Claude`, "Generated with …") to commits or PR descriptions.
+
 ## Pull requests
 
 1. Run `pnpm build` (and `forge test` if you touched contracts). Both must pass.
 2. Keep each PR to one layer or step. Small PRs get reviewed faster.
 3. Describe what changed and how you tested it. Add a screenshot or tx link for UI or onchain changes.
-4. Get at least one teammate's review, then squash-merge into `development`.
+4. Get at least one teammate's review, then merge into `development` with a merge commit.
 
 ## Secrets
 
