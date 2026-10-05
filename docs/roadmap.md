@@ -44,7 +44,7 @@ This exercised the **dev-signer** path only (ADR-006), not a Mera passkey.
 | P0.4 | Passkey auth via Mera | P2 | 🚧 real passkey ceremony and key derivation (ADR-005); `/smoke` can sign with the passkey (#79), but that path is untested |
 | P0.5 | Encrypted storage (Supabase) | P2 | ✅ ciphertext-only table, bridge store (#66, #69) |
 | P0.6 | MCP bridge server | P2 | 🚧 MCP read/write, authorize, gas top-up, chain reader (#71–#77); SSE `/events` not built |
-| P0.7 | Visual canvas (React Flow) | P3 | 🚧 canvas, audit and connect screens on the mock client; live client not wired |
+| P0.7 | Visual canvas (React Flow) | P3 | 🚧 canvas, audit and connect screens on the mock client. In live mode the live client reads agents and registers them from `/connect` (unit-tested, not yet run against testnet); edges, audit and memory preview are still stubs |
 | P0.8 | Live propagation animation | P3 | ⏳ |
 | P0.9 | 2 mock chatbots | P4 | ⏳ placeholder only |
 | P0.10 | Envio indexer (audit trail) | P2 | ⏳ |
@@ -63,6 +63,9 @@ We build one layer at a time. Tick each step off here when it's done.
   - [ ] Passkey-signed tx: `/smoke` uses `lib/passkey` (#79) but nobody has run it yet
 - [x] Contracts: AgentRegistry, KnowledgeGraph, MemorySlots, PropagationEngine, with tests and a deploy to testnet (#71, #76)
 - [x] Canvas: React Flow with 3 nodes and drawable edges (mock client)
+- [ ] Live agent registration from `/connect`: `register` + `setAgentWriter`, then bridge `authorize`
+  - [x] Code and unit tests with fake chain deps
+  - [ ] Run against testnet with a passkey-signed owner (needs MON on the owner address) and a real `claude mcp add`
 - [ ] Wire edge creation → contract tx (CP1). Works from `/smoke` (dev signer, 3 Oct); the live client's `addEdge` is still a stub, so the canvas does not send it
 - [ ] Envio indexer
 - [ ] Bridge: MCP tools `write_memory` / `read_memory`, plus SSE `/events`

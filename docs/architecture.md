@@ -31,7 +31,7 @@ One passkey produces several keys (this targets the Mera "One Passkey, Many Keys
 - `HKDF(seed, "hive/encrypt")` is the **encryption key** for memory content.
 - `m/44'/60'/0'/0/{n}` is a **per-agent scoped key**, handed to the bridge when the user authorizes agent *n*.
 
-The same phrase restores the same account without the passkey, in Hive or any BIP-39 wallet. The wallet menu shows it after a fresh passkey prompt. Keys are derived and signing works today; the owner key signs writes directly (AK-9, ADR-006), but only from the `/smoke` page so far. The canvas is not wired to transactions yet.
+The same phrase restores the same account without the passkey, in Hive or any BIP-39 wallet. The wallet menu shows it after a fresh passkey prompt. Keys are derived and signing works today; the owner key signs writes directly (AK-9, ADR-006), but so far only from the `/smoke` page and, in live mode, the Connect screen's agent registration (not yet run on testnet). The canvas is not wired to edge transactions yet.
 
 Transactions were planned as ERC-4337 user operations through Pimlico's paymaster, so users need no MON. See [ADR-002](decisions.md). Superseded by [ADR-006](decisions.md) — writes go from a faucet-funded EOA; Kernel + Pimlico return behind `HiveSigner`.
 
