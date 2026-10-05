@@ -66,6 +66,26 @@ describe("AL-12: the four required cases", () => {
     await write(CLAUDE, "health", "private");
     expect((await readMemory(deps, { agentId: CHATGPT })).memories).toEqual([]);
   });
+
+  it("all-topics edge: releases any topic, still bound by direction, expiry and active", async () => {
+    chain.edges.push(edge({ topicHash: topicHash("*") }));
+    await write(CLAUDE, "brain", "shared brain");
+    await write(CLAUDE, "health", "also shared");
+    expect((await readMemory(deps, { agentId: CHATGPT })).memories.map((m) => m.topic)).toEqual(["brain", "health"]);
+    expect((await readMemory(deps, { agentId: CHATGPT, topic: "brain" })).memories).toHaveLength(1);
+    expect((await readMemory(deps, { agentId: CLAUDE })).memories).toEqual([]);
+    expect((await readMemory(deps, { agentId: THERAPY })).memories).toEqual([]);
+    chain.edges[0] = edge({ topicHash: topicHash("*"), expiresAt: NOW });
+    expect((await readMemory(deps, { agentId: CHATGPT })).memories).toEqual([]);
+    chain.edges[0] = edge({ topicHash: topicHash("*"), active: false });
+    expect((await readMemory(deps, { agentId: CHATGPT })).memories).toEqual([]);
+  });
+
+  it("a slot written under topic '*' is never readable, even through an all-topics edge", async () => {
+    chain.edges.push(edge({ topicHash: topicHash("*") }));
+    await write(CLAUDE, "*", "sneaky");
+    expect((await readMemory(deps, { agentId: CHATGPT })).memories).toEqual([]);
+  });
 });
 
 describe("more deny cases", () => {
