@@ -13,6 +13,8 @@ import {
   zHealthResponse,
   zHiveEvent,
   zMemoryResponse,
+  zListMemoryInput,
+  zListMemoryOutput,
   zReadMemoryInput,
   zReadMemoryOutput,
   zSaveSessionInput,
@@ -103,6 +105,15 @@ describe("mcp", () => {
     expect(zReadMemoryInput.safeParse({ since: -1 }).success).toBe(false);
     expect(zReadMemoryOutput.safeParse({ memories: [{ slotId: "1", fromAgentId: "1", fromName: "Claude", topic: "work", content: "x", writtenAt: 1 }] }).success).toBe(true);
     expect(zReadMemoryOutput.safeParse({ memories: [{ slotId: "1", fromAgentId: "1", topic: "work", content: "x", writtenAt: 1 }] }).success).toBe(false);
+  });
+
+  it("validates the paging and list shapes", () => {
+    expect(zReadMemoryInput.safeParse({ slotIds: ["4"], limit: 5 }).success).toBe(true);
+    expect(zReadMemoryInput.safeParse({ limit: 0 }).success).toBe(false);
+    expect(zReadMemoryInput.safeParse({ limit: 51 }).success).toBe(false);
+    expect(zReadMemoryInput.safeParse({ slotIds: [] }).success).toBe(false);
+    expect(zListMemoryInput.safeParse({ topic: "work", limit: 20 }).success).toBe(true);
+    expect(zListMemoryOutput.safeParse({ memories: [{ slotId: "1", fromAgentId: "1", fromName: "Claude", topic: "work", writtenAt: 1, bytes: 3, preview: "abc" }], more: true }).success).toBe(true);
   });
 
   it("validates hive_whoami and refuses an agentId argument", () => {

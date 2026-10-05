@@ -26,7 +26,19 @@ export const zWriteMemoryOutput = z.object({
 export const zSaveSessionInput = z.object({ summary: zContent, topic: zTopic.optional() });
 export const zSaveSessionOutput = zWriteMemoryOutput.extend({ topic: zTopic });
 
-export const zReadMemoryInput = z.object({ since: zUnixSeconds.optional(), topic: zTopic.optional() });
+export const MEMORY_PAGE_DEFAULT = 20;
+export const MEMORY_PAGE_MAX = 50;
+export const PREVIEW_CHARS = 160;
+
+const zLimit = z.number().int().min(1).max(MEMORY_PAGE_MAX).optional().describe(`How many of the newest memories to return (default ${MEMORY_PAGE_DEFAULT}, at most ${MEMORY_PAGE_MAX}).`);
+const zTopicFilter = zTopic.optional().describe("Optional filter. Leave it out to read every topic shared with you.");
+
+export const zReadMemoryInput = z.object({
+  since: zUnixSeconds.optional(),
+  topic: zTopicFilter,
+  slotIds: z.array(zSlotId).min(1).max(MEMORY_PAGE_MAX).optional().describe("Only these slots, for example ids from hive_list_memory."),
+  limit: zLimit,
+});
 export const zReadMemoryOutput = z.object({
   memories: z.array(
     z.object({
@@ -38,6 +50,24 @@ export const zReadMemoryOutput = z.object({
       writtenAt: zUnixSeconds,
     }),
   ),
+  /** True when older readable memories were left out by `limit`. */
+  more: z.boolean().default(false),
+});
+
+export const zListMemoryInput = z.object({ since: zUnixSeconds.optional(), topic: zTopicFilter, limit: zLimit });
+export const zListMemoryOutput = z.object({
+  memories: z.array(
+    z.object({
+      slotId: zSlotId,
+      fromAgentId: zAgentId,
+      fromName: z.string(),
+      topic: zTopic,
+      writtenAt: zUnixSeconds,
+      bytes: z.number().int().nonnegative(),
+      preview: z.string(),
+    }),
+  ),
+  more: z.boolean().default(false),
 });
 
 export const zWhoamiInput = z.object({}).strict();
@@ -52,6 +82,7 @@ export const zWhoamiOutput = z.object({
 export const MCP_TOOLS = {
   hive_write_memory: { input: zWriteMemoryInput, output: zWriteMemoryOutput },
   hive_save_session: { input: zSaveSessionInput, output: zSaveSessionOutput },
+  hive_list_memory: { input: zListMemoryInput, output: zListMemoryOutput },
   hive_read_memory: { input: zReadMemoryInput, output: zReadMemoryOutput },
   hive_whoami: { input: zWhoamiInput, output: zWhoamiOutput },
 } as const;
@@ -63,4 +94,6 @@ export type SaveSessionInput = z.input<typeof zSaveSessionInput>;
 export type SaveSessionOutput = z.infer<typeof zSaveSessionOutput>;
 export type ReadMemoryInput = z.input<typeof zReadMemoryInput>;
 export type ReadMemoryOutput = z.infer<typeof zReadMemoryOutput>;
+export type ListMemoryInput = z.input<typeof zListMemoryInput>;
+export type ListMemoryOutput = z.infer<typeof zListMemoryOutput>;
 export type WhoamiOutput = z.infer<typeof zWhoamiOutput>;
