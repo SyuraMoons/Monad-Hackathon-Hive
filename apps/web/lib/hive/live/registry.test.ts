@@ -98,6 +98,13 @@ describe("registerAndBind", () => {
     expect((err as HiveError).message).not.toContain("SECRET");
   });
 
+  it("recognizes Monad's own insufficient-balance error", async () => {
+    const rpc = new BaseError("Missing or invalid parameters.", { details: "Signer had insufficient balance" });
+    const deps = fake([], { register: vi.fn().mockRejectedValue(rpc) });
+    const err = await registerAndBind(deps, input).catch((e: unknown) => e);
+    expect((err as HiveError).message).toMatch(/no MON for gas/);
+  });
+
   it("hides any other failure behind a fixed message", async () => {
     const deps = fake([], { setWriter: vi.fn().mockRejectedValue(new Error("rpc said 0xSECRET")) });
     const err = (await registerAndBind(deps, input).catch((e: unknown) => e)) as HiveError;

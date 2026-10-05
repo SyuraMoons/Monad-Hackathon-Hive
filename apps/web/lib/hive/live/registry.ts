@@ -40,10 +40,15 @@ export async function agentsOf(deps: Pick<RegistryDeps, "readAgent">, owner: Add
   return mine;
 }
 
+// Monad's RPC reports an empty balance as "Signer had insufficient balance" in a generic invalid-params error, not as the
+// error viem maps to InsufficientFundsError.
+const isOutOfFunds = (x: unknown) =>
+  x instanceof InsufficientFundsError || (x instanceof Error && /insufficient (balance|funds)/i.test(`${x.message} ${(x as { details?: string }).details ?? ""}`));
+
 /** Fixed messages only: nothing from the RPC or the signer goes into them. */
 function toHiveError(e: unknown): HiveError {
   if (e instanceof HiveError) return e;
-  if (e instanceof BaseError && e.walk((x) => x instanceof InsufficientFundsError) !== null) {
+  if (e instanceof BaseError && e.walk(isOutOfFunds) !== null) {
     return new HiveError("CHAIN_ERROR", "Your account has no MON for gas. Get test MON from the faucet, then try again.");
   }
   return new HiveError("CHAIN_ERROR", "Could not register the agent on Monad.");
