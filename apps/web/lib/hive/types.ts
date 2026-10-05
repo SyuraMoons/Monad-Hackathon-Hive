@@ -79,3 +79,30 @@ export interface HiveClient {
     removeEdge(edgeId: EdgeId): TxHandle;
   };
 }
+
+// Contract struct mirrors for the direct read layer (lib/hive/hooks.ts).
+export interface Agent {
+  owner: Address;
+  name: string;
+  agentType: string;
+  pubKey: Hex;
+  writer: Address;
+  registeredAt: bigint;
+}
+
+export interface Edge {
+  id: bigint;
+  from: bigint;
+  to: bigint;
+  topic: Hex;
+  expiresAt: bigint;
+  active: boolean;
+}
+
+export interface Slot {
+  id: bigint;
+  agentId: bigint;
+  contentHash: Hex;
+  topic: string;
+  writtenAt: bigint;
+}

@@ -20,16 +20,28 @@ Deadline: **13 Oct 2026, 23:59 UTC**. Demo freeze: **10 Oct**.
 | **CP2**: end-to-end propagation | 5 Oct | Agent A writes memory, a propagation event fires, Agent B receives it, and all of it is visible on the canvas with animation |
 | **CP3**: demo freeze | 10 Oct | No new features after this. Only rehearsal and bug fixes |
 
-**Status, 5 Oct:** CP1 and CP2 are not met on `development`. The contracts are deployed, but their source and the web write path are in open PR #76, and the canvas still runs on the mock client.
+**Status, 5 Oct:** CP1 and CP2 are not met on `development`. The contracts are deployed and their source is merged (#76). Adding an edge works from `/smoke` with the dev signer, but the canvas still runs on the mock client.
+
+## Verified runs
+
+### 3 Oct 2026 — write layer via dev signer
+`/smoke` with `NEXT_PUBLIC_HIVE_DEV_SIGNER` (owner `0x6AC6951B0a53d7a059A121494691A84b5403dF5A`): registered two agents, then added an edge. Three txs confirmed, then checked with `cast call`:
+
+- `agents(1)` → `"Claude"`, `"chatbot"`, owner `0x6AC6…dF5A`
+- `agents(2)` → `"ChatGPT"`, `"chatbot"`, owner `0x6AC6…dF5A`
+- `hasPermission(1, 2, "demo")` → `true`
+- `edge(1)` → `{ from: 1, to: 2, topic: keccak256("demo"), active: true }` · `edgeCount()` → `1`
+
+This exercised the **dev-signer** path only (ADR-006), not a Mera passkey.
 
 ## P0 features (required)
 
 | # | Feature | Owner | Status |
 | --- | --- | --- | --- |
-| P0.1 | AgentRegistry contract | P1 | 🚧 deployed to testnet, source in open PR #76 |
-| P0.2 | KnowledgeGraph contract (edges) | P1 | 🚧 deployed to testnet, source in open PR #76 |
-| P0.3 | MemorySlots + propagation | P1 | 🚧 deployed to testnet, source in open PR #76 |
-| P0.4 | Passkey auth via Mera | P2 | 🚧 real passkey ceremony and key derivation (ADR-005); no passkey-signed tx yet |
+| P0.1 | AgentRegistry contract | P1 | ✅ deployed to testnet, source and tests in #76 |
+| P0.2 | KnowledgeGraph contract (edges) | P1 | ✅ deployed to testnet, source and tests in #76 |
+| P0.3 | MemorySlots + PropagationEngine | P1 | ✅ deployed to testnet, source and tests in #76 |
+| P0.4 | Passkey auth via Mera | P2 | 🚧 real passkey ceremony and key derivation (ADR-005); `/smoke` can sign with the passkey (#79), but that path is untested |
 | P0.5 | Encrypted storage (Supabase) | P2 | ✅ ciphertext-only table, bridge store (#66, #69) |
 | P0.6 | MCP bridge server | P2 | 🚧 MCP read/write, authorize, gas top-up, chain reader (#71–#77); SSE `/events` not built |
 | P0.7 | Visual canvas (React Flow) | P3 | 🚧 canvas, audit and connect screens on the mock client; live client not wired |
@@ -46,10 +58,12 @@ We build one layer at a time. Tick each step off here when it's done.
 
 - [x] Blank monorepo scaffold
 - [x] Docs (README, AGENTS.md, docs/)
-- [ ] Mera passkey smoke test: passkey → address → one onchain tx (gas paid by the Mera EOA, ADR-006). Passkey and address work; the tx is not wired yet
-- [ ] Contracts: AgentRegistry, KnowledgeGraph, MemorySlots, with tests and a deploy to testnet. Deployed, ABIs and addresses in `@hive/shared` (#71); source and tests in open PR #76
+- [ ] Mera passkey smoke test: `/smoke` page with passkey → address → one onchain tx (gas paid by the Mera EOA, ADR-006)
+  - [x] Dev-signer variant verified 3 Oct (see _Verified runs_)
+  - [ ] Passkey-signed tx: `/smoke` uses `lib/passkey` (#79) but nobody has run it yet
+- [x] Contracts: AgentRegistry, KnowledgeGraph, MemorySlots, PropagationEngine, with tests and a deploy to testnet (#71, #76)
 - [x] Canvas: React Flow with 3 nodes and drawable edges (mock client)
-- [ ] Wire edge creation → contract tx (CP1). Live `addEdge` is a stub until #76 lands
+- [ ] Wire edge creation → contract tx (CP1). Works from `/smoke` (dev signer, 3 Oct); the live client's `addEdge` is still a stub, so the canvas does not send it
 - [ ] Envio indexer
 - [ ] Bridge: MCP tools `write_memory` / `read_memory`, plus SSE `/events`
   - [x] MCP `hive_write_memory` / `hive_read_memory` / `hive_whoami`, live chain reads, `authorize` with gas top-up, encrypted write to `MemorySlots` (#71, #74, #75, #77). No live write yet: no agent is registered on testnet
@@ -61,7 +75,7 @@ We build one layer at a time. Tick each step off here when it's done.
 
 ## Open questions (from the PRD)
 
-- Does Mera PRF work under Next.js 15? The smoke test answers this.
+- Does Mera PRF work under Next.js 15? The smoke test answers this. _Still open 3 Oct — only the dev-signer path has been run._
 - Is an ERC-8004 registry deployed on Monad testnet?
 - Does the MCP TypeScript SDK support our custom server setup?
 - Can React Flow handle 20+ nodes with animation?
