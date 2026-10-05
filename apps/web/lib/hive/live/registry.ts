@@ -56,15 +56,16 @@ function toHiveError(e: unknown): HiveError {
 
 /**
  * register, then setAgentWriter (the bridge refuses to authorize an agent without a writer).
- * If an earlier attempt stopped between the two transactions, the owner already has an agent of this type with no
- * writer: reuse it instead of registering a duplicate the Connect page could never finish.
+ * If an earlier attempt stopped between the two transactions, the owner already has an agent of this type and name with
+ * no writer: reuse it instead of registering a duplicate the Connect page could never finish. A different name is a
+ * different agent, so it registers a new one.
  */
 export async function registerAndBind(
   deps: RegistryDeps,
   input: { owner: Address; name: string; agentType: AgentType; agentKey: Address },
 ): Promise<{ agentId: bigint; txHash: Hex }> {
   try {
-    const unbound = (await agentsOf(deps, input.owner)).find((a) => a.agentType === input.agentType && sameAddress(a.writer, zeroAddress));
+    const unbound = (await agentsOf(deps, input.owner)).find((a) => a.agentType === input.agentType && a.name === input.name && sameAddress(a.writer, zeroAddress));
     // Nothing reads `pubKey` yet (docs/backend-handoff.md §2, #3), so it carries the agent key address.
     const registered = unbound ? { agentId: unbound.id, txHash: undefined } : await deps.register(input.name, input.agentType, input.agentKey);
     const txHash = await deps.setWriter(registered.agentId, input.agentKey);
