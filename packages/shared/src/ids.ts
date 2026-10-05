@@ -28,6 +28,11 @@ export type SlotId = bigint;
 export const zTopic = z.string().regex(/^[a-z0-9-]{1,31}$/, "topic must match ^[a-z0-9-]{1,31}$").brand<"Topic">();
 export type Topic = z.infer<typeof zTopic>;
 
+/** Edge topic meaning "every topic". Only edges carry it: slot topics stay `zTopic`, so no real topic can collide with it. */
+export const ALL_TOPICS = "*";
+export const zEdgeTopic = z.union([z.literal(ALL_TOPICS), zTopic]);
+export type EdgeTopic = z.infer<typeof zEdgeTopic>;
+
 export const topicToBytes32 = (topic: Topic): Hex => stringToHex(topic, { size: 32 });
 export const topicFromBytes32 = (value: Hex): Topic => zTopic.parse(hexToString(value, { size: 32 }).replace(/\0+$/, ""));
 
