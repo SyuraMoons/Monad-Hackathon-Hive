@@ -66,9 +66,10 @@ We build one layer at a time. Tick each step off here when it's done.
 - [ ] Wire edge creation → contract tx (CP1). Works from `/smoke` (dev signer, 3 Oct); the live client's `addEdge` is still a stub, so the canvas does not send it
 - [ ] Envio indexer
 - [ ] Bridge: MCP tools `write_memory` / `read_memory`, plus SSE `/events`
-  - [x] MCP `hive_write_memory` / `hive_read_memory` / `hive_whoami`, plus `hive_save_session` (agent-written compact summary to the shared `brain` topic, ADR-010; tested with the SDK client, not yet run against testnet, ChatGPT not yet tested), live chain reads, `authorize` with gas top-up, encrypted write to `MemorySlots` (#71, #74, #75, #77). No live write yet: no agent is registered on testnet
+  - [x] MCP `hive_write_memory` / `hive_read_memory` / `hive_whoami`, live chain reads, `authorize` with gas top-up, encrypted write to `MemorySlots` (#71, #74, #75, #77). No live write yet: no agent is registered on testnet
   - [ ] SSE `/events`
 - [x] Supabase encrypted storage (#66, #69)
+- [x] Bridge `hive_save_session`: the agent writes a compact summary of its own session to the shared `brain` topic (ADR-010). Tested with the SDK client, not yet run against testnet, ChatGPT not yet tested
 - [ ] Mock agents
 - [ ] Propagation animation (CP2)
 - [ ] Demo script and rehearsal (CP3)
