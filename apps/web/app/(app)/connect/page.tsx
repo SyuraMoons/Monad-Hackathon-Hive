@@ -10,6 +10,7 @@ import { PillButton } from "@/components/ui/Pill";
 import { StatusDot } from "@/components/ui/StatusDot";
 import { Tabs } from "@/components/ui/Tabs";
 import { cn } from "@/lib/cn";
+import { checkAgentName, MAX_AGENT_NAME } from "@/lib/hive/agentName";
 import { claudeCommand, gptRunner, gptSnippet } from "@/lib/hive/commands";
 import { useGraph } from "@/lib/stores/graph";
 import { useSession, type Connection } from "@/lib/stores/session";
@@ -64,6 +65,8 @@ function Step({ badge, active, done, children }: { badge: string; active?: boole
   );
 }
 
+const chip = "min-h-9 cursor-pointer rounded-chip border px-3 text-[14px] font-medium";
+
 export default function ConnectPage() {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("claude");
@@ -72,25 +75,63 @@ export default function ConnectPage() {
   const agents = useGraph((s) => s.agents);
   const owner = useSession((s) => s.owner);
   const connections = useSession((s) => s.connections);
+  const authorizations = useSession((s) => s.authorizations);
   const connectAgent = useSession((s) => s.connectAgent);
+  const authorizeAgent = useSession((s) => s.authorizeAgent);
+  const createAgent = useSession((s) => s.createAgent);
   const locked = useSession((s) => s.status === "signed-in" && !s.keys);
   const unlock = useSession((s) => s.unlock);
-  const [unlockError, setUnlockError] = useState<string>();
+  const [actionError, setActionError] = useState<string>();
+  const [picked, setPicked] = useState<string>();
+  const [naming, setNaming] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [creating, setCreating] = useState(false);
   const now = useNow();
 
-  // Set up the agent behind the open tab: register if needed, then authorize (rules §6, Connect rows).
+  // Set up the first agent of the open tab: register if needed, then authorize (rules §6, Connect rows).
   useEffect(() => {
     if (graphReady && !locked) void connectAgent(AGENTS[tab].type, AGENTS[tab].name);
   }, [graphReady, locked, tab, connectAgent]);
 
-  const byType = (t: AgentType) => Object.values(agents).find((a) => a.agentType === t);
-  const connectedCount = (["claude", "gpt"] as const).filter((t) => byType(AGENTS[t].type)?.connected).length;
+  const ofType = (t: AgentType) => Object.values(agents).filter((a) => a.agentType === t).sort((a, b) => Number(a.agentId - b.agentId));
+  const all = [...ofType("claude"), ...ofType("gpt")];
+  const connectedCount = all.filter((a) => a.connected).length;
 
   const agent = AGENTS[tab];
-  const conn = connections[agent.type];
-  const ready = conn?.phase === "ready" ? conn : undefined;
-  const token = ready?.agentToken ?? "";
-  const url = ready?.mcpUrl ?? "";
+  const mine = ofType(agent.type);
+  const selected = mine.find((a) => a.agentId.toString() === picked) ?? mine[0];
+  const isDefault = selected === mine[0];
+  const conn = isDefault ? connections[agent.type] : undefined;
+  const auth = selected ? authorizations[selected.agentId.toString()] : undefined;
+  const token = auth?.agentToken ?? "";
+  const url = auth?.mcpUrl ?? "";
+  const needsAuthorize = !!selected && !auth && !locked && (!isDefault || conn?.phase === "error" || conn?.phase === "ready");
+
+  function switchTab(next: Tab) {
+    setTab(next);
+    setPicked(undefined);
+    setNaming(false);
+    setActionError(undefined);
+  }
+
+  async function create() {
+    const checked = checkAgentName(newName, Object.values(agents).map((a) => a.name));
+    if ("error" in checked) return setActionError(checked.error);
+    setCreating(true);
+    setActionError(undefined);
+    try {
+      const id = await createAgent(checked.name, agent.type);
+      setPicked(id.toString());
+      setNaming(false);
+      setNewName("");
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : "Could not create the agent.");
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  const fail = (e: unknown, fallback: string) => setActionError(e instanceof Error ? e.message : fallback);
 
   return (
     <main className="relative mx-auto grid w-full max-w-[1200px] items-start gap-12 px-8 pt-[140px] pb-16 xl:grid-cols-[minmax(0,520px)_600px] xl:justify-between xl:pt-[184px]">
@@ -110,8 +151,8 @@ export default function ConnectPage() {
         </p>
         <ol className="flex flex-col gap-3.5">
           <Step badge="1" done>Your passkey is verified</Step>
-          <Step badge="2" active={connectedCount < 2} done={connectedCount === 2}>
-            Run the command for each agent{connectedCount > 0 ? `  ·  ${connectedCount} of 2` : ""}
+          <Step badge="2" active={connectedCount < 2} done={connectedCount >= 2}>
+            Run the command for each agent{connectedCount > 0 ? `  ·  ${connectedCount} connected` : ""}
           </Step>
           <Step badge="3">Draw an edge on the canvas</Step>
         </ol>
@@ -130,31 +171,87 @@ export default function ConnectPage() {
           label="Agent"
           idPrefix="connect"
           value={tab}
-          onChange={setTab}
+          onChange={switchTab}
           items={[
             { key: "claude", label: "Claude", icon: AGENTS.claude.icon },
             { key: "gpt", label: "GPT", icon: AGENTS.gpt.icon },
           ]}
         />
+
+        <div className="flex w-full flex-wrap items-center gap-2" role="group" aria-label={`${agent.name} agents`}>
+          {mine.map((a) => (
+            <button
+              key={a.agentId.toString()}
+              type="button"
+              onClick={() => { setPicked(a.agentId.toString()); setActionError(undefined); }}
+              aria-pressed={a === selected}
+              className={cn(chip, a === selected ? "border-ink bg-paper-2 text-ink" : "border-line text-ink-2 hover:border-ink-3")}
+            >
+              {a.name}
+            </button>
+          ))}
+          {selected && !naming && (
+            <button type="button" onClick={() => setNaming(true)} disabled={locked} className={cn(chip, "border-dashed border-clay text-ink-2 hover:text-ink disabled:cursor-default disabled:opacity-50")}>
+              + New {agent.name} agent
+            </button>
+          )}
+        </div>
+        {naming && (
+          <form
+            className="flex w-full flex-wrap items-center gap-2"
+            onSubmit={(e) => { e.preventDefault(); void create(); }}
+          >
+            <label className="sr-only" htmlFor="new-agent-name">Agent name</label>
+            <input
+              id="new-agent-name"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              maxLength={MAX_AGENT_NAME}
+              placeholder={`${agent.name} · bridge`}
+              autoFocus
+              className="min-h-9 min-w-0 flex-1 rounded-chip border border-line bg-paper px-3 text-[14px] text-ink"
+            />
+            <button type="submit" disabled={creating} className={cn(chip, "border-ink text-ink hover:bg-paper-2 disabled:opacity-50")}>
+              {creating ? "Registering on Monad…" : "Create"}
+            </button>
+            <button type="button" disabled={creating} onClick={() => { setNaming(false); setActionError(undefined); }} className={cn(chip, "border-line text-ink-2")}>
+              Cancel
+            </button>
+            <p className="w-full text-[13px] text-ink-3">Registering is a transaction. Your account pays a little gas.</p>
+          </form>
+        )}
+
         <div id="connect-panel" role="tabpanel" aria-labelledby={`connect-tab-${tab}`} className="w-full">
           <InstallCard
             tab={tab}
             command={tab === "claude" ? claudeCommand(url, token) : gptSnippet(url, token)}
             token={token}
-            pending={graphError || locked ? undefined : pendingText(agent.name, conn, graphReady)}
-            error={graphError ?? (locked ? (unlockError ?? `Unlock with your passkey to set up ${agent.name}.`) : conn?.phase === "error" ? conn.message : undefined)}
-            retryLabel={!graphError && locked ? "Unlock with passkey" : undefined}
+            pending={graphError || locked || needsAuthorize ? undefined : pendingText(agent.name, conn, graphReady)}
+            error={
+              graphError ??
+              actionError ??
+              (locked
+                ? `Unlock with your passkey to set up ${selected?.name ?? agent.name}.`
+                : needsAuthorize
+                  ? `${selected?.name} has no token in this tab. Authorize it to show the command.`
+                  : conn?.phase === "error"
+                    ? conn.message
+                    : undefined)
+            }
+            retryLabel={!graphError && locked ? "Unlock with passkey" : needsAuthorize ? "Authorize" : undefined}
             onRetry={() =>
               void (graphError && owner
                 ? useGraph.getState().load(owner)
                 : locked
-                  ? unlock().then(() => setUnlockError(undefined), (e: unknown) => setUnlockError(e instanceof Error ? e.message : "Could not unlock with the passkey."))
-                  : connectAgent(agent.type, agent.name))
+                  ? unlock().then(() => setActionError(undefined), (e: unknown) => fail(e, "Could not unlock with the passkey."))
+                  : needsAuthorize && selected
+                    ? authorizeAgent(selected.agentId).then(() => setActionError(undefined), (e: unknown) => fail(e, "Could not authorize the agent."))
+                    : connectAgent(agent.type, agent.name))
             }
             secondary={tab === "gpt" && token ? { caption: "or run Hive’s GPT agent (planned: apps/agents)", command: gptRunner(token) } : undefined}
             note={
               tab === "claude"
-                ? "Your token is already filled in. It is scoped to this one agent and expires in 24h."
+                ? "Your token is already filled in. It is scoped to this one agent and expires in 24h. Claude Code keeps it per project folder: sessions in one folder are one agent. For another agent, add it from another folder."
                 : "A separate token from Claude’s, so one leak can’t act as the other. OpenAI calls the bridge from its servers, so this URL must be public."
             }
           />
@@ -174,23 +271,20 @@ export default function ConnectPage() {
 
         <div className="flex w-full flex-wrap items-center justify-between gap-4 border-t border-line pt-[18px]">
           <ul className="flex flex-col gap-1.5" aria-live="polite">
-            {(["claude", "gpt"] as const).map((t) => {
-              const a = byType(AGENTS[t].type);
-              const c = connections[AGENTS[t].type];
-              return (
-                <li key={t} className="flex items-center gap-2 text-[14px]">
-                  <StatusDot status={a?.connected ? "active" : "idle"} />
-                  <span className="font-medium text-ink">{AGENTS[t].name}</span>
-                  <span className={cn("font-mono whitespace-pre", a?.connected ? "text-status-active" : "text-ink-3")}>
-                    {a?.connected
-                      ? `connected  ·  first call ${ago(now - (a.lastCallAt ?? now))}`
-                      : c?.phase === "ready"
-                        ? "waiting for first call…"
-                        : "not set up yet"}
-                  </span>
-                </li>
-              );
-            })}
+            {(all.length ? all : []).map((a) => (
+              <li key={a.agentId.toString()} className="flex items-center gap-2 text-[14px]">
+                <StatusDot status={a.connected ? "active" : "idle"} />
+                <span className="font-medium text-ink">{a.name}</span>
+                <span className={cn("font-mono whitespace-pre", a.connected ? "text-status-active" : "text-ink-3")}>
+                  {a.connected
+                    ? `connected  ·  first call ${ago(now - (a.lastCallAt ?? now))}`
+                    : a.tokenExpiresAt && a.tokenExpiresAt > now
+                      ? "waiting for first call…"
+                      : "not set up yet"}
+                </span>
+              </li>
+            ))}
+            {all.length === 0 && <li className="font-mono text-[14px] text-ink-3">no agents yet</li>}
           </ul>
           <PillButton disabled={connectedCount === 0} onClick={() => router.push("/canvas")}>
             Open the canvas

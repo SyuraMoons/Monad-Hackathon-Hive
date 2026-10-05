@@ -5,6 +5,7 @@ import { bytesToHex, zeroAddress } from "viem";
 import { privateKeyToAddress } from "viem/accounts";
 import { create } from "zustand";
 import { getHiveClient, HIVE_MODE } from "@/lib/hive/client";
+import { checkAgentName } from "@/lib/hive/agentName";
 import { clearSavedSession, loadSavedSession, saveSession } from "@/lib/hive/savedSession";
 import type { HiveMode } from "@/lib/hive/types";
 import { useGraph } from "./graph";
@@ -48,6 +49,8 @@ type SessionState = {
   signIn(options?: { create?: boolean }): Promise<void>;
   /** Connect page: register the agent if needed (owner userOp), then authorize it with the bridge (rules O1, §5.1). */
   connectAgent(agentType: AgentType, name: string): Promise<void>;
+  /** Registers one more agent (an owner transaction that costs gas), then authorizes it. Resolves to its id. Throws a readable message. */
+  createAgent(name: string, agentType: AgentType): Promise<AgentId>;
   /** Canvas Reconnect: gives the bridge the agent's keys again (one passkey touch when locked). A token under 24h old works again. Throws a readable message. */
   authorizeAgent(agentId: AgentId): Promise<void>;
   /** Ends the agent's bridge session: its keys leave the bridge and its token stops working. */
@@ -268,6 +271,26 @@ export const useSession = create<SessionState>()((set, get) => ({
     } catch (e) {
       setConn({ phase: "error", message: e instanceof Error ? e.message : String(e) });
     }
+  },
+
+  async createAgent(name, agentType) {
+    const { owner } = get();
+    if (!owner) throw new Error("Sign in first.");
+    const graph = useGraph.getState();
+    const checked = checkAgentName(name, Object.values(graph.agents).map((a) => a.name));
+    if ("error" in checked) throw new Error(checked.error);
+    const keys = await get().unlock();
+    const client = await getHiveClient();
+    const n = nextAgentIndex(keys, Object.values(graph.agents).map((a) => a.agentKey));
+    const agentKey = privateKeyToAddress(keys.agentPrivateKey(n));
+    const result = await client.tx.registerAgent({ name: checked.name, agentType, agentKey }).wait();
+    if (result.status === "failed") throw result.error;
+    await useGraph.getState().load(owner);
+    const agent = useGraph.getState().agents[result.agentId.toString()];
+    if (!agent) throw new Error(`${checked.name} was registered, but the graph hasn't caught up yet. Reload in a moment.`);
+    await authorizeWithKeys(keys, agent);
+    await useGraph.getState().refreshAgents().catch(() => {});
+    return agent.agentId;
   },
 
   async authorizeAgent(agentId) {
