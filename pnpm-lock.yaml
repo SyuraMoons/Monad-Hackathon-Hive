@@ -17,6 +17,9 @@ importers:
 
   apps/agents:
     dependencies:
+      '@hive/mcp-client':
+        specifier: workspace:*
+        version: link:../../packages/mcp-client
       '@hive/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -161,6 +164,34 @@ importers:
       '@types/node':
         specifier: ^22
         version: 22.20.4
+      typescript:
+        specifier: ^5.8.0
+        version: 5.9.3
+      vitest:
+        specifier: ^3.2.7
+        version: 3.2.7(@types/node@22.20.4)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.15)
+
+  packages/mcp-client:
+    dependencies:
+      '@hive/shared':
+        specifier: workspace:*
+        version: link:../shared
+      '@modelcontextprotocol/sdk':
+        specifier: ^1.31.0
+        version: 1.31.0(zod@4.6.5)
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
+    devDependencies:
+      '@hive/crypto':
+        specifier: workspace:*
+        version: link:../crypto
+      '@types/node':
+        specifier: ^22
+        version: 22.20.4
+      jose:
+        specifier: ^6.2.12
+        version: 6.2.12
       typescript:
         specifier: ^5.8.0
         version: 5.9.3
