@@ -8,6 +8,7 @@ import {
   zHealthResponse,
 } from "@hive/shared";
 import type { HiveClient } from "../types";
+import { createEventStream } from "./events";
 
 // The bridge's HTTP routes (rules §5.1). Every response is checked against the shared zod schema,
 // so a bridge that drifts from the contract fails loudly here instead of deep inside a screen.
@@ -53,7 +54,7 @@ async function call<T>(method: string, path: string, opts: { body?: unknown; tok
 }
 
 /** `status`, `auth` and `agents` of the live client. The user token lives in this closure: memory only. */
-export function createBridgeApi(): Pick<HiveClient, "auth" | "agents"> & { health: HiveClient["status"]["health"] } {
+export function createBridgeApi(): Pick<HiveClient, "auth" | "agents"> & { health: HiveClient["status"]["health"]; events: HiveClient["events"] } {
   let userToken: string | undefined;
   const token = () => {
     if (!userToken) throw new HiveError("UNAUTHORIZED", "Sign in first.");
@@ -68,6 +69,7 @@ export function createBridgeApi(): Pick<HiveClient, "auth" | "agents"> & { healt
 
   return {
     health: () => call("GET", "/health", { schema: zHealthResponse }),
+    events: { subscribe: createEventStream({ baseUrl, token: () => userToken }) },
     auth: {
       challenge: (owner) => call("POST", "/v1/auth/challenge", { body: { owner }, schema: zAuthChallengeResponse }),
       async verify(body) {

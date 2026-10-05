@@ -27,7 +27,11 @@ function useHiveBootstrap(owner: Address | undefined) {
           useFeed.getState().applyEvent(event);
           pulses.fromEvent(event);
         },
-        (bridge) => useUi.getState().set({ bridge }),
+        (bridge) => {
+          useUi.getState().set({ bridge });
+          // Events sent while the stream was down are not replayed to the stores: re-read who is connected.
+          if (bridge === "open") void useGraph.getState().refreshAgents().catch(() => {});
+        },
       );
     });
     return () => {

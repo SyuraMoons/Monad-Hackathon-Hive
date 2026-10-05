@@ -9,7 +9,7 @@ import { agentsOf, registerAndBind, toAgent } from "./registry";
 import { chainReader, chainRegistry } from "./registryChain";
 
 // Sign-in and agent sessions talk to the real bridge, and agents are read from the AgentRegistry.
-// Edges (Envio), live events, memory preview and edge transactions arrive in step 10, one service at a time.
+// Edges (Envio), memory preview and edge transactions arrive in step 10, one service at a time.
 const todo = (what: string): never => {
   throw new Error(`${what}: not implemented yet: see step 10`);
 };
@@ -52,13 +52,7 @@ export function createLiveClient(): LiveHiveClient {
       auditEvents: async () => todo("graph.auditEvents"),
       provenance: async () => todo("graph.provenance"),
     },
-    events: {
-// No stream yet (step 10): report it as offline instead of throwing inside the app shell.
-      subscribe: (_onEvent, onStatus) => {
-        onStatus?.("offline");
-        return () => {};
-      },
-    },
+    events: bridge.events,
     memory: {
       preview: async () => todo("memory.preview"),
     },
