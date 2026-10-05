@@ -27,7 +27,8 @@ const AGENTS: Record<Tab, { name: string; type: AgentType; icon: string }> = {
 const TOOLS = [
   ["hive_write_memory", "save a memory under a topic"],
   ["hive_save_session", "save a summary of this conversation to Hive"],
-  ["hive_read_memory", "read what your edges allow"],
+  ["hive_list_memory", "list what your edges allow, with a short preview"],
+  ["hive_read_memory", "read the full memories you pick"],
   ["hive_whoami", "check this agent’s identity and what it can read"],
 ] as const;
 
