@@ -89,12 +89,15 @@ export default function ConnectPage() {
   const owner = useSession((s) => s.owner);
   const connections = useSession((s) => s.connections);
   const connectAgent = useSession((s) => s.connectAgent);
+  const locked = useSession((s) => s.status === "signed-in" && !s.keys);
+  const unlock = useSession((s) => s.unlock);
+  const [unlockError, setUnlockError] = useState<string>();
   const now = useNow();
 
   // Set up the agent behind the open tab: register if needed, then authorize (rules §6, Connect rows).
   useEffect(() => {
-    if (graphReady) void connectAgent(AGENTS[tab].type, AGENTS[tab].name);
-  }, [graphReady, tab, connectAgent]);
+    if (graphReady && !locked) void connectAgent(AGENTS[tab].type, AGENTS[tab].name);
+  }, [graphReady, locked, tab, connectAgent]);
 
   const byType = (t: AgentType) => Object.values(agents).find((a) => a.agentType === t);
   const connectedCount = (["claude", "gpt"] as const).filter((t) => byType(AGENTS[t].type)?.connected).length;
@@ -154,9 +157,16 @@ export default function ConnectPage() {
             tab={tab}
             command={tab === "claude" ? claudeCommand(url, token) : gptSnippet(url, token)}
             token={token}
-            pending={graphError ? undefined : pendingText(agent.name, conn, graphReady)}
-            error={graphError ?? (conn?.phase === "error" ? conn.message : undefined)}
-            onRetry={() => void (graphError && owner ? useGraph.getState().load(owner) : connectAgent(agent.type, agent.name))}
+            pending={graphError || locked ? undefined : pendingText(agent.name, conn, graphReady)}
+            error={graphError ?? (locked ? (unlockError ?? `Unlock with your passkey to set up ${agent.name}.`) : conn?.phase === "error" ? conn.message : undefined)}
+            retryLabel={!graphError && locked ? "Unlock with passkey" : undefined}
+            onRetry={() =>
+              void (graphError && owner
+                ? useGraph.getState().load(owner)
+                : locked
+                  ? unlock().then(() => setUnlockError(undefined), (e: unknown) => setUnlockError(e instanceof Error ? e.message : "Could not unlock with the passkey."))
+                  : connectAgent(agent.type, agent.name))
+            }
             secondary={tab === "gpt" && token ? { caption: "or run Hive’s GPT agent (planned: apps/agents)", command: gptRunner(token) } : undefined}
             note={
               tab === "claude"
