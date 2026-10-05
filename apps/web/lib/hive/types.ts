@@ -7,7 +7,8 @@ import type {
   AuthorizeResponse,
   ContentHash,
   EdgeId,
-  GraphSnapshot,
+  Agent as ChainAgent,
+  Edge as ChainEdge,
   HealthResponse,
   Hex,
   HiveError,
@@ -32,6 +33,9 @@ export type TxHandle<T extends object = object> = { status: "pending"; wait(): P
 
 /** One past write of an agent, as the chain keeps it: hashes and topics, never content. */
 export type MemoryHistoryRow = { slotId: SlotId; topic: Topic; contentHash: ContentHash; writtenAt: UnixSeconds };
+
+/** An edge as read from the chain. `addedTx` is null when this browser did not sign it: the chain keeps no transaction hash. */
+export type EdgeRow = Omit<ChainEdge, "addedTx"> & { addedTx: TxHash | null };
 
 export type BridgeStatus = "connecting" | "open" | "reconnecting" | "offline";
 
@@ -66,7 +70,7 @@ export interface HiveClient {
     disconnect(agentId: AgentId): Promise<void>;
   };
   graph: {
-    load(owner: Address): Promise<GraphSnapshot>;
+    load(owner: Address): Promise<{ agents: ChainAgent[]; edges: EdgeRow[] }>;
     auditEvents(owner: Address): Promise<AuditEvent[]>;
     provenance(contentHash: ContentHash): Promise<Provenance | null>;
   };

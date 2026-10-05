@@ -42,7 +42,7 @@ export async function agentsOf(deps: Pick<RegistryDeps, "readAgent">, owner: Add
 
 // Monad's RPC reports an empty balance as "Signer had insufficient balance" in a generic invalid-params error, not as the
 // error viem maps to InsufficientFundsError.
-const isOutOfFunds = (x: unknown) =>
+export const isOutOfFunds = (x: unknown) =>
   x instanceof InsufficientFundsError || (x instanceof Error && /insufficient (balance|funds)/i.test(`${x.message} ${(x as { details?: string }).details ?? ""}`));
 
 /** Fixed messages only: nothing from the RPC or the signer goes into them. */

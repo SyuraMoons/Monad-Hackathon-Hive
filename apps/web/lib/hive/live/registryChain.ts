@@ -21,7 +21,7 @@ export const chainReader: Pick<RegistryDeps, "readAgent"> = {
   },
 };
 
-async function confirmed(hash: `0x${string}`) {
+export async function confirmed(hash: `0x${string}`) {
   const receipt = await hivePublicClient.waitForTransactionReceipt({ hash, confirmations: 1 });
   if (receipt.status !== "success") throw new HiveError("CHAIN_ERROR", "The transaction was reverted onchain.");
   return receipt;

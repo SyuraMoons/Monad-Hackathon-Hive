@@ -11,6 +11,7 @@ import { FAUCET_URL } from "@/lib/explorer";
 import { longDate } from "@/lib/format";
 import { getHiveClient } from "@/lib/hive/client";
 import { useGraph, visibleAgents } from "@/lib/stores/graph";
+import { UNKNOWN_TOPIC } from "@/lib/hive/live/edges";
 import { expiresIn, topicColor } from "@/lib/topics";
 
 // The three defaults are only suggestions (step 6/7); existing edge topics are offered too.
@@ -58,7 +59,7 @@ export function EdgeEditorModal({ from, to, initialTopic, onClose, onSign, retur
   const toName = agents[to.toString()]?.name ?? `#${to}`;
 
   const liveEdges = useMemo(() => Object.values(edges).filter((e) => e.state !== "revoked"), [edges]);
-  const topics = useMemo(() => [...new Set([...SUGGESTED, ...liveEdges.map((e) => e.topic), ...(initialTopic ? [initialTopic] : [])])], [liveEdges, initialTopic]);
+  const topics = useMemo(() => [...new Set([...SUGGESTED, ...liveEdges.map((e) => e.topic).filter((t) => t !== UNKNOWN_TOPIC), ...(initialTopic ? [initialTopic] : [])])], [liveEdges, initialTopic]);
 
   const [topic, setTopic] = useState<string>(initialTopic ?? topics[0]);
   const [adding, setAdding] = useState(false);
