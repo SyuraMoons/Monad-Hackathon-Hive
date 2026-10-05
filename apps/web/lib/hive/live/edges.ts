@@ -30,7 +30,7 @@ function resolver(topics: Iterable<string>) {
 }
 
 /**
- * The active edges the owner's agents send. Topic text comes from `known` first (the "brain" topic and the edges this
+ * The active edges the owner's agents send. Topic text comes from `known` first (the default and old "brain" topics and the edges this
  * browser signed). Only when some edge is still unresolved, `more` is asked for further candidates (the topics the agents
  * wrote to). An edge whose topic is still unknown is kept, because a live permission must not be hidden.
  */

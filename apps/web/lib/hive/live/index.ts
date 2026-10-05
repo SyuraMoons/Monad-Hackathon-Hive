@@ -1,4 +1,4 @@
-import { DEFAULT_BRAIN_TOPIC, HiveError, zEdgeId, zTxHash } from "@hive/shared";
+import { DEFAULT_TOPIC, HiveError, zEdgeId, zTxHash } from "@hive/shared";
 import { formatEther, parseEther } from "viem";
 import { explorerTx } from "@/lib/explorer";
 import { hivePublicClient } from "../clients";
@@ -59,8 +59,8 @@ export function createLiveClient(): LiveHiveClient {
       load: async (owner) => {
         const mine = await agentsOf(chainReader, owner);
         const notes = loadEdgeNotes(owner);
-        // The chain keeps only keccak256(topic): the topic text comes from "brain", the edges signed here, then what the agents wrote.
-        const known = [DEFAULT_BRAIN_TOPIC, ...Object.values(notes).map((n) => n.topic)];
+        // The chain keeps only keccak256(topic): the topic text comes from "general" and the old "brain", the edges signed here, then what the agents wrote.
+        const known = [DEFAULT_TOPIC, "brain", ...Object.values(notes).map((n) => n.topic)];
         const written = async () => (await Promise.all(mine.map((a) => agentHistory(chainHistory, a.id).catch(() => [])))).flat().map((r) => r.topic as string);
         const edges = await edgesOf(edgeReader, mine.map((a) => a.id), known, notes, written);
         return { agents: mine.map(toAgent), edges };

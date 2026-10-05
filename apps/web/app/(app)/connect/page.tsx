@@ -26,7 +26,7 @@ const AGENTS: Record<Tab, { name: string; type: AgentType; icon: string }> = {
 // rules O5 / design D4: hive_whoami replaces hive_register_agent (the browser registers agents).
 const TOOLS = [
   ["hive_write_memory", "save a memory under a topic"],
-  ["hive_save_session", "save a summary of this conversation to the shared brain"],
+  ["hive_save_session", "save a summary of this conversation to Hive"],
   ["hive_read_memory", "read what your edges allow"],
   ["hive_whoami", "check this agent’s identity and what it can read"],
 ] as const;
