@@ -103,6 +103,44 @@ function ConnectionSection({ agent }: { agent: AgentNode }) {
   );
 }
 
+// The registry can't delete an agent, so this hides it on this browser and ends its bridge session (ADR-012).
+function RemoveSection({ agent }: { agent: AgentNode }) {
+  const hide = useGraph((s) => s.hide);
+  const disconnectAgent = useSession((s) => s.disconnectAgent);
+  const setUi = useUi((s) => s.set);
+  const [confirming, setConfirming] = useState(false);
+  const [error, setError] = useState<string>();
+
+  async function remove() {
+    const result = hide(agent.agentId);
+    if ("error" in result) return setError(result.error);
+    setUi({ drawerAgentId: null });
+    await disconnectAgent(agent.agentId).catch(() => {}); // best effort: the keys also leave the bridge when it restarts
+  }
+
+  return (
+    <section className={section} aria-label="Remove">
+      <p className={eyebrow}>REMOVE</p>
+      {confirming ? (
+        <>
+          <p className="text-[15px] leading-[1.5] text-ink-2">
+            {agent.name} leaves your canvas and its bridge session ends. It stays registered on Monad, and you can show it again from the sidebar.
+          </p>
+          <div className="flex gap-2.5">
+            <button type="button" className={cn(button, "border-status-revoked text-status-revoked")} onClick={() => void remove()}>Remove from canvas</button>
+            <button type="button" className={button} onClick={() => { setConfirming(false); setError(undefined); }}>Cancel</button>
+          </div>
+        </>
+      ) : (
+        <div>
+          <button type="button" className={button} onClick={() => setConfirming(true)}>Remove from canvas</button>
+        </div>
+      )}
+      {error && <p role="alert" className="text-[14px] leading-[1.45] text-status-revoked">{error}</p>}
+    </section>
+  );
+}
+
 // Figma Canvas 5 Node drawer (61:710): covers the feed panel, closes on ✕, Esc or a canvas click.
 export function NodeDrawer({ agentId }: { agentId: string }) {
   const agent = useGraph((s) => s.agents[agentId]);
@@ -241,6 +279,8 @@ export function NodeDrawer({ agentId }: { agentId: string }) {
           past !== "loading" && past !== "error" && <p className="text-[15px] leading-[1.5] text-ink-2">No writes yet.</p>
         )}
       </section>
+
+      <RemoveSection agent={agent} />
 
       <div className="border-t border-line px-6 py-[18px]">
         <a href={explorerAddress(agent.agentKey)} target="_blank" rel="noreferrer" className="inline-flex min-h-9 items-center text-[15px] font-medium whitespace-pre text-ink underline underline-offset-2 hover:text-ink-2">

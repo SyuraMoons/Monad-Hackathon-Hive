@@ -251,7 +251,10 @@ export const useSession = create<SessionState>()((set, get) => ({
     try {
       const client = await getHiveClient();
       const graph = useGraph.getState();
-      let agent = Object.values(graph.agents).find((a) => a.agentType === agentType);
+      const ofType = Object.values(graph.agents).filter((a) => a.agentType === agentType);
+      // Every agent of this type is hidden: don't register another one or bring a hidden one back. Show it from the sidebar.
+      if (ofType.length && ofType.every((a) => graph.hidden[a.agentId.toString()])) return;
+      let agent = ofType.find((a) => !graph.hidden[a.agentId.toString()]);
 
       // An agent with no writer key is a registration that stopped after the first transaction: finish it.
       if (!agent || agent.agentKey === zeroAddress) {

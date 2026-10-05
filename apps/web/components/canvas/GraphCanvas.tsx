@@ -15,7 +15,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type
 import { cn } from "@/lib/cn";
 import { signEdge } from "@/lib/edgeActions";
 import type { Layout, XY } from "@/lib/layout";
-import { GHOST_MS, useGraph } from "@/lib/stores/graph";
+import { GHOST_MS, useGraph, visibleAgents } from "@/lib/stores/graph";
 import { useUi, type Anchor } from "@/lib/stores/ui";
 import { AgentNode, type AgentFlowNode } from "./AgentNode";
 import { EdgeEditorModal } from "./EdgeEditorModal";
@@ -42,7 +42,9 @@ export function freeSlot(taken: XY[], index: number, total: number): XY {
 
 export function GraphCanvas({ layout, place }: { layout: Layout; place(patch: Layout, persist?: boolean): void }) {
   const status = useGraph((s) => s.status);
-  const agents = useGraph((s) => s.agents);
+  const allAgents = useGraph((s) => s.agents);
+  const hidden = useGraph((s) => s.hidden);
+  const agents = useMemo(() => visibleAgents(allAgents, hidden), [allAgents, hidden]);
   const edges = useGraph((s) => s.edges);
   const [selected, setSelected] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
@@ -95,9 +97,9 @@ export function GraphCanvas({ layout, place }: { layout: Layout; place(patch: La
   const flowEdges: HiveFlowEdge[] = useMemo(
     () =>
       drawnEdges
-        .filter((e) => layout[e.from.toString()] && layout[e.to.toString()])
+        .filter((e) => agents[e.from.toString()] && agents[e.to.toString()] && layout[e.from.toString()] && layout[e.to.toString()])
         .map((e) => ({ id: e.key, source: e.from.toString(), target: e.to.toString(), type: "hive", data: { edgeKey: e.key }, focusable: false })),
-    [drawnEdges, layout],
+    [drawnEdges, layout, agents],
   );
 
   const zones = useMemo(

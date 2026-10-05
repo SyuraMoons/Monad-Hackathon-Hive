@@ -7,7 +7,7 @@ import { StatusDot } from "@/components/ui/StatusDot";
 import { cn } from "@/lib/cn";
 import { getHiveClient } from "@/lib/hive/client";
 import type { Layout } from "@/lib/layout";
-import { useGraph } from "@/lib/stores/graph";
+import { useGraph, visibleAgents } from "@/lib/stores/graph";
 import { useUi } from "@/lib/stores/ui";
 import { topicColor } from "@/lib/topics";
 import { AGENT_MIME, freeSlot } from "./GraphCanvas";
@@ -36,7 +36,11 @@ function useHealth() {
 
 // Figma sidebar (55:53): agent chips, topics from the edges that exist, network status.
 export function Sidebar({ layout, place }: { layout: Layout; place(patch: Layout, persist?: boolean): void }) {
-  const agents = useGraph((s) => s.agents);
+  const allAgents = useGraph((s) => s.agents);
+  const hidden = useGraph((s) => s.hidden);
+  const unhide = useGraph((s) => s.unhide);
+  const agents = useMemo(() => visibleAgents(allAgents, hidden), [allAgents, hidden]);
+  const hiddenList = useMemo(() => Object.values(allAgents).filter((a) => hidden[a.agentId.toString()]).sort((a, b) => Number(a.agentId - b.agentId)), [allAgents, hidden]);
   const edges = useGraph((s) => s.edges);
   const bridge = useUi((s) => s.bridge);
   const rpc = useHealth();
@@ -88,6 +92,19 @@ export function Sidebar({ layout, place }: { layout: Layout; place(patch: Layout
       <Link href="/connect" className="mt-3 inline-flex min-h-9 items-center text-[14px] font-medium text-ink-2 underline underline-offset-2 hover:text-ink">
         + Connect another agent
       </Link>
+      {hiddenList.length > 0 && (
+        <details className="mt-1 text-[14px] text-ink-2">
+          <summary className="inline-flex min-h-9 cursor-pointer items-center">{hiddenList.length} hidden</summary>
+          <ul className="flex flex-col gap-1.5 pb-1">
+            {hiddenList.map((a) => (
+              <li key={a.agentId.toString()} className="flex items-center justify-between gap-2">
+                <span className="min-w-0 truncate">{a.name}</span>
+                <button type="button" onClick={() => unhide(a.agentId)} className="min-h-9 shrink-0 cursor-pointer font-medium text-ink underline underline-offset-2">Show</button>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
 
       <h2 className={cn(eyebrow, "mt-7")}>TOPICS</h2>
       {topics.length ? (

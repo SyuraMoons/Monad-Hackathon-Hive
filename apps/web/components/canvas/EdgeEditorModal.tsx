@@ -10,7 +10,7 @@ import { cn } from "@/lib/cn";
 import { FAUCET_URL } from "@/lib/explorer";
 import { longDate } from "@/lib/format";
 import { getHiveClient } from "@/lib/hive/client";
-import { useGraph } from "@/lib/stores/graph";
+import { useGraph, visibleAgents } from "@/lib/stores/graph";
 import { expiresIn, topicColor } from "@/lib/topics";
 
 // The three defaults are only suggestions (step 6/7); existing edge topics are offered too.
@@ -52,6 +52,7 @@ export function EdgeEditorModal({ from, to, initialTopic, onClose, onSign, retur
   returnFocus?: RefObject<HTMLElement | null>;
 }) {
   const agents = useGraph((s) => s.agents);
+  const hidden = useGraph((s) => s.hidden);
   const edges = useGraph((s) => s.edges);
   const fromName = agents[from.toString()]?.name ?? `#${from}`;
   const toName = agents[to.toString()]?.name ?? `#${to}`;
@@ -82,7 +83,7 @@ export function EdgeEditorModal({ from, to, initialTopic, onClose, onSign, retur
 
   // "…and Therapy Bot stays out": agents that stay isolated after this edge, from the graph.
   const linked = new Set(liveEdges.filter((e) => e.state !== "pending").flatMap((e) => [e.from.toString(), e.to.toString()]));
-  const outsiders = Object.values(agents).filter((a) => a.agentId !== from && a.agentId !== to && !linked.has(a.agentId.toString()));
+  const outsiders = Object.values(visibleAgents(agents, hidden)).filter((a) => a.agentId !== from && a.agentId !== to && !linked.has(a.agentId.toString()));
   const outsideText =
     outsiders.length === 1 ? `, and ${outsiders[0].name} stays out` : outsiders.length > 1 ? `, and ${outsiders.length} other agents stay out` : "";
 

@@ -12,7 +12,7 @@ import { Tabs } from "@/components/ui/Tabs";
 import { cn } from "@/lib/cn";
 import { checkAgentName, MAX_AGENT_NAME } from "@/lib/hive/agentName";
 import { claudeCommand, gptRunner, gptSnippet } from "@/lib/hive/commands";
-import { useGraph } from "@/lib/stores/graph";
+import { useGraph, visibleAgents } from "@/lib/stores/graph";
 import { useSession, type Connection } from "@/lib/stores/session";
 
 type Tab = "claude" | "gpt";
@@ -72,7 +72,9 @@ export default function ConnectPage() {
   const [tab, setTab] = useState<Tab>("claude");
   const graphReady = useGraph((s) => s.status === "ready");
   const graphError = useGraph((s) => (s.status === "error" ? (s.error ?? "Could not load your agents.") : undefined));
-  const agents = useGraph((s) => s.agents);
+  const allAgents = useGraph((s) => s.agents);
+  const hidden = useGraph((s) => s.hidden);
+  const agents = visibleAgents(allAgents, hidden);
   const owner = useSession((s) => s.owner);
   const connections = useSession((s) => s.connections);
   const authorizations = useSession((s) => s.authorizations);
@@ -99,6 +101,7 @@ export default function ConnectPage() {
 
   const agent = AGENTS[tab];
   const mine = ofType(agent.type);
+  const allHidden = mine.length === 0 && Object.values(allAgents).some((a) => a.agentType === agent.type);
   const selected = mine.find((a) => a.agentId.toString() === picked) ?? mine[0];
   const isDefault = selected === mine[0];
   const conn = isDefault ? connections[agent.type] : undefined;
@@ -115,7 +118,7 @@ export default function ConnectPage() {
   }
 
   async function create() {
-    const checked = checkAgentName(newName, Object.values(agents).map((a) => a.name));
+    const checked = checkAgentName(newName, Object.values(allAgents).map((a) => a.name));
     if ("error" in checked) return setActionError(checked.error);
     setCreating(true);
     setActionError(undefined);
@@ -226,13 +229,15 @@ export default function ConnectPage() {
             tab={tab}
             command={tab === "claude" ? claudeCommand(url, token) : gptSnippet(url, token)}
             token={token}
-            pending={graphError || locked || needsAuthorize ? undefined : pendingText(agent.name, conn, graphReady)}
+            pending={graphError || locked || needsAuthorize || allHidden ? undefined : pendingText(agent.name, conn, graphReady)}
             error={
               graphError ??
               actionError ??
               (locked
                 ? `Unlock with your passkey to set up ${selected?.name ?? agent.name}.`
-                : needsAuthorize
+                : allHidden
+                  ? `All your ${agent.name} agents are hidden. Show one again from the canvas sidebar.`
+                  : needsAuthorize
                   ? `${selected?.name} has no token in this tab. Authorize it to show the command.`
                   : conn?.phase === "error"
                     ? conn.message
