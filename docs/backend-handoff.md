@@ -14,7 +14,7 @@ Everything that crosses a process boundary is defined once in `packages/shared` 
 | `src/errors.ts` | `ErrorCode` enum and the error envelope `{ error: { code, message } }` |
 | `src/schema/api.ts` | Every `/v1` body and response, plus `authMessage(owner, nonce)`, the exact text the owner signs at login |
 | `src/schema/events.ts` | The SSE event union for `/v1/events` |
-| `src/schema/mcp.ts` | `hive_write_memory`, `hive_read_memory`, `hive_whoami` inputs and outputs |
+| `src/schema/mcp.ts` | `hive_write_memory`, `hive_read_memory`, `hive_save_session`, `hive_whoami` inputs and outputs |
 | `src/schema/graph.ts` | Envio shapes: graph snapshot, audit events, provenance |
 | `src/chain.ts` | `monadTestnet`, `explorerTxUrl`, `explorerAddressUrl` (Monadscan) |
 

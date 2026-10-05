@@ -34,3 +34,7 @@ Known pitfalls. Add to this list when you hit a new one.
 - **Merged stacked PRs leave your local `development` stale.** GitHub merges each PR into `origin/development`, your local branch doesn't move. Before you start, run `git fetch && git merge --ff-only origin/development`, or you will think code is missing (this cost us an hour: the bridge looked unbuilt).
 - **Never rename the HKDF string `hive/encrypt`,** not even in the Mindshare rename (ADR-008).
 
+## Memory
+
+- **An agent never reads its own writes.** `hive_read_memory` returns only notes from other agents that have an edge to the reader (`apps/bridge/src/memory.ts`). A `hive_save_session` is for the other agents, so give every agent an edge to the others on the shared topic (`brain`) to get one shared brain.
+- **Each write is a transaction.** About 0.01 MON or more per save at the current gas price, paid by the agent key. The bridge tops a key up only at authorize, so many saves can run it dry ("The agent key has no MON for gas.").

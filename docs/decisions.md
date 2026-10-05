@@ -78,3 +78,12 @@ Short architecture decision records. To add one, append the next number and don'
 **Decision.** The bridge may hold plaintext in memory while it serves an authorized read or write. It never stores or logs it. Hard rule 2 in AGENTS.md is reworded to match.
 
 **Consequences.** Plaintext must never appear in a log, an error message, an SSE event or a database row. Supabase still holds only ciphertext, and nothing but hashes goes onchain. Users trust the bridge operator with content during a session, which `docs/architecture.md` documents as the trust model.
+
+## ADR-010: A session save is a summary the agent writes on request
+**Date:** 2026-10-05 · **Status:** accepted
+
+**Context.** The product idea is one shared "big brain" that the user's agents fill without hand-written notes, like `/compact`. The bridge never sees a conversation. Only the agent does.
+
+**Decision.** Add the MCP tool `hive_save_session { summary, topic? }` (default topic `brain`). The agent writes the summary itself, guided by the server `instructions` sent in `initialize` and by the tool description. The bridge checks size (4096 bytes) and refuses the obvious secret shapes (private key blocks, `sk-` keys, JWTs), then stores it like any other memory, so encryption, edges and events are unchanged.
+
+**Consequences.** Saving happens when the user asks, and summary quality depends on the model. Automatic saving is a separate follow-up that works only for clients with hooks (Claude Code). An agent never reads its own saves back (see gotchas), so a save is for the other agents.
