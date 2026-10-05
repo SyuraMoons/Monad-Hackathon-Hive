@@ -115,6 +115,7 @@ export function createMockClient(): MockHiveClient {
       },
       // ?mock=low-balance previews the ADR-002 fallback warning (Figma 93:481).
       lowBalance: async () => (mockFlag("low-balance") ? "0.001 MON" : null),
+      balance: async () => (mockFlag("low-balance") ? { mon: "0.0010", low: true } : { mon: "12.5000", low: false }),
     },
 
     auth: {

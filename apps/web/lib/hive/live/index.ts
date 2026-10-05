@@ -38,6 +38,11 @@ export function createLiveClient(): LiveHiveClient {
         const balance = await hivePublicClient.getBalance({ address: signer.account.address });
         return balance < LOW_BALANCE ? `${formatEther(balance)} MON` : null;
       },
+      balance: async () => {
+        if (!signer) throw new HiveError("UNAUTHORIZED", "Sign in first.");
+        const balance = await hivePublicClient.getBalance({ address: signer.account.address });
+        return { mon: Number(formatEther(balance)).toFixed(4), low: balance < LOW_BALANCE };
+      },
     },
     auth: bridge.auth,
     agents: bridge.agents,
