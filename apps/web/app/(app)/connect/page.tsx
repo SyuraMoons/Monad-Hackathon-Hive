@@ -84,7 +84,9 @@ export default function ConnectPage() {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("claude");
   const graphReady = useGraph((s) => s.status === "ready");
+  const graphError = useGraph((s) => (s.status === "error" ? (s.error ?? "Could not load your agents.") : undefined));
   const agents = useGraph((s) => s.agents);
+  const owner = useSession((s) => s.owner);
   const connections = useSession((s) => s.connections);
   const connectAgent = useSession((s) => s.connectAgent);
   const now = useNow();
@@ -152,9 +154,9 @@ export default function ConnectPage() {
             tab={tab}
             command={tab === "claude" ? claudeCommand(url, token) : gptSnippet(url, token)}
             token={token}
-            pending={pendingText(agent.name, conn, graphReady)}
-            error={conn?.phase === "error" ? conn.message : undefined}
-            onRetry={() => void connectAgent(agent.type, agent.name)}
+            pending={graphError ? undefined : pendingText(agent.name, conn, graphReady)}
+            error={graphError ?? (conn?.phase === "error" ? conn.message : undefined)}
+            onRetry={() => void (graphError && owner ? useGraph.getState().load(owner) : connectAgent(agent.type, agent.name))}
             secondary={tab === "gpt" && token ? { caption: "or run Hive’s GPT agent (planned: apps/agents)", command: gptRunner(token) } : undefined}
             note={
               tab === "claude"
