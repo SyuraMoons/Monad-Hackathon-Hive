@@ -68,10 +68,10 @@ beforeAll(async () => {
 afterAll(() => new Promise<void>((r) => server.close(() => r())));
 
 describe("MCP over Streamable HTTP (official SDK client)", () => {
-  it("lists the four Hive tools", async () => {
+  it("lists the five Hive tools", async () => {
     const client = await connect(agentToken["ChatGPT"]);
     const tools = (await client.listTools()).tools.map((t) => t.name).sort();
-    expect(tools).toEqual(["hive_read_memory", "hive_save_session", "hive_whoami", "hive_write_memory"]);
+    expect(tools).toEqual(["hive_list_memory", "hive_read_memory", "hive_save_session", "hive_whoami", "hive_write_memory"]);
     await client.close();
   });
 
@@ -79,6 +79,8 @@ describe("MCP over Streamable HTTP (official SDK client)", () => {
     const client = await connect(agentToken["ChatGPT"]);
     expect(client.getInstructions()).toBe(HIVE_INSTRUCTIONS);
     expect(HIVE_INSTRUCTIONS).toContain("hive_save_session");
+    expect(HIVE_INSTRUCTIONS).toContain("hive_list_memory");
+    expect(HIVE_INSTRUCTIONS).toContain("slotIds");
     await client.close();
   });
 
@@ -89,6 +91,22 @@ describe("MCP over Streamable HTTP (official SDK client)", () => {
     expect(data.memories[0]).toMatchObject({ slotId: "7", fromAgentId: "1", fromName: "Claude", topic: "work", content: "Nexus, deadline 13 Okt" });
     expect((await call(client, "hive_read_memory", { topic: "health" })).data.memories).toEqual([]);
     await client.close();
+  });
+
+  it("lists previews without content, then reads one slot by id; a slot without an edge is refused", async () => {
+    const client = await connect(agentToken["ChatGPT"]);
+    const list = (await call(client, "hive_list_memory", {})).data;
+    expect(list.memories[0]).toMatchObject({ slotId: "7", fromName: "Claude", topic: "work", preview: "Nexus, deadline 13 Okt", bytes: 22 });
+    expect(list.memories[0]).not.toHaveProperty("content");
+    expect(list.more).toBe(false);
+    const one = (await call(client, "hive_read_memory", { slotIds: ["7"] })).data;
+    expect(one.memories.map((m: any) => m.content)).toEqual(["Nexus, deadline 13 Okt"]);
+    expect((await call(client, "hive_read_memory", { slotIds: ["999"] })).data.memories).toEqual([]);
+    const therapy = await connect(agentToken["Therapy Bot"]);
+    expect((await call(therapy, "hive_list_memory", {})).data.memories).toEqual([]);
+    expect((await call(therapy, "hive_read_memory", { slotIds: ["7"] })).data.memories).toEqual([]);
+    await client.close();
+    await therapy.close();
   });
 
   it("Therapy Bot has no edge: empty, five times in a row", async () => {

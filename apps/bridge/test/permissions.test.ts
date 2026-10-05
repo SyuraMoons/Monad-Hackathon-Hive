@@ -1,7 +1,7 @@
 import { encrypt } from "@hive/crypto";
 import type { Hex } from "@hive/shared";
 import { beforeEach, describe, expect, it } from "vitest";
-import { readMemory, type ReadDeps } from "../src/memory.js";
+import { listMemory, readMemory, type ReadDeps } from "../src/memory.js";
 import { edgeAllows, permittedSlots, topicHash } from "../src/permissions.js";
 import { InMemoryChain, InMemoryCiphertextStore } from "../src/stubs.js";
 import type { ChainEdge } from "../src/types.js";
@@ -146,6 +146,40 @@ describe("filters", () => {
     expect((await readMemory(deps, { agentId: CHATGPT })).memories.map((m) => m.content)).toEqual(["w1", "h1", "w2"]);
     expect((await readMemory(deps, { agentId: CHATGPT, topic: "work" })).memories.map((m) => m.content)).toEqual(["w1", "w2"]);
     expect((await readMemory(deps, { agentId: CHATGPT, since: Number(NOW - 15n) })).memories.map((m) => m.content)).toEqual(["w2"]);
+  });
+});
+
+describe("paging, slotIds and list", () => {
+  it("returns the newest `limit` memories, oldest first, and says when more are left", async () => {
+    chain.edges.push(edge());
+    for (const [i, c] of ["a", "b", "c", "d"].entries()) await write(CLAUDE, "work", c, NOW - 40n + BigInt(i));
+    const page = await readMemory(deps, { agentId: CHATGPT, limit: 2 });
+    expect(page.memories.map((m) => m.content)).toEqual(["c", "d"]);
+    expect(page.more).toBe(true);
+    const all = await readMemory(deps, { agentId: CHATGPT, limit: 4 });
+    expect(all.memories).toHaveLength(4);
+    expect(all.more).toBe(false);
+  });
+
+  it("slotIds narrows to those slots and never reaches a slot without an edge", async () => {
+    chain.edges.push(edge());
+    await write(CLAUDE, "work", "w1");
+    await write(THERAPY, "work", "secret");
+    expect((await readMemory(deps, { agentId: CHATGPT, slotIds: [1n] })).memories.map((m) => m.content)).toEqual(["w1"]);
+    expect((await readMemory(deps, { agentId: CHATGPT, slotIds: [2n] })).memories).toEqual([]);
+  });
+
+  it("list gives a bounded preview and a size, never the full content, and denies like a read", async () => {
+    chain.edges.push(edge());
+    await write(CLAUDE, "work", "x".repeat(500));
+    const out = await listMemory(deps, { agentId: CHATGPT });
+    expect(out.memories).toHaveLength(1);
+    expect(out.memories[0].preview).toHaveLength(160);
+    expect(out.memories[0].bytes).toBe(500);
+    expect(out.memories[0]).not.toHaveProperty("content");
+    expect((await listMemory(deps, { agentId: THERAPY })).memories).toEqual([]);
+    chain.edges[0].active = false;
+    expect((await listMemory(deps, { agentId: CHATGPT })).memories).toEqual([]);
   });
 });
 
