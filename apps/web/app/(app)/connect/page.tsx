@@ -11,7 +11,7 @@ import { StatusDot } from "@/components/ui/StatusDot";
 import { Tabs } from "@/components/ui/Tabs";
 import { cn } from "@/lib/cn";
 import { checkAgentName, MAX_AGENT_NAME } from "@/lib/hive/agentName";
-import { claudeCommand, gptRunner, gptSnippet } from "@/lib/hive/commands";
+import { claudeCommand, claudeTerminalCommand, gptRunner, gptSnippet } from "@/lib/hive/commands";
 import { useGraph, visibleAgents } from "@/lib/stores/graph";
 import { useSession, type Connection } from "@/lib/stores/session";
 
@@ -227,7 +227,7 @@ export default function ConnectPage() {
         <div id="connect-panel" role="tabpanel" aria-labelledby={`connect-tab-${tab}`} className="w-full">
           <InstallCard
             tab={tab}
-            command={tab === "claude" ? claudeCommand(url, token) : gptSnippet(url, token)}
+            command={tab === "claude" ? claudeTerminalCommand(url, token, selected?.name ?? agent.name) : gptSnippet(url, token)}
             token={token}
             pending={graphError || locked || needsAuthorize || allHidden ? undefined : pendingText(agent.name, conn, graphReady)}
             error={
@@ -253,10 +253,16 @@ export default function ConnectPage() {
                     ? authorizeAgent(selected.agentId).then(() => setActionError(undefined), (e: unknown) => fail(e, "Could not authorize the agent."))
                     : connectAgent(agent.type, agent.name))
             }
-            secondary={tab === "gpt" && token ? { caption: "or run Hive’s GPT agent (planned: apps/agents)", command: gptRunner(token) } : undefined}
+            secondary={
+              token
+                ? tab === "gpt"
+                  ? { caption: "or run Hive’s GPT agent (planned: apps/agents)", command: gptRunner(token) }
+                  : { caption: "or save it for the whole folder: every Claude Code session in it becomes this agent", command: claudeCommand(url, token) }
+                : undefined
+            }
             note={
               tab === "claude"
-                ? "Your token is already filled in. It is scoped to this one agent and expires in 24h. Claude Code keeps it per project folder: sessions in one folder are one agent. For another agent, add it from another folder."
+                ? "Run this in your project folder. Only that terminal is this agent, so several agents can share one folder, one terminal each. The token is scoped to this agent and expires in 24h. Don’t also save it for the folder: run claude mcp remove hive first."
                 : "A separate token from Claude’s, so one leak can’t act as the other. OpenAI calls the bridge from its servers, so this URL must be public."
             }
           />

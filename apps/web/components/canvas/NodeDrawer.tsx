@@ -6,7 +6,7 @@ import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { cn } from "@/lib/cn";
 import { explorerAddress, explorerTx } from "@/lib/explorer";
 import { longDate, shortHash } from "@/lib/format";
-import { claudeCommand } from "@/lib/hive/commands";
+import { claudeCommand, claudeTerminalCommand } from "@/lib/hive/commands";
 import type { MemoryHistoryRow } from "@/lib/hive/types";
 import { useFeed, type FeedRow } from "@/lib/stores/feed";
 import { useGraph, type AgentNode, type EdgeView } from "@/lib/stores/graph";
@@ -47,7 +47,7 @@ function ConnectionSection({ agent }: { agent: AgentNode }) {
   const disconnectAgent = useSession((s) => s.disconnectAgent);
   const [busy, setBusy] = useState<"reconnect" | "disconnect">();
   const [error, setError] = useState<string>();
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<"terminal" | "folder">();
   const live = agent.tokenExpiresAt !== null && agent.tokenExpiresAt > Math.floor(Date.now() / 1000);
 
   async function run(kind: "reconnect" | "disconnect") {
@@ -62,12 +62,14 @@ function ConnectionSection({ agent }: { agent: AgentNode }) {
     }
   }
 
-  async function copy() {
+  async function copy(kind: "terminal" | "folder") {
     if (!authorization) return;
     try {
-      await navigator.clipboard.writeText(claudeCommand(authorization.mcpUrl, authorization.agentToken));
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
+      await navigator.clipboard.writeText(
+        kind === "terminal" ? claudeTerminalCommand(authorization.mcpUrl, authorization.agentToken, agent.name) : claudeCommand(authorization.mcpUrl, authorization.agentToken),
+      );
+      setCopied(kind);
+      setTimeout(() => setCopied(undefined), 1500);
     } catch {
       setError("Could not copy. Open Connect to select the command.");
     }
@@ -93,9 +95,14 @@ function ConnectionSection({ agent }: { agent: AgentNode }) {
           </button>
         )}
         {authorization && agent.agentType === "claude" && (
-          <button type="button" className={button} onClick={() => void copy()}>
-            {copied ? "Copied" : "Copy Claude command"}
-          </button>
+          <>
+            <button type="button" className={button} onClick={() => void copy("terminal")}>
+              {copied === "terminal" ? "Copied" : "Copy terminal command"}
+            </button>
+            <button type="button" className={button} onClick={() => void copy("folder")}>
+              {copied === "folder" ? "Copied" : "Copy folder command"}
+            </button>
+          </>
         )}
       </div>
       {error && <p role="alert" className="text-[14px] leading-[1.45] text-status-revoked">{error}</p>}
