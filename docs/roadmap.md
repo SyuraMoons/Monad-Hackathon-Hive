@@ -20,7 +20,7 @@ Deadline: **13 Oct 2026, 23:59 UTC**. Demo freeze: **10 Oct**.
 | **CP2**: end-to-end propagation | 5 Oct | Agent A writes memory, a propagation event fires, Agent B receives it, and all of it is visible on the canvas with animation |
 | **CP3**: demo freeze | 10 Oct | No new features after this. Only rehearsal and bug fixes |
 
-**Status, 5 Oct:** CP1 and CP2 are not met on `development`. The contracts are deployed and their source is merged (#76). Adding an edge works from `/smoke` with the dev signer, but the canvas still runs on the mock client.
+**Status, 5 Oct:** CP1 and CP2 are not met on `development`. The contracts are deployed and their source is merged (#76). Adding an edge works from `/smoke` with the dev signer, but the canvas still runs on the mock client. The bridge now streams `agent.connected`, `memory.written` and `memory.read` on `/v1/events` and the live client reads that stream (integration and unit tests, not yet run in the browser).
 
 ## Verified runs
 
@@ -34,6 +34,15 @@ Deadline: **13 Oct 2026, 23:59 UTC**. Demo freeze: **10 Oct**.
 
 This exercised the **dev-signer** path only (ADR-006), not a Mera passkey.
 
+### 5 Oct 2026 — MCP write through the bridge
+`AgentRegistry.agents(3)` is `"GPT"` and `agents(4)` is `"Claude"`, both owned by `0xB62A…2a6F` with their writer key set (read with `cast call`). From Claude Code, with the `hive` MCP server pointing at the local bridge:
+
+- `hive_whoami` → agent `4`, name `Claude`, `readableTopics: []` (still a stub)
+- `hive_read_memory` → `memories: []` (no edge points at agent 4)
+- `hive_write_memory` topic `mcp-test` → `slotId` 1, `txHash` `0xc5de9453…ffe4`, `propagatedTo: []` (no edge from agent 4)
+
+Not checked: the transaction on Monadscan, a read by a second agent, or the Connect page reacting to the first call.
+
 ## P0 features (required)
 
 | # | Feature | Owner | Status |
@@ -43,8 +52,8 @@ This exercised the **dev-signer** path only (ADR-006), not a Mera passkey.
 | P0.3 | MemorySlots + PropagationEngine | P1 | ✅ deployed to testnet, source and tests in #76 |
 | P0.4 | Passkey auth via Mera | P2 | 🚧 real passkey ceremony and key derivation (ADR-005); `/smoke` can sign with the passkey (#79), but that path is untested |
 | P0.5 | Encrypted storage (Supabase) | P2 | ✅ ciphertext-only table, bridge store (#66, #69) |
-| P0.6 | MCP bridge server | P2 | 🚧 MCP read/write, authorize, gas top-up, chain reader (#71–#77); SSE `/events` not built |
-| P0.7 | Visual canvas (React Flow) | P3 | 🚧 canvas, audit and connect screens on the mock client. In live mode the live client reads agents and registers them from `/connect` (unit-tested, not yet run against testnet); edges, audit and memory preview are still stubs |
+| P0.6 | MCP bridge server | P2 | 🚧 MCP read/write, authorize, gas top-up, chain reader (#71–#77); SSE `/v1/events` built (`agent.connected`, `memory.written`, `memory.read`, `agent.disconnected`); `session.expiring` and `GET /v1/memory/:hash` are planned |
+| P0.7 | Visual canvas (React Flow) | P3 | 🚧 canvas, audit and connect screens on the mock client. In live mode the live client reads agents and registers them from `/connect` (unit-tested, not yet run against testnet) and reads the bridge's event stream (unit-tested, not yet run in the browser); edges, audit and memory preview are still stubs |
 | P0.8 | Live propagation animation | P3 | ⏳ |
 | P0.9 | 2 mock chatbots | P4 | ⏳ placeholder only |
 | P0.10 | Envio indexer (audit trail) | P2 | ⏳ |
@@ -68,9 +77,9 @@ We build one layer at a time. Tick each step off here when it's done.
   - [ ] Run against testnet with a passkey-signed owner (needs MON on the owner address) and a real `claude mcp add`
 - [ ] Wire edge creation → contract tx (CP1). Works from `/smoke` (dev signer, 3 Oct); the live client's `addEdge` is still a stub, so the canvas does not send it
 - [ ] Envio indexer
-- [ ] Bridge: MCP tools `write_memory` / `read_memory`, plus SSE `/events`
-  - [x] MCP `hive_write_memory` / `hive_read_memory` / `hive_whoami`, live chain reads, `authorize` with gas top-up, encrypted write to `MemorySlots` (#71, #74, #75, #77). No live write yet: no agent is registered on testnet
-  - [ ] SSE `/events`
+- [x] Bridge: MCP tools `write_memory` / `read_memory`, plus SSE `/events`
+  - [x] MCP `hive_write_memory` / `hive_read_memory` / `hive_whoami`, live chain reads, `authorize` with gas top-up, encrypted write to `MemorySlots` (#71, #74, #75, #77). A live write from Claude Code returned a receipt on 5 Oct (see _Verified runs_)
+  - [x] SSE `/v1/events`: bridge route and web client, tested against a real port and a fake `EventSource`. Not yet seen turning the Connect page green in a browser. `session.expiring` is planned
 - [x] Supabase encrypted storage (#66, #69)
 - [ ] Mock agents
 - [ ] Propagation animation (CP2)
