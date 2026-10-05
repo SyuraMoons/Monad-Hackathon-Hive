@@ -14,7 +14,7 @@ Everything that crosses a process boundary is defined once in `packages/shared` 
 | `src/errors.ts` | `ErrorCode` enum and the error envelope `{ error: { code, message } }` |
 | `src/schema/api.ts` | Every `/v1` body and response, plus `authMessage(owner, nonce)`, the exact text the owner signs at login |
 | `src/schema/events.ts` | The SSE event union for `/v1/events` |
-| `src/schema/mcp.ts` | `hive_write_memory`, `hive_read_memory`, `hive_save_session`, `hive_whoami` inputs and outputs |
+| `src/schema/mcp.ts` | `hive_write_memory`, `hive_list_memory`, `hive_read_memory`, `hive_save_session`, `hive_whoami` inputs and outputs |
 | `src/schema/graph.ts` | Envio shapes: graph snapshot, audit events, provenance |
 | `src/chain.ts` | `monadTestnet`, `explorerTxUrl`, `explorerAddressUrl` (Monadscan) |
 
@@ -74,7 +74,7 @@ Events the canvas needs (status of the bridge side):
 
 Encryption format the web decrypts: AES-256-GCM with the delegated `encryptionKey`, a 12-byte IV, and the 16-byte tag appended to the ciphertext (WebCrypto's default). `contentHash = keccak256(iv ‖ ciphertext)`. Never a hash of plaintext. Plaintext never goes to Supabase, logs, SSE or errors.
 
-Permission checks read live chain state on every `hive_read_memory` (never Envio), so a revoke takes effect immediately.
+Permission checks read live chain state on every `hive_list_memory` and `hive_read_memory` (never Envio), so a revoke takes effect immediately.
 
 ### Indexer and storage: Harfi
 

@@ -123,3 +123,13 @@ Short architecture decision records. To add one, append the next number and don'
 **Decision.** The default is `general` (`DEFAULT_TOPIC` in `@hive/shared`, renamed from `DEFAULT_BRAIN_TOPIC`). With an all-topics edge (ADR-013) the topic does not matter for reading, and `general` is a topic the user can also pick on an edge. An agent can still pass a topic. This supersedes the `brain` default of ADR-010.
 
 **Consequences.** Memories already saved under `brain` stay readable through all-topics edges, and the web app still resolves `brain` edges. Nothing is migrated.
+
+## ADR-015: Listing memories is cheap, reading them is explicit
+**Date:** 2026-10-06 · **Status:** proposed
+
+**Context.** `hive_read_memory` returned the full content of every readable slot, up to 4096 bytes each, so a read grew with the history and all of it landed in the agent's context. Letting agents query Supabase for an index was considered.
+
+**Decision.** The chain is already the index: `MemorySlots.slotsSince` returns id, sender, topic, content hash and time. The bridge adds `hive_list_memory` (id, sender, topic, time, size and a 160-character preview, no full content) and gives `hive_read_memory` `slotIds`, `limit` (default 20, at most 50, newest first) and a `more` flag. Both run the same selection and the same permission check on live chain state. Agents never get a database credential: a direct query would need a second copy of the permission rules, the agent cannot decrypt, and a revoke would stop being immediate (rules 2 and 3).
+
+**Consequences.** No migration and no new stored plaintext: the preview is computed from the decrypted content for an authorized reader, like `content`. A bare read now returns at most 20 memories, and `more: true` says older ones were left out. Still open: batching the ciphertext fetches, and search, which would need plaintext or a second encrypted column.
+
