@@ -6,9 +6,14 @@ import { zAddress, zAgentId, zContentHash, zSlotId, zTopic, zTxHash, zUnixSecond
 export const MAX_CONTENT_BYTES = 4096;
 const byteLength = (s: string) => new TextEncoder().encode(s).length;
 
+const zContent = z.string().min(1).refine((s) => byteLength(s) <= MAX_CONTENT_BYTES, `content must be at most ${MAX_CONTENT_BYTES} bytes`);
+
+/** Where `hive_save_session` writes when no topic is given: the shared "big brain". */
+export const DEFAULT_BRAIN_TOPIC = "brain";
+
 export const zWriteMemoryInput = z.object({
   topic: zTopic,
-  content: z.string().min(1).refine((s) => byteLength(s) <= MAX_CONTENT_BYTES, `content must be at most ${MAX_CONTENT_BYTES} bytes`),
+  content: zContent,
 });
 export const zWriteMemoryOutput = z.object({
   slotId: zSlotId,
@@ -16,6 +21,10 @@ export const zWriteMemoryOutput = z.object({
   txHash: zTxHash,
   propagatedTo: z.array(zAgentId),
 });
+
+
+export const zSaveSessionInput = z.object({ summary: zContent, topic: zTopic.optional() });
+export const zSaveSessionOutput = zWriteMemoryOutput.extend({ topic: zTopic });
 
 export const zReadMemoryInput = z.object({ since: zUnixSeconds.optional(), topic: zTopic.optional() });
 export const zReadMemoryOutput = z.object({
@@ -42,6 +51,7 @@ export const zWhoamiOutput = z.object({
 
 export const MCP_TOOLS = {
   hive_write_memory: { input: zWriteMemoryInput, output: zWriteMemoryOutput },
+  hive_save_session: { input: zSaveSessionInput, output: zSaveSessionOutput },
   hive_read_memory: { input: zReadMemoryInput, output: zReadMemoryOutput },
   hive_whoami: { input: zWhoamiInput, output: zWhoamiOutput },
 } as const;
@@ -49,6 +59,8 @@ export type McpToolName = keyof typeof MCP_TOOLS;
 
 export type WriteMemoryInput = z.input<typeof zWriteMemoryInput>;
 export type WriteMemoryOutput = z.infer<typeof zWriteMemoryOutput>;
+export type SaveSessionInput = z.input<typeof zSaveSessionInput>;
+export type SaveSessionOutput = z.infer<typeof zSaveSessionOutput>;
 export type ReadMemoryInput = z.input<typeof zReadMemoryInput>;
 export type ReadMemoryOutput = z.infer<typeof zReadMemoryOutput>;
 export type WhoamiOutput = z.infer<typeof zWhoamiOutput>;
