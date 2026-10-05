@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "build": "forge build",
-    "test": "forge test --network monad",
+    "test": "forge test",
     "coverage": "forge coverage --report summary --no-match-coverage \"(script|test|lib)\"",
     "fmt": "forge fmt",
     "deploy:testnet": "forge script script/Deploy.s.sol --rpc-url monad_testnet --broadcast",
