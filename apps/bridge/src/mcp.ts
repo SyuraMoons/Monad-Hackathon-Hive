@@ -3,6 +3,7 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import { HiveError, zReadMemoryInput, zWriteMemoryInput, type WhoamiOutput } from "@hive/shared";
 import type { Request, Response } from "express";
 import { getAddress } from "viem";
+import type { EventBus } from "./events.js";
 import { readMemory, writeMemory } from "./memory.js";
 import type { SessionStore, AgentSession } from "./sessions.js";
 import type { TokenService } from "./tokens.js";
@@ -15,6 +16,8 @@ export type McpDeps = {
   store: CiphertextStore;
   writer: ChainWriter;
   now: () => bigint;
+  /** Where `agent.connected`, `memory.written` and `memory.read` go. Default: nowhere. */
+  events?: EventBus;
 };
 
 // JSON has no bigint: uint256 values go out as decimal strings, like everywhere else in the API.
@@ -31,6 +34,10 @@ function buildServer(deps: McpDeps, session: AgentSession): McpServer {
         { writer: deps.writer, store: deps.store, agentKey: session.agentPrivateKey, encryptionKey: session.encryptionKey, owner: getAddress(session.owner), onError: (stage) => console.error(`bridge: write failed at ${stage}`) },
         { agentId: session.agentId, content: input.content, topic: input.topic },
       );
+      deps.events?.publish(session.owner, {
+        type: "memory.written",
+        data: { slotId: out.slotId.toString(), agentId: session.agentId.toString(), topic: input.topic, contentHash: out.contentHash, txHash: out.txHash, propagatedTo: out.propagatedTo.map(String) },
+      });
       return result(out);
     } catch (e) {
       // HiveError messages are fixed strings, safe to show the agent. Anything else stays generic.
@@ -43,6 +50,10 @@ function buildServer(deps: McpDeps, session: AgentSession): McpServer {
       { chain: deps.chain, store: deps.store, encryptionKey: session.encryptionKey, now: deps.now, onError: (stage) => console.error(`bridge: read failed at ${stage}`) },
       { agentId: session.agentId, since: input.since, topic: input.topic },
     );
+    if (out.memories.length) {
+      const from = [...new Set(out.memories.map((m) => m.fromAgentId.toString()))];
+      deps.events?.publish(session.owner, { type: "memory.read", data: { readerAgentId: session.agentId.toString(), fromAgentIds: from, count: out.memories.length } });
+    }
     return result(out);
   });
 
@@ -65,7 +76,9 @@ export function mcpHandler(deps: McpDeps) {
     const claims = await deps.tokens.verifyAgent(token);
     const session = deps.sessions.get(claims.agentId);
     if (!session || session.owner.toLowerCase() !== claims.owner.toLowerCase()) throw new HiveError("UNAUTHORIZED", "No active session for this agent. Authorize it again.");
+    const first = session.lastCallAt === null;
     deps.sessions.touch(claims.agentId);
+    if (first) deps.events?.publish(session.owner, { type: "agent.connected", data: { agentId: claims.agentId.toString() } });
 
     const server = buildServer(deps, session);
     const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });

@@ -6,6 +6,7 @@ import type { z } from "zod";
 import { privateKeyToAddress } from "viem/accounts";
 import express, { type ErrorRequestHandler, type Express, type Request, type RequestHandler, type Response } from "express";
 import { ChallengeStore, verifySignIn, type VerifySignature } from "./auth.js";
+import { EventBus } from "./events.js";
 import { noGasFunder, type GasFunder } from "./funder.js";
 import { mcpHandler } from "./mcp.js";
 import type { SessionStore } from "./sessions.js";
@@ -25,6 +26,8 @@ export type AppDeps = {
   writer: ChainWriter;
   /** Tops up an agent key's gas on authorize (ADR-007). Default: no top-up. */
   funder?: GasFunder;
+  /** Feeds GET /v1/events. Default: a fresh in-memory bus. */
+  events?: EventBus;
   /** Public base URL for `mcpUrl`. Default: taken from the request. */
   publicUrl?: string;
   now?: () => bigint;
@@ -41,6 +44,7 @@ export function createApp(deps: AppDeps): Express {
   const app = express();
   const challenges = deps.challenges ?? new ChallengeStore();
   const allowed = new Set(deps.corsOrigins);
+  const events = deps.events ?? new EventBus();
 
   app.disable("x-powered-by");
   app.use((req, res, next) => {
@@ -93,7 +97,7 @@ export function createApp(deps: AppDeps): Express {
     res.json(body);
   }));
 
-  app.post("/mcp", wrap(mcpHandler({ tokens: deps.tokens, sessions: deps.sessions, chain: deps.chain, store: deps.store, writer: deps.writer, now: deps.now ?? (() => BigInt(Math.floor(Date.now() / 1000))) })));
+  app.post("/mcp", wrap(mcpHandler({ tokens: deps.tokens, sessions: deps.sessions, chain: deps.chain, store: deps.store, writer: deps.writer, events, now: deps.now ?? (() => BigInt(Math.floor(Date.now() / 1000))) })));
   // Stateless transport: no SSE stream to open and no session to end. SDK clients expect 405 here, not 404.
   app.all("/mcp", (_req, res) => {
     res.setHeader("Allow", "POST");
@@ -165,8 +169,26 @@ export function createApp(deps: AppDeps): Express {
     const session = deps.sessions.get(id.data);
     if (session && session.owner.toLowerCase() !== (res.locals.user as UserClaims).owner.toLowerCase()) throw new HiveError("FORBIDDEN", "That agent belongs to another owner.");
     deps.sessions.delete(id.data);
+    if (session) events.publish(session.owner, { type: "agent.disconnected", data: { agentId: id.data.toString() } });
     res.sendStatus(204);
   });
+
+  // EventSource can't send headers, so the user token travels in the query (docs/backend-handoff.md).
+  app.get("/v1/events", wrap(async (req, res) => {
+    const token = typeof req.query.token === "string" ? req.query.token : undefined;
+    if (!token) throw new HiveError("UNAUTHORIZED", "Missing token.");
+    const user = await deps.tokens.verifyUser(token);
+    res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache, no-transform", Connection: "keep-alive" });
+    res.write(": ok\n\n");
+    const send = (e: { id: string }) => res.write(`id: ${e.id}\ndata: ${JSON.stringify(e)}\n\n`);
+    const last = req.headers["last-event-id"];
+    const unsubscribe = events.subscribe(user.owner, send, typeof last === "string" ? last : undefined);
+    const beat = setInterval(() => res.write(": keep-alive\n\n"), 15_000);
+    res.on("close", () => {
+      clearInterval(beat);
+      unsubscribe();
+    });
+  }));
 
   app.use((_req, _res, next) => next(new HiveError("NOT_FOUND", "No such route.")));
 
