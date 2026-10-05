@@ -1,5 +1,6 @@
 "use client";
 
+import { useReactFlow } from "@xyflow/react";
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { NewAgentForm } from "@/components/app/NewAgentForm";
@@ -45,6 +46,7 @@ export function Sidebar({ layout, place }: { layout: Layout; place(patch: Layout
   const bridge = useUi((s) => s.bridge);
   const rpc = useHealth();
   const [naming, setNaming] = useState(false);
+  const rf = useReactFlow();
 
   const list = useMemo(() => Object.values(agents).sort((a, b) => Number(a.agentId - b.agentId)), [agents]);
   const topics = useMemo(
@@ -54,6 +56,13 @@ export function Sidebar({ layout, place }: { layout: Layout; place(patch: Layout
 
   function placeNext(id: string) {
     place({ [id]: freeSlot(Object.values(layout), Object.keys(layout).length, list.length) });
+  }
+
+  // A placed agent can be off-screen (a saved position from another window size or a pan): bring it into view and open it.
+  function reveal(a: { agentId: bigint }) {
+    const p = layout[a.agentId.toString()];
+    if (p) void rf.setCenter(p.x + 110, p.y + 36, { zoom: 1, duration: 300 });
+    useUi.getState().set({ drawerAgentId: a.agentId });
   }
 
   // A new agent lands on the canvas with its drawer open, where its command is ready to copy.
@@ -82,12 +91,11 @@ export function Sidebar({ layout, place }: { layout: Layout; place(patch: Layout
                   e.dataTransfer.setData(AGENT_MIME, id);
                   e.dataTransfer.effectAllowed = "move";
                 }}
-                onClick={() => !placed && placeNext(id)}
-                aria-label={placed ? `${a.name} is on the canvas` : `Place ${a.name} on the canvas (or drag it)`}
-                aria-disabled={placed}
+                onClick={() => (placed ? reveal(a) : placeNext(id))}
+                aria-label={placed ? `Show ${a.name} on the canvas` : `Place ${a.name} on the canvas (or drag it)`}
                 className={cn(
                   "flex h-10 w-full items-center gap-2.5 rounded-chip border border-line bg-paper px-3 text-left",
-                  placed ? "cursor-default" : "cursor-grab hover:border-ink-3 active:cursor-grabbing",
+                  placed ? "cursor-pointer hover:border-ink-3" : "cursor-grab hover:border-ink-3 active:cursor-grabbing",
                 )}
               >
                 {icon ? <Image src={icon} alt="" width={18} height={18} /> : <span aria-hidden="true" className="size-[18px] rounded-full border border-dashed border-clay" />}
