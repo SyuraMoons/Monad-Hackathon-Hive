@@ -4,7 +4,7 @@
 
 > Monad Metropolis Hackathon · Track 4 (Trust, Identity & AI) · submission deadline 13 Oct 2026
 
-> **Status:** in progress. Contracts are live on Monad testnet (10143) and the write path (register agents + add an edge) is verified through the `/smoke` harness; the canvas, bridge, and encrypted-storage layers are built. Envio indexing and end-to-end propagation are still *planned*. See [docs/roadmap.md](docs/roadmap.md) for what's done.
+> **Status:** in progress. Contracts are live on Monad testnet (10143), and registering agents and adding an edge is checked through the `/smoke` harness. The bridge and encrypted storage are built. The canvas still runs on mock data, so drawing an edge does not send a transaction yet, and Envio indexing and end-to-end propagation are *planned*. See [docs/roadmap.md](docs/roadmap.md) for what's done.
 
 ## How it works
 
