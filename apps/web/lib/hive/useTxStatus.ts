@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { Hex } from "viem";
-import { explorerUrl } from "@hive/shared";
+import { explorerTxUrl } from "@hive/shared";
 import { hivePublicClient } from "./clients";
 
 export type TxStatus = "idle" | "pending" | "confirmed" | "failed";
@@ -31,7 +31,7 @@ export function useTxStatus(hash: Hex | undefined): TxStatusState {
     }
 
     let cancelled = false;
-    setState({ status: "pending", hash, explorerUrl: explorerUrl(hash), error: null });
+    setState({ status: "pending", hash, explorerUrl: explorerTxUrl(hash), error: null });
 
     hivePublicClient
       .waitForTransactionReceipt({ hash, confirmations: 1 })
@@ -40,7 +40,7 @@ export function useTxStatus(hash: Hex | undefined): TxStatusState {
         setState({
           status: receipt.status === "success" ? "confirmed" : "failed",
           hash,
-          explorerUrl: explorerUrl(hash),
+          explorerUrl: explorerTxUrl(hash),
           error: null,
         });
       })
@@ -49,7 +49,7 @@ export function useTxStatus(hash: Hex | undefined): TxStatusState {
         setState({
           status: "failed",
           hash,
-          explorerUrl: explorerUrl(hash),
+          explorerUrl: explorerTxUrl(hash),
           error: err instanceof Error ? err : new Error(String(err)),
         });
       });

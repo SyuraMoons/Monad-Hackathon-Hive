@@ -14,7 +14,7 @@ Short architecture decision records. To add one, append the next number and don'
 **Consequences.** We build the login UI ourselves. If Mera's PRF support blocks us, the PRD's risk table allows falling back to Privy, which gives up the Mera bounties but keeps the product working. That fallback needs a new ADR.
 
 ## ADR-002: Kernel smart account owned by the Mera key, sponsored by Pimlico
-**Date:** 2026-09-26 · **Status:** accepted (to be confirmed by the Mera smoke test)
+**Date:** 2026-09-26 · **Status:** superseded by ADR-006 (testnet: the Mera EOA pays gas, faucet-funded)
 
 **Context.** Mera derives a plain EOA, which would need MON for gas on every graph change. Monad's `next-serwist-privy-smart-wallet` template shows a working Kernel + Pimlico setup built with `permissionless`.
 
@@ -30,19 +30,51 @@ Short architecture decision records. To add one, append the next number and don'
 **Consequences.** Clone with `--recurse-submodules`. pnpm 11 needs `allowBuilds` in `pnpm-workspace.yaml` for esbuild.
 
 ## ADR-004: Memory content never goes onchain
-**Date:** 2026-09-26 · **Status:** accepted
+**Date:** 2026-09-26 · **Status:** accepted, amended by ADR-009
 
 **Decision.** Onchain data is limited to agent identities, permission edges, and hashes of memory content. Content itself is AES-GCM encrypted on the client and stored in Supabase.
 
 **Consequences.** Anyone can audit permissions while content stays private. Supabase must never receive plaintext.
 
-## ADR-005: Direct EOA signer for AK-9; Kernel/Pimlico deferred
-**Date:** 2026-10-03 · **Status:** accepted
+## ADR-005: Every key comes from a recovery phrase derived from the passkey PRF
+**Date:** 2026-10-02 · **Status:** accepted
 
-**Context.** ADR-002 planned a Kernel smart account sponsored by Pimlico so graph changes are gasless. The first checkpoint (CP1) only needs a passkey-signed `addEdge`, and the smart-account path adds two external dependencies (a Pimlico API key and EntryPoint v0.7) before the demo.
+**Context.** Keys were derived by using the 32-byte PRF output directly as a BIP-32 master seed. That has no exportable backup, so `gotchas.md`'s "recover from the 24-word mnemonic" was not true. Mera's secret vaults (`createSecretVaultWithNewPasskey`) let one phrase sit behind several passkeys, which only works if the account is defined by the phrase rather than by one passkey's PRF.
 
-**Decision.** AK-9 signs Monad transactions directly from the Mera-derived owner key (`m/44'/60'/0'/0/0`), faucet-funded, behind a `HiveSigner` interface. A dev-only raw-key fallback (gated by `NEXT_PUBLIC_HIVE_DEV_SIGNER`) enables local testing without a passkey. Every write carries an explicit `gas` limit (rule 5).
+**Decision.** PRF output → BIP-39 24-word phrase (the output is the entropy) → BIP-39 seed → owner `m/44'/60'/0'/0/0`, agents `m/44'/60'/0'/0/{n}`, encryption key `HKDF(seed, "hive/encrypt")`. The passkey is always a real Mera ceremony, in mock mode too: only the backend is mocked.
 
-**Consequences.** Users need MON for gas on each write. Kernel + Pimlico stays the later swap-in behind `HiveSigner`. The dev signer is bundled client-side, so it must never hold real value. This supersedes the smart-account portion of ADR-002; the Mera-key-as-owner intent is unchanged.
+**Consequences.** Every owner address from before this change moves (nothing was deployed yet). The phrase opens the account in any BIP-39 wallet, so the UI only shows it behind a fresh passkey prompt and never stores it. Imported phrases and backup passkeys (secret vaults, #67) derive keys the same way.
 
-**Verified (3 Oct):** the dev-signer path registered two agents and added an edge on testnet (evidence in [docs/roadmap.md](roadmap.md) → _Verified runs_). The Mera passkey path remains unproven.
+## ADR-006: Gas on Monad testnet is paid by the Mera EOA, funded from the faucet
+**Date:** 2026-10-02 · **Status:** accepted (confirmed by Harfi)
+
+**Context.** ADR-002 planned a Kernel smart account sponsored by Pimlico. We run on testnet, where the faucet makes that unnecessary.
+
+**Decision.** The Mera key signs and sends graph transactions directly (Akhnaf's Path A). No Pimlico, no Kernel.
+
+**Consequences.** The owner address needs testnet MON. UI copy that says gas is "sponsored" (`WalletMenu.tsx`, `WalletChip.tsx`) is no longer accurate and must change, or the low-balance UI already in `EdgeEditorModal.tsx` must be switched on. AGENTS.md rule 8 (don't overclaim) applies.
+
+## ADR-007: The agent key sends `MemorySlots.write`, and the bridge funds it
+**Date:** 2026-10-03 · **Status:** accepted (Altaf; Akhnaf please confirm, no contract change needed)
+
+**Context.** The deployed `MemorySlots.write` requires `msg.sender == registry.writerOf(agentId)`, so the agent's own key must send the transaction and hold MON.
+
+**Decision.** On `POST /v1/agents/:id/authorize` the bridge tops up the agent key from a testnet-only funder key (`BRIDGE_FUNDER_PRIVATE_KEY`, in `.env` only), with a per-agent cap and a per-owner daily limit. Every write sets explicit `gas`.
+
+**Consequences.** No redeploy, and users never fund agent keys by hand. The funder is a hot key: never reuse it anywhere else, and keep the balance small.
+
+## ADR-008: The product is named Mindshare, and the rename is one scripted PR later
+**Date:** 2026-10-02 · **Status:** accepted, rename not done
+
+**Decision.** Use "Mindshare" in new user-facing text. Code, packages (`@hive/*`), MCP tools (`hive_*`) and env vars keep "Hive" until a single scripted rename PR (`scripts/rename-to-mindshare.mjs`, dry-run by default) lands on `development` after the open PR stacks merge. The team is told before it lands because MCP tool names and `@hive/shared` imports change.
+
+**Consequences.** The HKDF info string `hive/encrypt` must never be renamed: it derives the encryption key from the passkey, and changing it makes all existing ciphertext unreadable. Demo and MCP focus is Claude and ChatGPT; Cursor is not a product we integrate.
+
+## ADR-009: The bridge holds the delegated key and sees plaintext only in memory
+**Date:** 2026-10-04 · **Status:** accepted (confirmed by Harfi)
+
+**Context.** ADR-004 and hard rule 2 said content is encrypted on the client. The bridge write path (#77) encrypts on the bridge with the owner's delegated key from the authorized session, and reads decrypt there too, so plaintext reaches the bridge.
+
+**Decision.** The bridge may hold plaintext in memory while it serves an authorized read or write. It never stores or logs it. Hard rule 2 in AGENTS.md is reworded to match.
+
+**Consequences.** Plaintext must never appear in a log, an error message, an SSE event or a database row. Supabase still holds only ciphertext, and nothing but hashes goes onchain. Users trust the bridge operator with content during a session, which `docs/architecture.md` documents as the trust model.

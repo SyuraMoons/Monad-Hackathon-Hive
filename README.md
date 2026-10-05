@@ -1,10 +1,10 @@
 # Hive
 
-**IFTTT for AI agent memory.** Draw lines between your AI agents on a canvas to decide who may share what, and with no line, nothing is shared. Every permission is signed with your passkey (Face ID) and recorded on Monad, so anyone can check it.
+**IFTTT for AI agent memory.** Draw lines between your AI agents on a canvas to decide who may share what, and with no line, nothing is shared. Every permission is signed with your passkey and recorded on Monad, so anyone can check it.
 
 > Monad Metropolis Hackathon · Track 4 (Trust, Identity & AI) · submission deadline 13 Oct 2026
 
-> **Status:** early scaffold. Contracts are live on Monad testnet (10143) and the write path (register agents + add an edge) is verified through the `/smoke` harness; the canvas, bridge, and storage layers are still *planned*. See [docs/roadmap.md](docs/roadmap.md) for what's done.
+> **Status:** in progress. Contracts are live on Monad testnet (10143) and the write path (register agents + add an edge) is verified through the `/smoke` harness; the canvas, bridge, and encrypted-storage layers are built. Envio indexing and end-to-end propagation are still *planned*. See [docs/roadmap.md](docs/roadmap.md) for what's done.
 
 ## How it works
 
@@ -12,9 +12,9 @@
 ┌─────────────────────────────────────────────┐
 │ 1. Canvas            Next.js + React Flow   │  drag agents, draw permission edges
 ├─────────────────────────────────────────────┤
-│ 2. Passkey auth      Mera (WebAuthn PRF)    │  Face ID is the only key
+│ 2. Passkey auth      Mera (WebAuthn PRF)    │  your passkey is the only key
 ├─────────────────────────────────────────────┤
-│ 3. Agent bridge      Node + MCP SDK         │  lets Claude / ChatGPT / bots talk to Hive
+│ 3. Agent bridge      Node + MCP SDK         │  lets Claude / GPT / bots talk to Hive
 ├─────────────────────────────────────────────┤
 │ 4. Memory storage    Supabase (encrypted)   │  ciphertext only, server can't read it
 ├─────────────────────────────────────────────┤

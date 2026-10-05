@@ -7,9 +7,9 @@
 | # | Layer | Tech | Package | Status |
 | --- | --- | --- | --- | --- |
 | 1 | Canvas: drag agents, draw permission edges, see propagation | Next.js 15 + React Flow | `apps/web` | ⏳ (Next.js shell ✅) |
-| 2 | Passkey auth: Face ID derives the user's keys | Mera (WebAuthn PRF) | `apps/web` | 🚧 (dev-signer path ✅, PRF ⏳) |
+| 2 | Passkey auth: the passkey derives the user's keys | Mera (WebAuthn PRF) | `apps/web` | 🚧 (dev-signer path ✅, PRF ⏳) |
 | 3 | Agent bridge: MCP tools for agents plus an event stream for the canvas | Node + MCP SDK | `apps/bridge` | ⏳ (`/health` ✅) |
-| 4 | Memory storage: encrypted memory content | Supabase | `supabase/` (planned) | ⏳ |
+| 4 | Memory storage: encrypted memory content | Supabase | `supabase/` | ⏳ (`memory_content` table and bridge store `apps/bridge/src/store.ts` ✅; written by the write flow, AL-5, planned) |
 | 5 | Permission graph: agents, edges, propagation events | Solidity on Monad testnet (10143) | `packages/contracts` | ✅ |
 | 5b | Audit trail: indexed onchain events | Envio HyperIndex | `packages/indexer` (planned) | ⏳ |
 
@@ -25,19 +25,21 @@
 
 ## Keys (planned)
 
-One passkey produces several keys (this targets the Mera "One Passkey, Many Keys" bounty):
+One passkey produces several keys (this targets the Mera "One Passkey, Many Keys" bounty). The passkey's PRF output (Mera's default salt, 32 bytes) is the entropy of a 24-word BIP-39 **recovery phrase**, and every key comes from that phrase's seed ([ADR-005](decisions.md)):
 
 - `m/44'/60'/0'/0/0` is the **owner key**. It owns the Kernel smart account that signs graph changes.
-- `HKDF(prf, "hive/encrypt")` is the **encryption key** for memory content.
+- `HKDF(seed, "hive/encrypt")` is the **encryption key** for memory content.
 - `m/44'/60'/0'/0/{n}` is a **per-agent scoped key**, handed to the bridge when the user authorizes agent *n*.
 
-Transactions are sent as ERC-4337 user operations through Pimlico's paymaster, so users need no MON. See [ADR-002](decisions.md). Superseded for now by [ADR-005](decisions.md) — writes go from a faucet-funded EOA; Kernel + Pimlico return behind `HiveSigner`.
+The same phrase restores the same account without the passkey, in Hive or any BIP-39 wallet. The wallet menu shows it after a fresh passkey prompt. Keys are derived and signing works today; the owner key signs writes directly (AK-9, ADR-006).
+
+Transactions were planned as ERC-4337 user operations through Pimlico's paymaster, so users need no MON. See [ADR-002](decisions.md). Superseded by [ADR-006](decisions.md) — writes go from a faucet-funded EOA; Kernel + Pimlico return behind `HiveSigner`.
 
 ## Flows (planned)
 
 **Add a permission edge** (checkpoint CP1)
 ```
-Canvas: draw edge ─▶ Face ID (Mera) ─▶ KnowledgeGraph.addEdge (direct tx, ADR-005)
+Canvas: draw edge ─▶ passkey (Mera) ─▶ KnowledgeGraph.addEdge (direct tx, ADR-006)
        ─▶ EdgeAdded event ─▶ Envio indexes it ─▶ canvas and audit trail update
 ```
 

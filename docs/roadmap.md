@@ -32,7 +32,7 @@ Deadline: **13 Oct 2026, 23:59 UTC**. Demo freeze: **10 Oct**.
 - `hasPermission(1, 2, "demo")` → `true`
 - `edge(1)` → `{ from: 1, to: 2, topic: keccak256("demo"), active: true }` · `edgeCount()` → `1`
 
-This exercised the **dev-signer** path only (ADR-005), not a Mera passkey.
+This exercised the **dev-signer** path only (ADR-006), not a Mera passkey.
 
 ## P0 features (required)
 
@@ -58,8 +58,8 @@ We build one layer at a time. Tick each step off here when it's done.
 
 - [x] Blank monorepo scaffold
 - [x] Docs (README, AGENTS.md, docs/)
-- [ ] Mera passkey smoke test: `/smoke` with Face ID → derived address → one onchain tx
-  - [x] Dev-signer variant verified 3 Oct (see _Verified runs_). Face ID/PRF still untested; "sponsored tx" superseded by ADR-005.
+- [ ] Mera passkey smoke test: `/smoke` page with passkey → address → one onchain tx
+  - [x] Dev-signer variant verified 3 Oct (see _Verified runs_). Passkey/PRF still untested; "sponsored tx" superseded by ADR-006.
 - [x] Contracts: AgentRegistry, KnowledgeGraph, MemorySlots, PropagationEngine, with tests and a deploy to testnet
 - [ ] Canvas: React Flow with 3 nodes and drawable edges
 - [x] Wire edge creation → contract tx (CP1: smoke harness, 3 Oct; canvas wiring pending)
