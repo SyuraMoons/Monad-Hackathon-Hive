@@ -114,3 +114,12 @@ Short architecture decision records. To add one, append the next number and don'
 **Decision.** An edge whose topic is `*` (`ALL_TOPICS` in `@hive/shared`) means every topic. The contract hashes `*` like any other string, so nothing is redeployed. The bridge allows it in `edgeAllows` (`permissions.ts`), on top of the usual checks (active, not expired, same sender and reader). The editor signs `*` by default and "Only one topic" restricts the edge to one. `*` is valid for edges only: a slot topic still has to match `^[a-z0-9-]{1,31}$`, so a real topic can never collide with it.
 
 **Consequences.** Reads work along an all-topics edge, because the bridge decides them. `PropagationEngine` and `KnowledgeGraph.hasPermission` match exact hashes only, so an all-topics edge emits no `Propagate` event: `propagatedTo` stays empty, the canvas pulse does not fire for it, and the onchain `hasPermission` returns false. An edge for one topic behaves as before. Making the contracts treat `*` (or an empty topic) as a wildcard is planned and needs a redeploy of `KnowledgeGraph`, `PropagationEngine` and `MemorySlots`.
+
+## ADR-014: `hive_save_session` defaults to topic `general`
+**Date:** 2026-10-05 · **Status:** proposed
+
+**Context.** ADR-010 made `brain` the default topic of `hive_save_session`. The canvas never offered `brain`, and users do not think in topics when they tell an agent to save.
+
+**Decision.** The default is `general` (`DEFAULT_TOPIC` in `@hive/shared`, renamed from `DEFAULT_BRAIN_TOPIC`). With an all-topics edge (ADR-013) the topic does not matter for reading, and `general` is a topic the user can also pick on an edge. An agent can still pass a topic. This supersedes the `brain` default of ADR-010.
+
+**Consequences.** Memories already saved under `brain` stay readable through all-topics edges, and the web app still resolves `brain` edges. Nothing is migrated.
