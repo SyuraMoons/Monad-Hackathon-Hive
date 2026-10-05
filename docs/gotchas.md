@@ -22,6 +22,13 @@ Known pitfalls. Add to this list when you hit a new one.
 - **The public RPC limits `eth_getLogs` to a 100-block range** (`testnet-rpc.monad.xyz` answers 413, code -32614). Rebuilding edges and their topic names from `EdgeAdded` logs needs an indexer (Envio) or an RPC without that limit.
 - **Bridge events and sessions are in memory.** `/v1/events` history and agent sessions are gone after a bridge restart (`pnpm dev` restarts it on every bridge edit). Open `/connect` again to re-authorize.
 
+## Web session
+
+- A reload keeps you signed in (live mode) but locked: the keys are derived again from the passkey, and the Connect page shows "Unlock with passkey" until then. Mock mode still goes to `/login`.
+- The saved session is the 24h user token, fixed from sign-in. It does not slide forward with use.
+- Sign out clears this browser only. Another tab stays signed in until it reloads, because the bridge does not revoke user tokens.
+- After a bridge restart the user token still works, but agent sessions are gone: authorize the agents again on `/connect`.
+
 ## Tooling
 
 - **Clone with submodules:** `git clone --recurse-submodules`, or run `git submodule update --init` afterwards. Otherwise `forge build` fails because `forge-std` is missing.
@@ -34,3 +41,7 @@ Known pitfalls. Add to this list when you hit a new one.
 - **Merged stacked PRs leave your local `development` stale.** GitHub merges each PR into `origin/development`, your local branch doesn't move. Before you start, run `git fetch && git merge --ff-only origin/development`, or you will think code is missing (this cost us an hour: the bridge looked unbuilt).
 - **Never rename the HKDF string `hive/encrypt`,** not even in the Mindshare rename (ADR-008).
 
+## Memory
+
+- **An agent never reads its own writes.** `hive_read_memory` returns only notes from other agents that have an edge to the reader (`apps/bridge/src/memory.ts`). A `hive_save_session` is for the other agents, so give every agent an edge to the others on the shared topic (`brain`) to get one shared brain.
+- **Each write is a transaction.** About 0.01 MON or more per save at the current gas price, paid by the agent key. The bridge tops a key up only at authorize, so many saves can run it dry ("The agent key has no MON for gas.").

@@ -8,6 +8,7 @@ import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { decrypt } from "@hive/crypto";
 import { createApp } from "../src/app.js";
+import { HIVE_INSTRUCTIONS } from "../src/mcp.js";
 import { SessionStore } from "../src/sessions.js";
 import { InMemoryChain, InMemoryCiphertextStore } from "../src/stubs.js";
 import { topicHash } from "../src/permissions.js";
@@ -67,10 +68,17 @@ beforeAll(async () => {
 afterAll(() => new Promise<void>((r) => server.close(() => r())));
 
 describe("MCP over Streamable HTTP (official SDK client)", () => {
-  it("lists the three Hive tools", async () => {
+  it("lists the four Hive tools", async () => {
     const client = await connect(agentToken["ChatGPT"]);
     const tools = (await client.listTools()).tools.map((t) => t.name).sort();
-    expect(tools).toEqual(["hive_read_memory", "hive_whoami", "hive_write_memory"]);
+    expect(tools).toEqual(["hive_read_memory", "hive_save_session", "hive_whoami", "hive_write_memory"]);
+    await client.close();
+  });
+
+  it("sends the save-to-Hive instructions in initialize", async () => {
+    const client = await connect(agentToken["ChatGPT"]);
+    expect(client.getInstructions()).toBe(HIVE_INSTRUCTIONS);
+    expect(HIVE_INSTRUCTIONS).toContain("hive_save_session");
     await client.close();
   });
 
@@ -133,6 +141,41 @@ describe("MCP over Streamable HTTP (official SDK client)", () => {
     const before = chain.slots.length;
     const res = await claude.callTool({ name: "hive_write_memory", arguments: { topic: "Bad Topic!", content: "x" } });
     expect(res.isError).toBe(true);
+    expect(chain.slots.length).toBe(before);
+    await claude.close();
+  });
+
+  it("saves a session summary under brain by default and under a given topic; the reader sees it only with an edge", async () => {
+    chain.edges.push({ id: 2n, from: CLAUDE, to: CHATGPT, topicHash: topicHash("brain"), expiresAt: BigInt(nowS() + 3600), active: true });
+    const claude = await connect(agentToken["Claude"]);
+    const saved = await call(claude, "hive_save_session", { summary: "Goal: ship Hive. Decided: Postgres. Open: edges." });
+    expect(saved.isError).toBeFalsy();
+    expect(saved.data).toMatchObject({ topic: "brain", propagatedTo: ["2"] });
+    const named = await call(claude, "hive_save_session", { summary: "Notes for research", topic: "research" });
+    expect(named.data).toMatchObject({ topic: "research", propagatedTo: [] });
+    await claude.close();
+
+    const chatgpt = await connect(agentToken["ChatGPT"]);
+    const got = (await call(chatgpt, "hive_read_memory", { topic: "brain" })).data.memories;
+    expect(got.map((m: any) => m.content)).toEqual(["Goal: ship Hive. Decided: Postgres. Open: edges."]);
+    expect((await call(chatgpt, "hive_read_memory", { topic: "research" })).data.memories).toEqual([]);
+    await chatgpt.close();
+
+    const therapy = await connect(agentToken["Therapy Bot"]);
+    expect((await call(therapy, "hive_read_memory", { topic: "brain" })).data.memories).toEqual([]);
+    await therapy.close();
+  });
+
+  it("refuses an oversize summary and one that carries a secret, without echoing it", async () => {
+    const claude = await connect(agentToken["Claude"]);
+    const before = chain.slots.length;
+    const big = await claude.callTool({ name: "hive_save_session", arguments: { summary: "é".repeat(2049) } });
+    expect(big.isError).toBe(true);
+    const secret = "deploy with sk-" + "a1B2c3D4e5".repeat(3);
+    const res = await call(claude, "hive_save_session", { summary: secret });
+    expect(res.isError).toBe(true);
+    expect(res.text).toBe("The summary looks like it contains a secret. Remove it and try again.");
+    expect(res.text).not.toContain("sk-");
     expect(chain.slots.length).toBe(before);
     await claude.close();
   });

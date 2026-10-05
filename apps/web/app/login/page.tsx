@@ -87,10 +87,14 @@ function LoginScreen() {
   const [barStarted, setBarStarted] = useState(false);
   const started = useRef(false);
 
-  // Already signed in (e.g. back button): go straight on.
+  // Already signed in (back button, or a saved session after a reload): go straight on.
   useEffect(() => {
-    if (!started.current && useSession.getState().status === "signed-in") router.replace(next?.startsWith("/") ? next : "/canvas");
-    started.current = true;
+    let alive = true;
+    void useSession.getState().restore().then(() => {
+      if (alive && !started.current && useSession.getState().status === "signed-in") router.replace(next?.startsWith("/") ? next : "/canvas");
+      started.current = true;
+    });
+    return () => { alive = false; };
   }, [next, router]);
 
   // Login 3: run the 1.2 s bar, then leave once the bridge has also confirmed.

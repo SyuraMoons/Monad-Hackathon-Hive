@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  DEFAULT_BRAIN_TOPIC,
   authMessage,
   zAgentsResponse,
   zAuditEvent,
@@ -14,6 +15,8 @@ import {
   zMemoryResponse,
   zReadMemoryInput,
   zReadMemoryOutput,
+  zSaveSessionInput,
+  zSaveSessionOutput,
   zWhoamiInput,
   zWhoamiOutput,
   zWriteMemoryInput,
@@ -85,6 +88,14 @@ describe("mcp", () => {
     expect(zWriteMemoryInput.safeParse({ topic: "work", content: "é".repeat(2049) }).success).toBe(false); // 4098 bytes
     expect(zWriteMemoryInput.safeParse({ topic: "work", content: "" }).success).toBe(false);
     expect(zWriteMemoryOutput.safeParse({ slotId: "1", contentHash: HASH, txHash: TX, propagatedTo: [] }).success).toBe(true);
+  });
+
+  it("validates hive_save_session", () => {
+    expect(zSaveSessionInput.safeParse({ summary: "Decided on Postgres" }).success).toBe(true);
+    expect(zSaveSessionInput.safeParse({ summary: "ok", topic: "team-brain" }).success).toBe(true);
+    expect(zSaveSessionInput.safeParse({ summary: "é".repeat(2049) }).success).toBe(false); // 4098 bytes
+    expect(zSaveSessionInput.safeParse({ summary: "ok", topic: "Bad Topic" }).success).toBe(false);
+    expect(zSaveSessionOutput.safeParse({ slotId: "1", contentHash: HASH, txHash: TX, propagatedTo: [], topic: DEFAULT_BRAIN_TOPIC }).success).toBe(true);
   });
 
   it("validates hive_read_memory", () => {
