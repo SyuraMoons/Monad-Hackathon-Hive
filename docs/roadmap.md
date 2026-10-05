@@ -86,6 +86,7 @@ We build one layer at a time. Tick each step off here when it's done.
 - [x] Session restore: the web app keeps the 24h user token across a reload and asks for the passkey again only when keys are needed (ADR-011). Unit-tested for storage and token handling, not yet tried in a browser
 - [x] Canvas Reconnect and Disconnect: the agent drawer re-authorizes an agent after a bridge restart (an unexpired token works again) or ends its bridge session. Not yet tried in a browser
 - [x] Several named agents per type: Connect lists a type's agents and registers a new one by name (ADR-012). Not yet tried in a browser
+- [x] Memory history in the agent drawer: past writes read from `MemorySlots.slotsSince` (topic, time and content hash, no content). Not yet tried in a browser
 - [ ] Propagation animation (CP2)
 - [ ] Demo script and rehearsal (CP3)
 
