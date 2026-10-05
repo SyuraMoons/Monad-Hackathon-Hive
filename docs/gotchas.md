@@ -30,6 +30,7 @@ Known pitfalls. Add to this list when you hit a new one.
 - After a bridge restart the user token still works, but agent sessions are gone: authorize the agents again. On the canvas, open the agent's drawer and press **Reconnect** (one passkey touch). A token under 24h old works again with no new command, so run `/mcp` in Claude Code. Only a token older than 24h needs the new command from `/connect`.
 - Claude Code stores the `hive` MCP server per project folder. Every session in the same folder uses the same token and is the same agent. For a second agent, create it on `/connect` ("+ New agent", a transaction that costs gas) and add its command from another folder.
 - The agent drawer's memory history comes from `MemorySlots.slotsSince`. Slots store no transaction hash, so rows show the content hash and no explorer link, and the text of an old memory is not shown (live writes of this session are).
+- "Remove from canvas" only hides the agent on this browser (`hive:hidden:<owner>`): it stays registered on Monad and shows again on another browser, because `AgentRegistry` has no delete. The sidebar lists hidden agents with a Show button. A hidden agent is skipped by Connect, so it is not authorized again by accident.
 
 ## Tooling
 

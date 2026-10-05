@@ -87,6 +87,7 @@ We build one layer at a time. Tick each step off here when it's done.
 - [x] Canvas Reconnect and Disconnect: the agent drawer re-authorizes an agent after a bridge restart (an unexpired token works again) or ends its bridge session. Not yet tried in a browser
 - [x] Several named agents per type: Connect lists a type's agents and registers a new one by name (ADR-012). Not yet tried in a browser
 - [x] Memory history in the agent drawer: past writes read from `MemorySlots.slotsSince` (topic, time and content hash, no content). Not yet tried in a browser
+- [x] Remove an agent from the canvas: hidden in this browser, bridge session ended, refused while it has edges (ADR-012). The registry has no delete. Not yet tried in a browser
 - [ ] Propagation animation (CP2)
 - [ ] Demo script and rehearsal (CP3)
 
