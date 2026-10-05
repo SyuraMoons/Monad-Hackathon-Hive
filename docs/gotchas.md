@@ -20,6 +20,13 @@ Known pitfalls. Add to this list when you hit a new one.
 - **The bridge needs MON on every agent key.** `MemorySlots.write` is sent by the agent's writer key (ADR-007). A write from an unfunded key fails with a chain error, not a permission error.
 - **Topics are stored as `keccak256(topic)`.** Permission checks work from the hash, but readable topic names exist only in `EdgeAdded` logs (or Envio). `AgentRegistry` has no "agents of owner" view either: list them from `AgentRegistered` logs filtered by the indexed `owner`.
 
+## Web session
+
+- A reload keeps you signed in (live mode) but locked: the keys are derived again from the passkey, and the Connect page shows "Unlock with passkey" until then. Mock mode still goes to `/login`.
+- The saved session is the 24h user token, fixed from sign-in. It does not slide forward with use.
+- Sign out clears this browser only. Another tab stays signed in until it reloads, because the bridge does not revoke user tokens.
+- After a bridge restart the user token still works, but agent sessions are gone: authorize the agents again on `/connect`.
+
 ## Tooling
 
 - **Clone with submodules:** `git clone --recurse-submodules`, or run `git submodule update --init` afterwards. Otherwise `forge build` fails because `forge-std` is missing.

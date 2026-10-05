@@ -80,6 +80,7 @@ We build one layer at a time. Tick each step off here when it's done.
 - [x] Bridge: MCP tools `write_memory` / `read_memory`, plus SSE `/events`
   - [x] MCP `hive_write_memory` / `hive_read_memory` / `hive_whoami`, live chain reads, `authorize` with gas top-up, encrypted write to `MemorySlots` (#71, #74, #75, #77). A live write from Claude Code returned a receipt on 5 Oct (see _Verified runs_)
   - [x] SSE `/v1/events`: bridge route and web client, tested against a real port and a fake `EventSource`. Not yet seen turning the Connect page green in a browser. `session.expiring` is planned
+  - [x] Session restore: the web app keeps the 24h user token across a reload and asks for the passkey again only when keys are needed (ADR-011). Unit-tested for storage and token handling, not yet tried in a browser
 - [x] Supabase encrypted storage (#66, #69)
 - [ ] Mock agents
 - [ ] Propagation animation (CP2)

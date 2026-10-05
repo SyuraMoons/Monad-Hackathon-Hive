@@ -78,3 +78,12 @@ Short architecture decision records. To add one, append the next number and don'
 **Decision.** The bridge may hold plaintext in memory while it serves an authorized read or write. It never stores or logs it. Hard rule 2 in AGENTS.md is reworded to match.
 
 **Consequences.** Plaintext must never appear in a log, an error message, an SSE event or a database row. Supabase still holds only ciphertext, and nothing but hashes goes onchain. Users trust the bridge operator with content during a session, which `docs/architecture.md` documents as the trust model.
+
+## ADR-011: The user token survives a reload, the keys do not
+**Date:** 2026-10-05 · **Status:** proposed
+
+**Context.** The whole web session lived in memory, so every reload sent the user back to `/login`. The bridge user token is a 24h JWT signed with a fixed secret and the bridge keeps no user state, so a saved token keeps working after a reload and after a bridge restart.
+
+**Decision.** In live mode the web app saves `{ owner, userToken, expiresAt, credentialId }` in `localStorage` (`hive:session`) and restores it on load. The owner, encryption and agent keys are never stored. After a reload the app is signed in but locked, and `unlock()` derives the keys again from the passkey (one touch) the first time an action needs them. At `expiresAt` the saved session is dropped and the user signs in again.
+
+**Consequences.** Any script on the page can read the token. It can list agents, end agent sessions and read the event stream, but it cannot sign a transaction or authorize an agent, which need the keys. The bridge does not revoke user tokens, so signing out clears only this browser. Mock mode keeps its state in memory and still asks to log in after a reload. Agent sessions on the bridge are still in memory: a bridge restart needs a new authorize on `/connect`.
