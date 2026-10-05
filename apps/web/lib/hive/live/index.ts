@@ -5,6 +5,8 @@ import { hivePublicClient } from "../clients";
 import type { HiveSigner } from "../signer";
 import type { HiveClient, Session, TxHandle } from "../types";
 import { createBridgeApi } from "./bridge";
+import { agentHistory } from "./history";
+import { chainHistory } from "./historyChain";
 import { agentsOf, registerAndBind, toAgent } from "./registry";
 import { chainReader, chainRegistry } from "./registryChain";
 
@@ -59,6 +61,7 @@ export function createLiveClient(): LiveHiveClient {
     },
     events: bridge.events,
     memory: {
+      history: (agentId) => agentHistory(chainHistory, agentId),
       preview: async () => todo("memory.preview"),
     },
     tx: {

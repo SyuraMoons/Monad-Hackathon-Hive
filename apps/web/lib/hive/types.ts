@@ -13,6 +13,7 @@ import type {
   HiveError,
   HiveEvent,
   Provenance,
+  SlotId,
   Topic,
   TxHash,
   UnixSeconds,
@@ -28,6 +29,9 @@ export type TxResult<T extends object = object> =
 
 /** Returned as soon as the userOp is sent, so the UI can draw it as pending (golden rule 6). */
 export type TxHandle<T extends object = object> = { status: "pending"; wait(): Promise<TxResult<T>> };
+
+/** One past write of an agent, as the chain keeps it: hashes and topics, never content. */
+export type MemoryHistoryRow = { slotId: SlotId; topic: Topic; contentHash: ContentHash; writtenAt: UnixSeconds };
 
 export type BridgeStatus = "connecting" | "open" | "reconnecting" | "offline";
 
@@ -71,6 +75,8 @@ export interface HiveClient {
     subscribe(onEvent: (event: HiveEvent) => void, onStatus?: (status: BridgeStatus) => void): () => void;
   };
   memory: {
+    /** The agent's past writes from the chain, newest first (at most 50). Content stays encrypted: this is hashes and topics. */
+    history(agentId: AgentId): Promise<MemoryHistoryRow[]>;
     /** Fetches the ciphertext and decrypts it on this device (rules O4). */
     preview(contentHash: ContentHash): Promise<string>;
   };
