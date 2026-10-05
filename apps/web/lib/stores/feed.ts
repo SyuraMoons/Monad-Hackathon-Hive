@@ -3,6 +3,7 @@
 import type { AgentId, ContentHash, HiveEvent, SlotId, Topic, TxHash, UnixSeconds } from "@hive/shared";
 import { create } from "zustand";
 import { getHiveClient } from "@/lib/hive/client";
+import type { MemoryHistoryRow } from "@/lib/hive/types";
 
 export type FeedRow =
   | { kind: "written"; id: string; at: UnixSeconds; agentId: AgentId; topic: Topic; slotId: SlotId; contentHash: ContentHash; txHash: TxHash; propagatedTo: AgentId[] }
@@ -15,6 +16,9 @@ type FeedState = {
   rows: FeedRow[];
   /** Plaintext decrypted on this device, by content hash. "error" if it couldn't be fetched or decrypted. */
   previews: Record<ContentHash, string | "error" | "loading">;
+  /** An agent's past writes from the chain, by agent id. Hashes and topics only. */
+  history: Record<string, MemoryHistoryRow[] | "loading" | "error">;
+  loadHistory(agentId: AgentId): Promise<void>;
   applyEvent(event: HiveEvent): void;
   push(row: FeedRow): void;
   loadPreview(hash: ContentHash): Promise<void>;
@@ -24,6 +28,19 @@ type FeedState = {
 export const useFeed = create<FeedState>()((set, get) => ({
   rows: [],
   previews: {},
+  history: {},
+
+  async loadHistory(agentId) {
+    const key = agentId.toString();
+    if (get().history[key] === "loading") return;
+    set({ history: { ...get().history, [key]: "loading" } });
+    try {
+      const rows = await (await getHiveClient()).memory.history(agentId);
+      set({ history: { ...get().history, [key]: rows } });
+    } catch {
+      set({ history: { ...get().history, [key]: "error" } });
+    }
+  },
 
   applyEvent(event) {
     if (event.type === "memory.written") {
@@ -52,6 +69,6 @@ export const useFeed = create<FeedState>()((set, get) => ({
   },
 
   reset() {
-    set({ rows: [], previews: {} });
+    set({ rows: [], previews: {}, history: {} });
   },
 }));

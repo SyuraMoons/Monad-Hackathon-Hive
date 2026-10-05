@@ -1,12 +1,14 @@
 "use client";
 
+import type { ContentHash } from "@hive/shared";
 import Image from "next/image";
 import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { cn } from "@/lib/cn";
 import { explorerAddress, explorerTx } from "@/lib/explorer";
 import { longDate, shortHash } from "@/lib/format";
 import { claudeCommand } from "@/lib/hive/commands";
-import { useFeed } from "@/lib/stores/feed";
+import type { MemoryHistoryRow } from "@/lib/hive/types";
+import { useFeed, type FeedRow } from "@/lib/stores/feed";
 import { useGraph, type AgentNode, type EdgeView } from "@/lib/stores/graph";
 import { useSession } from "@/lib/stores/session";
 import { useUi } from "@/lib/stores/ui";
@@ -15,6 +17,18 @@ import { topicColor } from "@/lib/topics";
 const ICONS: Partial<Record<string, string>> = { claude: "/agents/claude.png", gpt: "/agents/gpt.png" };
 const eyebrow = "font-mono text-[14px] tracking-[0.08em] whitespace-pre text-ink-3";
 const section = "flex flex-col gap-2.5 border-t border-line px-6 py-[18px]";
+
+type Entry = { slotId: bigint; topic: string; contentHash: ContentHash; at: number; propagatedTo?: bigint[] };
+
+/** Chain history and this session's live writes, one row per slot, newest first. Live rows know who the write reached. */
+function historyEntries(past: MemoryHistoryRow[] | "loading" | "error" | undefined, rows: FeedRow[], agentId: bigint): Entry[] {
+  const bySlot = new Map<string, Entry>();
+  if (Array.isArray(past)) for (const h of past) bySlot.set(h.slotId.toString(), { slotId: h.slotId, topic: h.topic, contentHash: h.contentHash, at: h.writtenAt });
+  for (const r of rows) {
+    if (r.kind === "written" && r.agentId === agentId) bySlot.set(r.slotId.toString(), { slotId: r.slotId, topic: r.topic, contentHash: r.contentHash, at: r.at, propagatedTo: r.propagatedTo });
+  }
+  return [...bySlot.values()].sort((a, b) => b.at - a.at || (b.slotId > a.slotId ? 1 : -1)).slice(0, 20);
+}
 
 function scopeKey(expiresAt: number | null): string {
   if (!expiresAt) return "not issued · connect this agent first";
@@ -96,8 +110,14 @@ export function NodeDrawer({ agentId }: { agentId: string }) {
   const edges = useGraph((s) => s.edges);
   const rows = useFeed((s) => s.rows);
   const previews = useFeed((s) => s.previews);
+  const past = useFeed((s) => s.history[agentId]);
+  const loadHistory = useFeed((s) => s.loadHistory);
   const setUi = useUi((s) => s.set);
   const closeRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    void loadHistory(BigInt(agentId));
+  }, [agentId, loadHistory]);
 
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
@@ -110,7 +130,7 @@ export function NodeDrawer({ agentId }: { agentId: string }) {
   const live = Object.values(edges).filter((e) => e.state === "signed" || e.state === "revoking" || e.state === "pending");
   const outgoing = live.filter((e) => e.from === agent.agentId);
   const incoming = live.filter((e) => e.to === agent.agentId);
-  const writes = rows.filter((r) => r.kind === "written" && r.agentId === agent.agentId).slice(0, 5);
+  const writes = historyEntries(past, rows, agent.agentId);
   const icon = ICONS[agent.agentType];
 
   function revoke(e: EdgeView, ev: MouseEvent<HTMLButtonElement>) {
@@ -194,28 +214,31 @@ export function NodeDrawer({ agentId }: { agentId: string }) {
         )}
       </section>
 
-      <section className={section} aria-label="Recent writes">
-        <p className={eyebrow}>RECENT WRITES  ·  {writes.length}</p>
+      <section className={section} aria-label="Memory history">
+        <p className={eyebrow}>MEMORY HISTORY  ·  {writes.length}</p>
+        {past === "error" && <p className="text-[14px] leading-[1.45] text-ink-3">Couldn’t read the history from Monad. New writes still appear here.</p>}
+        {past === "loading" && !writes.length && <p className="text-[15px] leading-[1.5] text-ink-2">Loading history from Monad…</p>}
         {writes.length ? (
           <ul className="flex flex-col gap-3">
             {writes.map((w) => {
-              if (w.kind !== "written") return null;
               const p = previews[w.contentHash];
+              const text = p && p !== "loading" && p !== "error" ? p : null;
               return (
-                <li key={w.id} className="flex flex-col gap-1">
+                <li key={w.slotId.toString()} className="flex flex-col gap-1">
                   <p className="text-[15px] leading-[1.45] break-words text-ink">
-                    {p && p !== "loading" && p !== "error" ? p : <span className="text-ink-3">{p === "error" ? "Couldn’t decrypt this memory here." : "Decrypting on this device…"}</span>}
+                    {text ?? <span className="font-mono text-[14px] text-ink-3">content {shortHash(w.contentHash)}  ·  encrypted</span>}
                   </p>
                   <p className="flex items-center gap-2 font-mono text-[14px] whitespace-pre text-ink-2">
                     <span aria-hidden="true" className="h-[3px] w-3.5" style={{ background: topicColor(w.topic) }} />
-                    {w.topic}  ·  {w.propagatedTo.length ? `→ ${w.propagatedTo.map(name).join(", ")}` : "stayed here"}
+                    {w.topic}  ·  {longDate(w.at).replace(/ \d{4}$/, "")}
+                    {w.propagatedTo ? `  ·  ${w.propagatedTo.length ? `→ ${w.propagatedTo.map(name).join(", ")}` : "stayed here"}` : ""}
                   </p>
                 </li>
               );
             })}
           </ul>
         ) : (
-          <p className="text-[15px] leading-[1.5] text-ink-2">No writes yet in this session.</p>
+          past !== "loading" && past !== "error" && <p className="text-[15px] leading-[1.5] text-ink-2">No writes yet.</p>
         )}
       </section>
 
