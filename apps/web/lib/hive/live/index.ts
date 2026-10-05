@@ -3,7 +3,7 @@ import { formatEther, parseEther } from "viem";
 import { explorerTx } from "@/lib/explorer";
 import { hivePublicClient } from "../clients";
 import type { HiveSigner } from "../signer";
-import type { HiveClient, TxHandle } from "../types";
+import type { HiveClient, Session, TxHandle } from "../types";
 import { createBridgeApi } from "./bridge";
 import { agentsOf, registerAndBind, toAgent } from "./registry";
 import { chainReader, chainRegistry } from "./registryChain";
@@ -21,6 +21,8 @@ const LOW_BALANCE = parseEther("0.05");
 export type LiveHiveClient = HiveClient & {
   /** The signed-in owner's signer, set by the session store after sign-in and cleared on sign-out. Memory only. */
   useSigner(signer: HiveSigner | null): void;
+  /** Puts a saved session back after a reload, with no keys: the signer comes later, from the passkey. */
+  resume(session: Session): void;
 };
 
 export function createLiveClient(): LiveHiveClient {
@@ -31,16 +33,19 @@ export function createLiveClient(): LiveHiveClient {
     useSigner: (next) => {
       signer = next;
     },
+    resume: bridge.resume,
     status: {
       health: bridge.health,
       lowBalance: async () => {
-        if (!signer) return null;
-        const balance = await hivePublicClient.getBalance({ address: signer.account.address });
+        const address = signer?.account.address ?? bridge.owner();
+        if (!address) return null;
+        const balance = await hivePublicClient.getBalance({ address });
         return balance < LOW_BALANCE ? `${formatEther(balance)} MON` : null;
       },
       balance: async () => {
-        if (!signer) throw new HiveError("UNAUTHORIZED", "Sign in first.");
-        const balance = await hivePublicClient.getBalance({ address: signer.account.address });
+        const address = signer?.account.address ?? bridge.owner();
+        if (!address) throw new HiveError("UNAUTHORIZED", "Sign in first.");
+        const balance = await hivePublicClient.getBalance({ address });
         return { mon: Number(formatEther(balance)).toFixed(4), low: balance < LOW_BALANCE };
       },
     },
@@ -60,7 +65,7 @@ export function createLiveClient(): LiveHiveClient {
       registerAgent({ name, agentType, agentKey }) {
         const current = signer;
         const run = async () => {
-          if (!current) throw new HiveError("UNAUTHORIZED", "Sign in first.");
+          if (!current) throw new HiveError("UNAUTHORIZED", "Unlock with your passkey first.");
           return registerAndBind(chainRegistry(current), { owner: current.account.address, name, agentType, agentKey });
         };
         // Started now, so the call is on its way before the UI awaits it.

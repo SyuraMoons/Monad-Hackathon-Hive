@@ -1,4 +1,5 @@
 import {
+  type Address,
   HiveError,
   zAgentsResponse,
   zAuthChallengeResponse,
@@ -7,7 +8,7 @@ import {
   zErrorEnvelope,
   zHealthResponse,
 } from "@hive/shared";
-import type { HiveClient } from "../types";
+import type { HiveClient, Session } from "../types";
 import { createEventStream } from "./events";
 
 // The bridge's HTTP routes (rules §5.1). Every response is checked against the shared zod schema,
@@ -53,9 +54,17 @@ async function call<T>(method: string, path: string, opts: { body?: unknown; tok
   }
 }
 
-/** `status`, `auth` and `agents` of the live client. The user token lives in this closure: memory only. */
-export function createBridgeApi(): Pick<HiveClient, "auth" | "agents"> & { health: HiveClient["status"]["health"]; events: HiveClient["events"] } {
+/** `status`, `auth` and `agents` of the live client. The user token lives in this closure; the session store saves it for a reload (ADR-011). */
+export function createBridgeApi(): Pick<HiveClient, "auth" | "agents"> & {
+  health: HiveClient["status"]["health"];
+  events: HiveClient["events"];
+  /** Puts a saved session back after a reload. */
+  resume(session: Session): void;
+  /** The signed-in owner, known before the passkey is asked again. */
+  owner(): Address | undefined;
+} {
   let userToken: string | undefined;
+  let owner: Address | undefined;
   const token = () => {
     if (!userToken) throw new HiveError("UNAUTHORIZED", "Sign in first.");
     return userToken;
@@ -69,12 +78,18 @@ export function createBridgeApi(): Pick<HiveClient, "auth" | "agents"> & { healt
 
   return {
     health: () => call("GET", "/health", { schema: zHealthResponse }),
+    resume(session) {
+      userToken = session.userToken;
+      owner = session.owner;
+    },
+    owner: () => owner,
     events: { subscribe: createEventStream({ baseUrl, token: () => userToken }) },
     auth: {
       challenge: (owner) => call("POST", "/v1/auth/challenge", { body: { owner }, schema: zAuthChallengeResponse }),
       async verify(body) {
         const res = await call("POST", "/v1/auth/verify", { body, schema: zAuthVerifyResponse });
         userToken = res.userToken;
+        owner = body.owner;
         return { owner: body.owner, ...res };
       },
       // Sign out ends every agent's bridge session, so scoped keys leave the bridge's memory (rules §5.1).
@@ -85,6 +100,7 @@ export function createBridgeApi(): Pick<HiveClient, "auth" | "agents"> & { healt
           await Promise.allSettled(list.filter((a) => a.connected).map((a) => agents.disconnect(a.agentId)));
         } finally {
           userToken = undefined;
+          owner = undefined;
         }
       },
     },
