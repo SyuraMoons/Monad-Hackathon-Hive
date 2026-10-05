@@ -5,6 +5,7 @@ import { bytesToHex, zeroAddress } from "viem";
 import { privateKeyToAddress } from "viem/accounts";
 import { create } from "zustand";
 import { getHiveClient, HIVE_MODE } from "@/lib/hive/client";
+import { clearSavedSession, loadSavedSession, saveSession } from "@/lib/hive/savedSession";
 import type { HiveMode } from "@/lib/hive/types";
 import { useGraph } from "./graph";
 import type { LiveHiveClient } from "@/lib/hive/live";
@@ -20,10 +21,13 @@ type SessionState = {
   status: Status;
   mode: HiveMode;
   owner?: Address;
+  /** Saved in localStorage for its 24 h life, so a reload keeps the user signed in (ADR-011). */
   userToken?: string;
   expiresAt?: number;
-  /** Derived from the passkey on this device. Memory only: never persisted, gone on reload. */
+  /** Derived from the passkey on this device. Memory only: never persisted, gone on reload. After a reload it is undefined until `unlock()`. */
   keys?: HiveKeys;
+  /** True once the first restore attempt has finished, so the app doesn't send a reloaded tab to /login too early. */
+  restored: boolean;
   /** The passkey that signed in, so the recovery phrase is revealed by that passkey only. */
   credentialId?: string;
   /** Which key rows on Login 3 are done. */
@@ -35,6 +39,10 @@ type SessionState = {
   signedOutOnPurpose: boolean;
   /** Per agent type on the Connect page. Tokens are bearer secrets: memory only. */
   connections: Partial<Record<AgentType, Connection>>;
+  /** Brings back the session saved before a reload (live mode). Runs once. Keys stay locked until `unlock()`. */
+  restore(): Promise<void>;
+  /** Derives the keys again from the signed-in passkey (one touch). Resolves to the keys already held when there are some. */
+  unlock(): Promise<HiveKeys>;
   signIn(options?: { create?: boolean }): Promise<void>;
   /** Connect page: register the agent if needed (owner userOp), then authorize it with the bridge (rules O1, §5.1). */
   connectAgent(agentType: AgentType, name: string): Promise<void>;
@@ -51,8 +59,20 @@ export type Connection =
   | { phase: "error"; message: string };
 
 let inFlight: AbortController | null = null;
+let restoring: Promise<void> | null = null;
+let unlocking: Promise<HiveKeys> | null = null;
+let expiryTimer: ReturnType<typeof setTimeout> | undefined;
 
 const initial = { status: "signed-out" as Status, progress: { owner: false, encryption: false, scope: false }, connections: {}, signedOutOnPurpose: false };
+
+const nowS = () => Math.floor(Date.now() / 1000);
+
+/** What every signed-out state clears. */
+const signedOut = { owner: undefined, userToken: undefined, expiresAt: undefined, keys: undefined, credentialId: undefined, destination: undefined, error: undefined };
+
+function clearSigner() {
+  void getHiveClient().then((c) => c.mode === "live" && (c as LiveHiveClient).useSigner(null));
+}
 
 const MAX_AGENT_INDEX = 64;
 
@@ -73,8 +93,20 @@ function nextAgentIndex(keys: HiveKeys, taken: string[]): number {
   throw new Error("No free agent key index");
 }
 
+/** At `expiresAt` the bridge refuses the token, so end the session here too and let the shell send the user to /login. */
+function scheduleExpiry(expiresAt: number) {
+  clearTimeout(expiryTimer);
+  expiryTimer = setTimeout(() => {
+    useSession.getState().keys?.end();
+    clearSigner();
+    clearSavedSession();
+    useSession.setState({ ...initial, ...signedOut });
+  }, Math.max(0, expiresAt * 1000 - Date.now()));
+}
+
 export const useSession = create<SessionState>()((set, get) => ({
   ...initial,
+  restored: false,
   mode: HIVE_MODE,
 
   async signIn({ create = false } = {}) {
@@ -108,6 +140,8 @@ export const useSession = create<SessionState>()((set, get) => ({
       const agents = await client.agents.list().catch(() => []);
       if (ac.signal.aborted) throw new PasskeyError("CANCELLED", "Cancelled");
 
+      saveSession({ owner: session.owner, userToken: session.userToken, expiresAt: session.expiresAt, credentialId: secret.credentialId });
+      scheduleExpiry(session.expiresAt);
       set({
         status: "signed-in",
         owner: session.owner,
@@ -120,7 +154,7 @@ export const useSession = create<SessionState>()((set, get) => ({
       });
     } catch (e) {
       keys?.end();
-      void getHiveClient().then((c) => c.mode === "live" && (c as LiveHiveClient).useSigner(null));
+      clearSigner();
       if (e instanceof PasskeyError && e.code === "CANCELLED") {
         set({ ...initial });
         return;
@@ -133,6 +167,57 @@ export const useSession = create<SessionState>()((set, get) => ({
     } finally {
       if (inFlight === ac) inFlight = null;
     }
+  },
+
+  async restore() {
+    restoring ??= (async () => {
+      if (get().status === "signed-in") return;
+      const client = await getHiveClient();
+      const saved = client.mode === "live" ? loadSavedSession(nowS()) : null;
+      if (client.mode !== "live" || !saved) return;
+      (client as LiveHiveClient).resume(saved);
+      try {
+        await client.agents.list(); // the bridge is the judge of the token: it may have been rotated
+      } catch (e) {
+        if (e instanceof HiveError && (e.code === "UNAUTHORIZED" || e.code === "SESSION_EXPIRED")) {
+          clearSavedSession();
+          return;
+        }
+        // The bridge is unreachable: stay signed in, the app shows it offline and the stream reconnects.
+      }
+      scheduleExpiry(saved.expiresAt);
+      set({ status: "signed-in", owner: saved.owner, userToken: saved.userToken, expiresAt: saved.expiresAt, credentialId: saved.credentialId, progress: { owner: true, encryption: true, scope: true } });
+    })()
+      .catch(() => {})
+      .finally(() => set({ restored: true }));
+    return restoring;
+  },
+
+  async unlock() {
+    const { keys, owner, credentialId } = get();
+    if (keys) return keys;
+    if (!owner || !credentialId) throw new Error("Sign in first.");
+    unlocking ??= (async () => {
+      const passkey = await getPasskeyService();
+      const secret = await passkey.signIn({ credentialId });
+      let derived: HiveKeys;
+      try {
+        derived = await passkey.deriveKeys(secret);
+      } finally {
+        secret.prfOutput.fill(0);
+      }
+      if (derived.ownerAddress.toLowerCase() !== owner.toLowerCase() || get().owner !== owner) {
+        derived.end();
+        throw new Error("That passkey belongs to a different Hive account.");
+      }
+      set({ keys: derived });
+      const client = await getHiveClient();
+      if (client.mode === "live") (client as LiveHiveClient).useSigner({ account: derived.owner, end: () => {} });
+      return derived;
+    })().finally(() => {
+      unlocking = null;
+    });
+    return unlocking;
   },
 
   async connectAgent(agentType, name) {
@@ -200,8 +285,10 @@ export const useSession = create<SessionState>()((set, get) => ({
       if (owner && userToken && expiresAt) await (await getHiveClient()).auth.signOut({ owner, userToken, expiresAt });
     } finally {
       keys?.end();
-      void getHiveClient().then((c) => c.mode === "live" && (c as LiveHiveClient).useSigner(null));
-      set({ ...initial, signedOutOnPurpose: true, owner: undefined, userToken: undefined, expiresAt: undefined, keys: undefined, credentialId: undefined, destination: undefined, error: undefined });
+      clearSigner();
+      clearSavedSession();
+      clearTimeout(expiryTimer);
+      set({ ...initial, ...signedOut, signedOutOnPurpose: true });
     }
   },
 }));

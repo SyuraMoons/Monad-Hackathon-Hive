@@ -48,11 +48,17 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const status = useSession((s) => s.status);
   const owner = useSession((s) => s.owner);
+  const restored = useSession((s) => s.restored);
   const signedIn = status === "signed-in" && !!owner;
 
+  // A reload keeps the saved session (ADR-011): ask for it before deciding the user is signed out.
   useEffect(() => {
-    if (!signedIn) router.replace(useSession.getState().signedOutOnPurpose ? "/" : `/login?next=${encodeURIComponent(pathname)}`);
-  }, [signedIn, pathname, router]);
+    void useSession.getState().restore();
+  }, []);
+
+  useEffect(() => {
+    if (restored && !signedIn) router.replace(useSession.getState().signedOutOnPurpose ? "/" : `/login?next=${encodeURIComponent(pathname)}`);
+  }, [restored, signedIn, pathname, router]);
 
   useHiveBootstrap(signedIn ? owner : undefined);
 

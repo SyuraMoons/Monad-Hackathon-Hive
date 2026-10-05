@@ -16,8 +16,11 @@ export class SessionStore {
   private rows = new Map<string, AgentSession>();
   constructor(private now: () => number = () => Math.floor(Date.now() / 1000)) {}
 
+  /** Authorizing again for the same owner keeps `lastCallAt`: the agent already called, a reload doesn't make it new. */
   put(session: Omit<AgentSession, "lastCallAt">): void {
-    this.rows.set(session.agentId.toString(), { ...session, lastCallAt: null });
+    const prev = this.get(session.agentId);
+    const keep = prev && prev.owner.toLowerCase() === session.owner.toLowerCase() ? prev.lastCallAt : null;
+    this.rows.set(session.agentId.toString(), { ...session, lastCallAt: keep });
   }
 
   /** Live sessions only: an expired one is deleted on lookup. */

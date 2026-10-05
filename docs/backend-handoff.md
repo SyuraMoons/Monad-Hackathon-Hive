@@ -14,7 +14,7 @@ Everything that crosses a process boundary is defined once in `packages/shared` 
 | `src/errors.ts` | `ErrorCode` enum and the error envelope `{ error: { code, message } }` |
 | `src/schema/api.ts` | Every `/v1` body and response, plus `authMessage(owner, nonce)`, the exact text the owner signs at login |
 | `src/schema/events.ts` | The SSE event union for `/v1/events` |
-| `src/schema/mcp.ts` | `hive_write_memory`, `hive_read_memory`, `hive_whoami` inputs and outputs |
+| `src/schema/mcp.ts` | `hive_write_memory`, `hive_read_memory`, `hive_save_session`, `hive_whoami` inputs and outputs |
 | `src/schema/graph.ts` | Envio shapes: graph snapshot, audit events, provenance |
 | `src/chain.ts` | `monadTestnet`, `explorerTxUrl`, `explorerAddressUrl` (Monadscan) |
 
@@ -62,14 +62,15 @@ Port `4000`. JSON everywhere, validated with the shared zod schemas. Allow the w
 | `POST /v1/agents/:id/authorize` | `zAuthorizeBody` → `zAuthorizeResponse` | Both keys are `0x` + 64 hex. Reject unless `agents(id).owner == token owner` and `address(agentPrivateKey) == agents(id).agentKey`. Keys live in memory only |
 | `DELETE /v1/agents/:id/session` | → `204` | Web calls it for every agent on Sign out |
 | `GET /v1/memory/:contentHash` | → `zMemoryResponse` | base64 `ciphertext` and `iv`. The web decrypts locally with the same key |
-| `GET /v1/events?token=` | SSE, each `data:` is a `zHiveEvent` | `EventSource` can't send headers. Support `Last-Event-ID` |
+| `GET /v1/events?token=` | SSE, each `data:` is a `zHiveEvent` | **Built.** `EventSource` can't send headers, so the user token is in the query. `Last-Event-ID` replays up to the last 100 events per owner. Events live in memory only: a bridge restart drops them |
 | `POST /mcp` | MCP over Streamable HTTP, `Authorization: Bearer <agentToken>` | Tools and shapes in `schema/mcp.ts`. The caller's agent comes from the token, never from an argument |
 
-Events the canvas needs:
-- `memory.written` with `propagatedTo` taken from the receipt's propagation logs. Each target draws a pulse, and `[]` shows "stayed with Claude".
-- `memory.read` when an agent reads (reads are offchain, so only the bridge knows).
-- `agent.connected` on a token's first MCP call. This turns the Connect page green.
-- `session.expiring`.
+Events the canvas needs (status of the bridge side):
+- `memory.written` with `propagatedTo` taken from the receipt's propagation logs. Each target draws a pulse, and `[]` shows "stayed with Claude". **Built.**
+- `memory.read` when an agent reads (reads are offchain, so only the bridge knows). **Built**, sent only when the read returned at least one memory.
+- `agent.connected` on a token's first MCP call. This turns the Connect page green. **Built.** Authorizing the same agent again for the same owner keeps its first-call time, so a page reload doesn't make it look new.
+- `agent.disconnected` when the owner ends the session (`DELETE /v1/agents/:id/session`). **Built.**
+- `session.expiring`. **Planned**, not sent yet.
 
 Encryption format the web decrypts: AES-256-GCM with the delegated `encryptionKey`, a 12-byte IV, and the 16-byte tag appended to the ciphertext (WebCrypto's default). `contentHash = keccak256(iv ‖ ciphertext)`. Never a hash of plaintext. Plaintext never goes to Supabase, logs, SSE or errors.
 

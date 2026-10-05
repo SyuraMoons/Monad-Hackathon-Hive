@@ -92,7 +92,7 @@ function Code({ text, token, mask, codeRef }: { text: string; token: string; mas
  * Terminal card (Connect 54:89). `command` is copied verbatim; `token` is highlighted and, unless
  * `maskToken` is false, shown as its first 4 characters. `pending` replaces the code while the agent is set up.
  */
-export function InstallCard({ tab, command, token, note, pending, error, onRetry, secondary, maskToken: mask = true, className }: {
+export function InstallCard({ tab, command, token, note, pending, error, onRetry, retryLabel = "Try again", secondary, maskToken: mask = true, className }: {
   tab: InstallTab;
   command: string;
   token: string;
@@ -100,6 +100,7 @@ export function InstallCard({ tab, command, token, note, pending, error, onRetry
   pending?: string;
   error?: string;
   onRetry?: () => void;
+  retryLabel?: string;
   secondary?: { caption: string; command: string };
   maskToken?: boolean;
   className?: string;
@@ -127,7 +128,7 @@ export function InstallCard({ tab, command, token, note, pending, error, onRetry
           <p className="text-[15px] text-paper">{error}</p>
           {onRetry && (
             <button type="button" onClick={onRetry} className="min-h-9 cursor-pointer text-[15px] font-medium text-amber underline underline-offset-2">
-              Try again
+              {retryLabel}
             </button>
           )}
         </div>
