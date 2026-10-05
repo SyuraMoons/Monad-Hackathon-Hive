@@ -196,7 +196,7 @@ export default function ConnectPage() {
             tab={tab}
             command={tab === "claude" ? claudeTerminalCommand(url, token, selected?.name ?? agent.name) : gptSnippet(url, token)}
             token={token}
-            pending={graphError || needsUnlock || needsAuthorize || allHidden ? undefined : pendingText(agent.name, conn, graphReady)}
+            pending={token || graphError || needsUnlock || needsAuthorize || allHidden ? undefined : pendingText(agent.name, conn, graphReady)}
             error={
               graphError ??
               actionError ??
