@@ -10,6 +10,7 @@ import { PillButton } from "@/components/ui/Pill";
 import { StatusDot } from "@/components/ui/StatusDot";
 import { Tabs } from "@/components/ui/Tabs";
 import { cn } from "@/lib/cn";
+import { claudeCommand, gptRunner, gptSnippet } from "@/lib/hive/commands";
 import { useGraph } from "@/lib/stores/graph";
 import { useSession, type Connection } from "@/lib/stores/session";
 
@@ -23,27 +24,10 @@ const AGENTS: Record<Tab, { name: string; type: AgentType; icon: string }> = {
 // rules O5 / design D4: hive_whoami replaces hive_register_agent (the browser registers agents).
 const TOOLS = [
   ["hive_write_memory", "save a memory under a topic"],
+  ["hive_save_session", "save a summary of this conversation to the shared brain"],
   ["hive_read_memory", "read what your edges allow"],
   ["hive_whoami", "check this agent’s identity and what it can read"],
 ] as const;
-
-const claudeCommand = (url: string, token: string) =>
-  [`claude mcp add --transport http hive \\`, `  ${url} \\`, `  --header "Authorization: Bearer ${token}"`].join("\n");
-
-// OpenAI Responses API with a remote MCP tool (rules O7 option b, design D11). The model comes from the env, never hardcoded.
-const gptSnippet = (url: string, token: string) =>
-  [
-    `await openai.responses.create({`,
-    `  model: process.env.OPENAI_MODEL,`,
-    `  tools: [{ type: "mcp", server_label: "hive",`,
-    `    server_url: "${url}",`,
-    `    authorization: "${token}",`,
-    `    require_approval: "never" }],`,
-    `  input: "What do you remember about my work?",`,
-    `});`,
-  ].join("\n");
-
-const gptRunner = (token: string) => `HIVE_TOKEN_GPT=${token} pnpm --filter @hive/agents gpt --chat`;
 
 function useNow(intervalMs = 1000) {
   const [now, setNow] = useState(() => Math.floor(Date.now() / 1000));
@@ -177,7 +161,7 @@ export default function ConnectPage() {
         </div>
 
         <div className="flex w-full flex-col gap-2 pt-1.5 text-[14px]">
-          <p className="font-mono tracking-[0.1em] text-ink-3">ADDS 3 TOOLS</p>
+          <p className="font-mono tracking-[0.1em] text-ink-3">ADDS 4 TOOLS</p>
           <ul className="flex flex-col gap-2">
             {TOOLS.map(([name, what]) => (
               <li key={name} className="flex gap-3.5">
