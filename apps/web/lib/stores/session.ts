@@ -39,6 +39,8 @@ type SessionState = {
   signedOutOnPurpose: boolean;
   /** Per agent type on the Connect page. Tokens are bearer secrets: memory only. */
   connections: Partial<Record<AgentType, Connection>>;
+  /** Tokens issued this tab, by agent id, so the canvas can show the command again after a Reconnect. */
+  authorizations: Record<string, Authorization>;
   /** Brings back the session saved before a reload (live mode). Runs once. Keys stay locked until `unlock()`. */
   restore(): Promise<void>;
   /** Derives the keys again from the signed-in passkey (one touch). Resolves to the keys already held when there are some. */
@@ -46,6 +48,10 @@ type SessionState = {
   signIn(options?: { create?: boolean }): Promise<void>;
   /** Connect page: register the agent if needed (owner userOp), then authorize it with the bridge (rules O1, §5.1). */
   connectAgent(agentType: AgentType, name: string): Promise<void>;
+  /** Canvas Reconnect: gives the bridge the agent's keys again (one passkey touch when locked). A token under 24h old works again. Throws a readable message. */
+  authorizeAgent(agentId: AgentId): Promise<void>;
+  /** Ends the agent's bridge session: its keys leave the bridge and its token stops working. */
+  disconnectAgent(agentId: AgentId): Promise<void>;
   /** Asks the signed-in passkey again and returns the 24-word recovery phrase. Never stored. */
   revealRecoveryPhrase(): Promise<string>;
   cancel(): void;
@@ -58,12 +64,15 @@ export type Connection =
   | { phase: "ready"; agentId: AgentId; agentToken: string; mcpUrl: string; expiresAt: number }
   | { phase: "error"; message: string };
 
+/** The token the bridge issued for one agent, by agent id. Memory only: it is a bearer secret. */
+export type Authorization = { agentToken: string; mcpUrl: string; expiresAt: number };
+
 let inFlight: AbortController | null = null;
 let restoring: Promise<void> | null = null;
 let unlocking: Promise<HiveKeys> | null = null;
 let expiryTimer: ReturnType<typeof setTimeout> | undefined;
 
-const initial = { status: "signed-out" as Status, progress: { owner: false, encryption: false, scope: false }, connections: {}, signedOutOnPurpose: false };
+const initial = { status: "signed-out" as Status, progress: { owner: false, encryption: false, scope: false }, connections: {}, authorizations: {}, signedOutOnPurpose: false };
 
 const nowS = () => Math.floor(Date.now() / 1000);
 
@@ -91,6 +100,16 @@ function nextAgentIndex(keys: HiveKeys, taken: string[]): number {
     if (!used.has(privateKeyToAddress(keys.agentPrivateKey(n)).toLowerCase())) return n;
   }
   throw new Error("No free agent key index");
+}
+
+/** Hands the bridge one agent's keys and remembers the token it answers with. */
+async function authorizeWithKeys(keys: HiveKeys, agent: { agentId: AgentId; agentKey: string; name: string }) {
+  const n = findAgentIndex(keys, agent.agentKey);
+  if (n === null) throw new Error(`${agent.name} was registered with a different passkey, so this one can't authorize it.`);
+  const res = await (await getHiveClient()).agents.authorize(agent.agentId, { agentPrivateKey: keys.agentPrivateKey(n), encryptionKey: bytesToHex(keys.encryptionKey) });
+  const { authorizations } = useSession.getState();
+  useSession.setState({ authorizations: { ...authorizations, [agent.agentId.toString()]: { agentToken: res.agentToken, mcpUrl: res.mcpUrl, expiresAt: res.expiresAt } } });
+  return res;
 }
 
 /** At `expiresAt` the bridge refuses the token, so end the session here too and let the shell send the user to /login. */
@@ -244,13 +263,27 @@ export const useSession = create<SessionState>()((set, get) => ({
       }
 
       setConn({ phase: "authorizing" });
-      const n = findAgentIndex(keys, agent.agentKey);
-      if (n === null) throw new Error(`${name} was registered with a different passkey, so this one can't authorize it.`);
-      const res = await client.agents.authorize(agent.agentId, { agentPrivateKey: keys.agentPrivateKey(n), encryptionKey: bytesToHex(keys.encryptionKey) });
+      const res = await authorizeWithKeys(keys, agent);
       setConn({ phase: "ready", agentId: agent.agentId, agentToken: res.agentToken, mcpUrl: res.mcpUrl, expiresAt: res.expiresAt });
     } catch (e) {
       setConn({ phase: "error", message: e instanceof Error ? e.message : String(e) });
     }
+  },
+
+  async authorizeAgent(agentId) {
+    const agent = useGraph.getState().agents[agentId.toString()];
+    if (!agent) throw new Error("That agent is not on your canvas.");
+    const keys = await get().unlock();
+    await authorizeWithKeys(keys, agent);
+    await useGraph.getState().refreshAgents().catch(() => {});
+  },
+
+  async disconnectAgent(agentId) {
+    await (await getHiveClient()).agents.disconnect(agentId);
+    const { [agentId.toString()]: _gone, ...authorizations } = get().authorizations;
+    void _gone;
+    set({ authorizations });
+    await useGraph.getState().refreshAgents().catch(() => {});
   },
 
   async revealRecoveryPhrase() {

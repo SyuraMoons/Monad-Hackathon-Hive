@@ -1,12 +1,14 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useRef, type MouseEvent } from "react";
+import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { cn } from "@/lib/cn";
 import { explorerAddress, explorerTx } from "@/lib/explorer";
 import { longDate, shortHash } from "@/lib/format";
+import { claudeCommand } from "@/lib/hive/commands";
 import { useFeed } from "@/lib/stores/feed";
-import { useGraph, type EdgeView } from "@/lib/stores/graph";
+import { useGraph, type AgentNode, type EdgeView } from "@/lib/stores/graph";
+import { useSession } from "@/lib/stores/session";
 import { useUi } from "@/lib/stores/ui";
 import { topicColor } from "@/lib/topics";
 
@@ -19,6 +21,72 @@ function scopeKey(expiresAt: number | null): string {
   const s = expiresAt - Math.floor(Date.now() / 1000);
   if (s <= 0) return "expired · reconnect to renew";
   return s >= 3600 ? `expires in ${Math.floor(s / 3600)}h` : `expires in ${Math.max(1, Math.floor(s / 60))}m`;
+}
+
+const button = "min-h-9 cursor-pointer rounded-chip border border-ink px-3.5 text-[14px] font-medium text-ink hover:bg-paper-2 disabled:cursor-default disabled:opacity-50";
+
+// Reconnect after a bridge restart or an expired token; Disconnect ends the bridge session. Both act on the signed-in owner's agent.
+function ConnectionSection({ agent }: { agent: AgentNode }) {
+  const id = agent.agentId.toString();
+  const authorization = useSession((s) => s.authorizations[id]);
+  const authorizeAgent = useSession((s) => s.authorizeAgent);
+  const disconnectAgent = useSession((s) => s.disconnectAgent);
+  const [busy, setBusy] = useState<"reconnect" | "disconnect">();
+  const [error, setError] = useState<string>();
+  const [copied, setCopied] = useState(false);
+  const live = agent.tokenExpiresAt !== null && agent.tokenExpiresAt > Math.floor(Date.now() / 1000);
+
+  async function run(kind: "reconnect" | "disconnect") {
+    setBusy(kind);
+    setError(undefined);
+    try {
+      await (kind === "reconnect" ? authorizeAgent(agent.agentId) : disconnectAgent(agent.agentId));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Something went wrong. Try again.");
+    } finally {
+      setBusy(undefined);
+    }
+  }
+
+  async function copy() {
+    if (!authorization) return;
+    try {
+      await navigator.clipboard.writeText(claudeCommand(authorization.mcpUrl, authorization.agentToken));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      setError("Could not copy. Open Connect to select the command.");
+    }
+  }
+
+  return (
+    <section className={section} aria-label="Connection">
+      <p className={eyebrow}>CONNECTION</p>
+      <p className="text-[15px] leading-[1.5] text-ink-2">
+        {live
+          ? agent.connected
+            ? `${agent.name} is connected.`
+            : "Authorized. A token under 24h old works again: run /mcp in Claude Code to reconnect."
+          : `${agent.name} has no session on the bridge. This happens after a bridge restart. Reconnect gives it its keys again.`}
+      </p>
+      <div className="flex flex-wrap gap-2.5">
+        <button type="button" className={button} disabled={busy !== undefined} onClick={() => void run("reconnect")}>
+          {busy === "reconnect" ? "Waiting for your passkey…" : live ? "Authorize again" : "Reconnect"}
+        </button>
+        {live && (
+          <button type="button" className={button} disabled={busy !== undefined} onClick={() => void run("disconnect")}>
+            {busy === "disconnect" ? "Disconnecting…" : "Disconnect"}
+          </button>
+        )}
+        {authorization && agent.agentType === "claude" && (
+          <button type="button" className={button} onClick={() => void copy()}>
+            {copied ? "Copied" : "Copy Claude command"}
+          </button>
+        )}
+      </div>
+      {error && <p role="alert" className="text-[14px] leading-[1.45] text-status-revoked">{error}</p>}
+    </section>
+  );
 }
 
 // Figma Canvas 5 Node drawer (61:710): covers the feed panel, closes on ✕, Esc or a canvas click.
@@ -109,6 +177,8 @@ export function NodeDrawer({ agentId }: { agentId: string }) {
           <dd className="font-mono text-ink">{scopeKey(agent.tokenExpiresAt)}</dd>
         </dl>
       </section>
+
+      <ConnectionSection agent={agent} />
 
       <section className={section} aria-label="Outgoing edges">
         <p className={eyebrow}>OUTGOING EDGES  ·  {outgoing.length}</p>
