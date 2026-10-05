@@ -87,3 +87,12 @@ Short architecture decision records. To add one, append the next number and don'
 **Decision.** In live mode the web app saves `{ owner, userToken, expiresAt, credentialId }` in `localStorage` (`hive:session`) and restores it on load. The owner, encryption and agent keys are never stored. After a reload the app is signed in but locked, and `unlock()` derives the keys again from the passkey (one touch) the first time an action needs them. At `expiresAt` the saved session is dropped and the user signs in again.
 
 **Consequences.** Any script on the page can read the token. It can list agents, end agent sessions and read the event stream, but it cannot sign a transaction or authorize an agent, which need the keys. The bridge does not revoke user tokens, so signing out clears only this browser. Mock mode keeps its state in memory and still asks to log in after a reload. Agent sessions on the bridge are still in memory: a bridge restart needs a new authorize on `/connect`.
+
+## ADR-010: A session save is a summary the agent writes on request
+**Date:** 2026-10-05 · **Status:** accepted
+
+**Context.** The product idea is one shared "big brain" that the user's agents fill without hand-written notes, like `/compact`. The bridge never sees a conversation. Only the agent does.
+
+**Decision.** Add the MCP tool `hive_save_session { summary, topic? }` (default topic `brain`). The agent writes the summary itself, guided by the server `instructions` sent in `initialize` and by the tool description. The bridge checks size (4096 bytes) and refuses the obvious secret shapes (private key blocks, `sk-` keys, JWTs), then stores it like any other memory, so encryption, edges and events are unchanged.
+
+**Consequences.** Saving happens when the user asks, and summary quality depends on the model. Automatic saving is a separate follow-up that works only for clients with hooks (Claude Code). An agent never reads its own saves back (see gotchas), so a save is for the other agents.

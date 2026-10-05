@@ -19,6 +19,8 @@ Known pitfalls. Add to this list when you hit a new one.
 - **The dev signer (`NEXT_PUBLIC_HIVE_DEV_SIGNER_PRIVATE_KEY`) is `NEXT_PUBLIC_`, so it ships inside the client bundle.** Testnet only — never fund it.
 - **The bridge needs MON on every agent key.** `MemorySlots.write` is sent by the agent's writer key (ADR-007). A write from an unfunded key fails with a chain error, not a permission error.
 - **Topics are stored as `keccak256(topic)`.** Permission checks work from the hash, but readable topic names exist only in `EdgeAdded` logs (or Envio). `AgentRegistry` has no "agents of owner" view either: list them from `AgentRegistered` logs filtered by the indexed `owner`.
+- **The public RPC limits `eth_getLogs` to a 100-block range** (`testnet-rpc.monad.xyz` answers 413, code -32614). Rebuilding edges and their topic names from `EdgeAdded` logs needs an indexer (Envio) or an RPC without that limit.
+- **Bridge events and sessions are in memory.** `/v1/events` history and agent sessions are gone after a bridge restart (`pnpm dev` restarts it on every bridge edit). Open `/connect` again to re-authorize.
 
 ## Web session
 
@@ -39,3 +41,7 @@ Known pitfalls. Add to this list when you hit a new one.
 - **Merged stacked PRs leave your local `development` stale.** GitHub merges each PR into `origin/development`, your local branch doesn't move. Before you start, run `git fetch && git merge --ff-only origin/development`, or you will think code is missing (this cost us an hour: the bridge looked unbuilt).
 - **Never rename the HKDF string `hive/encrypt`,** not even in the Mindshare rename (ADR-008).
 
+## Memory
+
+- **An agent never reads its own writes.** `hive_read_memory` returns only notes from other agents that have an edge to the reader (`apps/bridge/src/memory.ts`). A `hive_save_session` is for the other agents, so give every agent an edge to the others on the shared topic (`brain`) to get one shared brain.
+- **Each write is a transaction.** About 0.01 MON or more per save at the current gas price, paid by the agent key. The bridge tops a key up only at authorize, so many saves can run it dry ("The agent key has no MON for gas.").
