@@ -145,24 +145,24 @@ describe("MCP over Streamable HTTP (official SDK client)", () => {
     await claude.close();
   });
 
-  it("saves a session summary under brain by default and under a given topic; the reader sees it only with an edge", async () => {
-    chain.edges.push({ id: 2n, from: CLAUDE, to: CHATGPT, topicHash: topicHash("brain"), expiresAt: BigInt(nowS() + 3600), active: true });
+  it("saves a session summary under general by default and under a given topic; the reader sees it only with an edge", async () => {
+    chain.edges.push({ id: 2n, from: CLAUDE, to: CHATGPT, topicHash: topicHash("general"), expiresAt: BigInt(nowS() + 3600), active: true });
     const claude = await connect(agentToken["Claude"]);
     const saved = await call(claude, "hive_save_session", { summary: "Goal: ship Hive. Decided: Postgres. Open: edges." });
     expect(saved.isError).toBeFalsy();
-    expect(saved.data).toMatchObject({ topic: "brain", propagatedTo: ["2"] });
+    expect(saved.data).toMatchObject({ topic: "general", propagatedTo: ["2"] });
     const named = await call(claude, "hive_save_session", { summary: "Notes for research", topic: "research" });
     expect(named.data).toMatchObject({ topic: "research", propagatedTo: [] });
     await claude.close();
 
     const chatgpt = await connect(agentToken["ChatGPT"]);
-    const got = (await call(chatgpt, "hive_read_memory", { topic: "brain" })).data.memories;
+    const got = (await call(chatgpt, "hive_read_memory", { topic: "general" })).data.memories;
     expect(got.map((m: any) => m.content)).toEqual(["Goal: ship Hive. Decided: Postgres. Open: edges."]);
     expect((await call(chatgpt, "hive_read_memory", { topic: "research" })).data.memories).toEqual([]);
     await chatgpt.close();
 
     const therapy = await connect(agentToken["Therapy Bot"]);
-    expect((await call(therapy, "hive_read_memory", { topic: "brain" })).data.memories).toEqual([]);
+    expect((await call(therapy, "hive_read_memory", { topic: "general" })).data.memories).toEqual([]);
     await therapy.close();
   });
 

@@ -1,6 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import { DEFAULT_BRAIN_TOPIC, HiveError, zReadMemoryInput, zSaveSessionInput, zWriteMemoryInput, type WhoamiOutput, type WriteMemoryOutput } from "@hive/shared";
+import { DEFAULT_TOPIC, HiveError, zReadMemoryInput, zSaveSessionInput, zWriteMemoryInput, type WhoamiOutput, type WriteMemoryOutput } from "@hive/shared";
 import type { Request, Response } from "express";
 import { getAddress } from "viem";
 import type { EventBus } from "./events.js";
@@ -63,12 +63,12 @@ function buildServer(deps: McpDeps, session: AgentSession): McpServer {
   server.registerTool(
     "hive_save_session",
     {
-      description: `Save a compact summary of this conversation to the shared Hive brain (topic "${DEFAULT_BRAIN_TOPIC}" unless you give one). Cover the goal, decisions, interfaces other agents need and open work, as plain text under 3500 bytes. Never include keys, tokens or passwords.`,
+      description: `Save a compact summary of this conversation to Hive (topic "${DEFAULT_TOPIC}" unless you give one). Cover the goal, decisions, interfaces other agents need and open work, as plain text under 3500 bytes. Never include keys, tokens or passwords.`,
       inputSchema: zSaveSessionInput.shape,
     },
     async (input) => {
       if (looksLikeSecret(input.summary)) return failure("The summary looks like it contains a secret. Remove it and try again.");
-      const topic = input.topic ?? DEFAULT_BRAIN_TOPIC;
+      const topic = input.topic ?? DEFAULT_TOPIC;
       try {
         return result({ ...(await save(topic, input.summary)), topic });
       } catch (e) {

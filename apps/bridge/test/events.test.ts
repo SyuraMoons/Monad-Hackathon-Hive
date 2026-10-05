@@ -138,7 +138,7 @@ describe("GET /v1/events", () => {
     const claude = await mcp(agentToken.Claude);
     await claude.callTool({ name: "hive_save_session", arguments: { summary: SECRET } });
     const { events: got, raw } = await stream;
-    expect(got[0]).toMatchObject({ type: "memory.written", data: { agentId: "1", topic: "brain" } });
+    expect(got[0]).toMatchObject({ type: "memory.written", data: { agentId: "1", topic: "general" } });
     expect(raw).not.toContain(SECRET);
     await claude.close();
   });
