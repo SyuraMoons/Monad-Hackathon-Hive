@@ -1,8 +1,10 @@
 import type { HiveClient, TxHandle } from "../types";
 import { createBridgeApi } from "./bridge";
+import { agentsOf, toAgent } from "./registry";
+import { chainReader } from "./registryChain";
 
-// Sign-in and agent sessions talk to the real bridge. The graph (Envio), live events, memory preview
-// and transactions arrive in step 10, one service at a time.
+// Sign-in and agent sessions talk to the real bridge, and agents are read from the AgentRegistry.
+// Edges (Envio), live events, memory preview and edge transactions arrive in step 10, one service at a time.
 const todo = (what: string): never => {
   throw new Error(`${what}: not implemented yet: see step 10`);
 };
@@ -20,7 +22,8 @@ export function createLiveClient(): HiveClient {
     auth: bridge.auth,
     agents: bridge.agents,
     graph: {
-      load: async () => todo("graph.load"),
+      // Edges stay empty until the edge wiring step: the chain keeps only keccak256(topic), so reads alone can't rebuild them.
+      load: async (owner) => ({ agents: (await agentsOf(chainReader, owner)).map(toAgent), edges: [] }),
       auditEvents: async () => todo("graph.auditEvents"),
       provenance: async () => todo("graph.provenance"),
     },
