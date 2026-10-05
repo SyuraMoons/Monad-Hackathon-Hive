@@ -84,6 +84,7 @@ We build one layer at a time. Tick each step off here when it's done.
 - [x] Bridge `hive_save_session`: the agent writes a compact summary of its own session to the shared `brain` topic (ADR-010). Tested with the SDK client, not yet run against testnet, ChatGPT not yet tested
 - [ ] Mock agents
 - [x] Session restore: the web app keeps the 24h user token across a reload and asks for the passkey again only when keys are needed (ADR-011). Unit-tested for storage and token handling, not yet tried in a browser
+- [x] Canvas Reconnect and Disconnect: the agent drawer re-authorizes an agent after a bridge restart (an unexpired token works again) or ends its bridge session. Not yet tried in a browser
 - [ ] Propagation animation (CP2)
 - [ ] Demo script and rehearsal (CP3)
 
