@@ -28,7 +28,7 @@ Known pitfalls. Add to this list when you hit a new one.
 - The saved session is the 24h user token, fixed from sign-in. It does not slide forward with use.
 - Sign out clears this browser only. Another tab stays signed in until it reloads, because the bridge does not revoke user tokens.
 - After a bridge restart the user token still works, but agent sessions are gone: authorize the agents again. On the canvas, open the agent's drawer and press **Reconnect** (one passkey touch). A token under 24h old works again with no new command, so run `/mcp` in Claude Code. Only a token older than 24h needs the new command from `/connect`.
-- Claude Code stores the `hive` MCP server per project folder. Every session in the same folder uses the same token and is the same agent.
+- Claude Code stores the `hive` MCP server per project folder. Every session in the same folder uses the same token and is the same agent. For a second agent, create it on `/connect` ("+ New agent", a transaction that costs gas) and add its command from another folder.
 
 ## Tooling
 

@@ -96,3 +96,12 @@ Short architecture decision records. To add one, append the next number and don'
 **Decision.** In live mode the web app saves `{ owner, userToken, expiresAt, credentialId }` in `localStorage` (`hive:session`) and restores it on load. The owner, encryption and agent keys are never stored. After a reload the app is signed in but locked, and `unlock()` derives the keys again from the passkey (one touch) the first time an action needs them. At `expiresAt` the saved session is dropped and the user signs in again.
 
 **Consequences.** Any script on the page can read the token. It can list agents, end agent sessions and read the event stream, but it cannot sign a transaction or authorize an agent, which need the keys. The bridge does not revoke user tokens, so signing out clears only this browser. Mock mode keeps its state in memory and still asks to log in after a reload. Agent sessions on the bridge are still in memory: a bridge restart needs a new authorize on `/connect`.
+
+## ADR-012: Several named agents per type, and removal is hiding
+**Date:** 2026-10-05 · **Status:** proposed
+
+**Context.** The web app found an agent by its type, so a user could have one Claude and one GPT. Several Claude Code sessions in different project folders could not be separate nodes. `AgentRegistry` has no function to remove or deactivate an agent.
+
+**Decision.** The bridge and the contracts already allow many agents per owner, so the web app does too. The Connect page lists a type's agents and creates a new one with a name (unique among the owner's agents, 64 characters at most). Each agent gets the next free agent key index. Registering is an owner transaction that costs gas, so it never runs automatically for a second agent. Removing an agent only hides it on this browser (`localStorage`) and ends its bridge session. It stays onchain, and the drawer refuses to hide an agent that still has an active edge.
+
+**Consequences.** Claude Code keeps the `hive` MCP server per project folder, so sessions in one folder are one agent. A second agent needs another folder. A hidden agent comes back on another browser. The demo still shows Claude and ChatGPT only (the Demo agents line stays true for the pitch).
