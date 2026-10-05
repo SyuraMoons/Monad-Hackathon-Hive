@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  DEFAULT_BRAIN_TOPIC,
+  DEFAULT_TOPIC,
   authMessage,
   zAgentsResponse,
   zAuditEvent,
@@ -95,7 +95,7 @@ describe("mcp", () => {
     expect(zSaveSessionInput.safeParse({ summary: "ok", topic: "team-brain" }).success).toBe(true);
     expect(zSaveSessionInput.safeParse({ summary: "é".repeat(2049) }).success).toBe(false); // 4098 bytes
     expect(zSaveSessionInput.safeParse({ summary: "ok", topic: "Bad Topic" }).success).toBe(false);
-    expect(zSaveSessionOutput.safeParse({ slotId: "1", contentHash: HASH, txHash: TX, propagatedTo: [], topic: DEFAULT_BRAIN_TOPIC }).success).toBe(true);
+    expect(zSaveSessionOutput.safeParse({ slotId: "1", contentHash: HASH, txHash: TX, propagatedTo: [], topic: DEFAULT_TOPIC }).success).toBe(true);
   });
 
   it("validates hive_read_memory", () => {

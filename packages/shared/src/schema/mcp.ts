@@ -8,8 +8,8 @@ const byteLength = (s: string) => new TextEncoder().encode(s).length;
 
 const zContent = z.string().min(1).refine((s) => byteLength(s) <= MAX_CONTENT_BYTES, `content must be at most ${MAX_CONTENT_BYTES} bytes`);
 
-/** Where `hive_save_session` writes when no topic is given: the shared "big brain". */
-export const DEFAULT_BRAIN_TOPIC = "brain";
+/** Where `hive_save_session` writes when no topic is given (ADR-014). */
+export const DEFAULT_TOPIC = "general";
 
 export const zWriteMemoryInput = z.object({
   topic: zTopic,
