@@ -131,6 +131,18 @@ describe("GET /v1/events", () => {
     await gpt.close();
   });
 
+  it("emits memory.written for hive_save_session, without the summary", async () => {
+    const user = (await tokens.signUser(OWNER)).token;
+    const stream = collect(user, 1); // Claude already made its first call in an earlier test
+    await new Promise((r) => setTimeout(r, 100));
+    const claude = await mcp(agentToken.Claude);
+    await claude.callTool({ name: "hive_save_session", arguments: { summary: SECRET } });
+    const { events: got, raw } = await stream;
+    expect(got[0]).toMatchObject({ type: "memory.written", data: { agentId: "1", topic: "brain" } });
+    expect(raw).not.toContain(SECRET);
+    await claude.close();
+  });
+
   it("does not deliver another owner's events", async () => {
     const stranger = (await tokens.signUser(OTHER)).token;
     const res = await fetch(`${base}/v1/events?token=${stranger}`);
