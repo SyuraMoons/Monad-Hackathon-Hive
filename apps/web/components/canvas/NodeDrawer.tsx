@@ -3,10 +3,11 @@
 import type { ContentHash } from "@hive/shared";
 import Image from "next/image";
 import { useEffect, useRef, useState, type MouseEvent } from "react";
+import { zeroAddress } from "viem";
 import { cn } from "@/lib/cn";
 import { explorerAddress, explorerTx } from "@/lib/explorer";
 import { longDate, shortHash } from "@/lib/format";
-import { claudeCommand, claudeTerminalCommand } from "@/lib/hive/commands";
+import { claudeCommand, claudeTerminalCommand, gptSnippet } from "@/lib/hive/commands";
 import type { MemoryHistoryRow } from "@/lib/hive/types";
 import { useFeed, type FeedRow } from "@/lib/stores/feed";
 import { useGraph, type AgentNode, type EdgeView } from "@/lib/stores/graph";
@@ -47,8 +48,9 @@ function ConnectionSection({ agent }: { agent: AgentNode }) {
   const disconnectAgent = useSession((s) => s.disconnectAgent);
   const [busy, setBusy] = useState<"reconnect" | "disconnect">();
   const [error, setError] = useState<string>();
-  const [copied, setCopied] = useState<"terminal" | "folder">();
+  const [copied, setCopied] = useState<"terminal" | "folder" | "gpt">();
   const live = agent.tokenExpiresAt !== null && agent.tokenExpiresAt > Math.floor(Date.now() / 1000);
+  const unfinished = agent.agentKey === zeroAddress;
 
   async function run(kind: "reconnect" | "disconnect") {
     setBusy(kind);
@@ -62,11 +64,15 @@ function ConnectionSection({ agent }: { agent: AgentNode }) {
     }
   }
 
-  async function copy(kind: "terminal" | "folder") {
+  async function copy(kind: "terminal" | "folder" | "gpt") {
     if (!authorization) return;
     try {
       await navigator.clipboard.writeText(
-        kind === "terminal" ? claudeTerminalCommand(authorization.mcpUrl, authorization.agentToken, agent.name) : claudeCommand(authorization.mcpUrl, authorization.agentToken),
+        kind === "terminal"
+          ? claudeTerminalCommand(authorization.mcpUrl, authorization.agentToken, agent.name)
+          : kind === "folder"
+            ? claudeCommand(authorization.mcpUrl, authorization.agentToken)
+            : gptSnippet(authorization.mcpUrl, authorization.agentToken),
       );
       setCopied(kind);
       setTimeout(() => setCopied(undefined), 1500);
@@ -79,7 +85,9 @@ function ConnectionSection({ agent }: { agent: AgentNode }) {
     <section className={section} aria-label="Connection">
       <p className={eyebrow}>CONNECTION</p>
       <p className="text-[15px] leading-[1.5] text-ink-2">
-        {live
+        {unfinished
+          ? `${agent.name} was registered, but its setup stopped halfway. Finishing is one transaction.`
+          : live
           ? agent.connected
             ? `${agent.name} is connected.`
             : "Authorized. A token under 24h old works again: run /mcp in Claude Code to reconnect."
@@ -87,11 +95,16 @@ function ConnectionSection({ agent }: { agent: AgentNode }) {
       </p>
       <div className="flex flex-wrap gap-2.5">
         <button type="button" className={button} disabled={busy !== undefined} onClick={() => void run("reconnect")}>
-          {busy === "reconnect" ? "Waiting for your passkey…" : live ? "Authorize again" : "Reconnect"}
+          {busy === "reconnect" ? "Waiting for your passkey…" : unfinished ? "Finish setup" : live ? "Authorize again" : "Reconnect"}
         </button>
         {live && (
           <button type="button" className={button} disabled={busy !== undefined} onClick={() => void run("disconnect")}>
             {busy === "disconnect" ? "Disconnecting…" : "Disconnect"}
+          </button>
+        )}
+        {authorization && agent.agentType === "gpt" && (
+          <button type="button" className={button} onClick={() => void copy("gpt")}>
+            {copied === "gpt" ? "Copied" : "Copy GPT config"}
           </button>
         )}
         {authorization && agent.agentType === "claude" && (

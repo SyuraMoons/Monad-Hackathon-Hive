@@ -1,8 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { NewAgentForm } from "@/components/app/NewAgentForm";
 import { StatusDot } from "@/components/ui/StatusDot";
 import { cn } from "@/lib/cn";
 import { getHiveClient } from "@/lib/hive/client";
@@ -44,6 +44,7 @@ export function Sidebar({ layout, place }: { layout: Layout; place(patch: Layout
   const edges = useGraph((s) => s.edges);
   const bridge = useUi((s) => s.bridge);
   const rpc = useHealth();
+  const [naming, setNaming] = useState(false);
 
   const list = useMemo(() => Object.values(agents).sort((a, b) => Number(a.agentId - b.agentId)), [agents]);
   const topics = useMemo(
@@ -53,6 +54,15 @@ export function Sidebar({ layout, place }: { layout: Layout; place(patch: Layout
 
   function placeNext(id: string) {
     place({ [id]: freeSlot(Object.values(layout), Object.keys(layout).length, list.length) });
+  }
+
+  // A new agent lands on the canvas with its drawer open, where its command is ready to copy.
+  function created(agentId: bigint) {
+    const id = agentId.toString();
+    const total = Object.keys(useGraph.getState().agents).length;
+    place({ [id]: freeSlot(Object.values(layout), Object.keys(layout).length, total) });
+    useUi.getState().set({ drawerAgentId: agentId });
+    setNaming(false);
   }
 
   return (
@@ -89,9 +99,15 @@ export function Sidebar({ layout, place }: { layout: Layout; place(patch: Layout
         })}
         {list.length === 0 && <li className="text-[14px] leading-[1.5] text-ink-2">No agents registered yet.</li>}
       </ul>
-      <Link href="/connect" className="mt-3 inline-flex min-h-9 items-center text-[14px] font-medium text-ink-2 underline underline-offset-2 hover:text-ink">
-        + Connect another agent
-      </Link>
+      {naming ? (
+        <div className="mt-3">
+          <NewAgentForm onCreated={created} onCancel={() => setNaming(false)} />
+        </div>
+      ) : (
+        <button type="button" onClick={() => setNaming(true)} className="mt-3 inline-flex min-h-9 cursor-pointer items-center text-[14px] font-medium text-ink-2 underline underline-offset-2 hover:text-ink">
+          + New agent
+        </button>
+      )}
       {hiddenList.length > 0 && (
         <details className="mt-1 text-[14px] text-ink-2">
           <summary className="inline-flex min-h-9 cursor-pointer items-center">{hiddenList.length} hidden</summary>
