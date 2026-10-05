@@ -53,7 +53,7 @@ Not checked: the transaction on Monadscan, a read by a second agent, or the Conn
 | P0.4 | Passkey auth via Mera | P2 | 🚧 real passkey ceremony and key derivation (ADR-005); `/smoke` can sign with the passkey (#79), but that path is untested |
 | P0.5 | Encrypted storage (Supabase) | P2 | ✅ ciphertext-only table, bridge store (#66, #69) |
 | P0.6 | MCP bridge server | P2 | 🚧 MCP read/write, authorize, gas top-up, chain reader (#71–#77); SSE `/v1/events` built (`agent.connected`, `memory.written`, `memory.read`, `agent.disconnected`); `session.expiring` and `GET /v1/memory/:hash` are planned |
-| P0.7 | Visual canvas (React Flow) | P3 | 🚧 canvas, audit and connect screens on the mock client. In live mode the live client reads agents and registers them from `/connect` (unit-tested, not yet run against testnet) and reads the bridge's event stream (unit-tested, not yet run in the browser); edges, audit and memory preview are still stubs |
+| P0.7 | Visual canvas (React Flow) | P3 | 🚧 canvas, audit and connect screens on the mock client. In live mode the live client reads agents and registers them from `/connect` (unit-tested, not yet run against testnet) and reads the bridge's event stream (unit-tested, not yet run in the browser); edges are read and signed on-chain (not yet run on testnet); audit and memory preview are still stubs |
 | P0.8 | Live propagation animation | P3 | ⏳ |
 | P0.9 | 2 mock chatbots | P4 | ⏳ placeholder only |
 | P0.10 | Envio indexer (audit trail) | P2 | ⏳ |
@@ -75,7 +75,7 @@ We build one layer at a time. Tick each step off here when it's done.
 - [ ] Live agent registration from `/connect`: `register` + `setAgentWriter`, then bridge `authorize`
   - [x] Code and unit tests with fake chain deps
   - [ ] Run against testnet with a passkey-signed owner (needs MON on the owner address) and a real `claude mcp add`
-- [ ] Wire edge creation → contract tx (CP1). Works from `/smoke` (dev signer, 3 Oct); the live client's `addEdge` is still a stub, so the canvas does not send it
+- [ ] Wire edge creation → contract tx (CP1). Works from `/smoke` (dev signer, 3 Oct); the live client now sends `addEdge` / `removeEdge` and reads edges from `KnowledgeGraph` (unit-tested, built but not yet run on testnet), so this stays open until it is
 - [ ] Envio indexer
 - [x] Bridge: MCP tools `write_memory` / `read_memory`, plus SSE `/events`
   - [x] MCP `hive_write_memory` / `hive_read_memory` / `hive_whoami`, live chain reads, `authorize` with gas top-up, encrypted write to `MemorySlots` (#71, #74, #75, #77). A live write from Claude Code returned a receipt on 5 Oct (see _Verified runs_)
