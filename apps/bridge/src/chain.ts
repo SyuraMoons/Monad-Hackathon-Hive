@@ -1,4 +1,4 @@
-import { AgentRegistryAbi, HiveError, KnowledgeGraphAbi, MemorySlotsAbi, PropagationEngineAbi, hiveDeployment, monadTestnet } from "@hive/shared";
+import { AgentRegistryAbi, HiveError, KnowledgeGraphAbi, MemorySlotsAbi, PropagationEngineAbi, hiveDeployment, monadTestnet, rateLimitedFetch } from "@hive/shared";
 import { BaseError, ContractFunctionRevertedError, InsufficientFundsError, createWalletClient, http, parseEventLogs, type Hex, type Log, type PublicClient } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { UnknownAgentError, type ChainAgent, type ChainEdge, type ChainReader, type ChainSlot, type ChainWriter, type WriteReceipt } from "./types.js";
@@ -101,7 +101,7 @@ export function viemChainWriter(rpc: Pick<PublicClient, "estimateContractGas" | 
   return new ViemChainWriter({
     estimate: (key, call) => rpc.estimateContractGas({ account: privateKeyToAccount(key), address: hiveDeployment.memorySlots, abi: MemorySlotsAbi, functionName: "write", args: args(call) }),
     submit: (key, call) => {
-      const wallet = createWalletClient({ account: privateKeyToAccount(key), chain: monadTestnet, transport: http(rpcUrl) });
+      const wallet = createWalletClient({ account: privateKeyToAccount(key), chain: monadTestnet, transport: http(rpcUrl, { fetchFn: rateLimitedFetch }) });
       return wallet.writeContract({ address: hiveDeployment.memorySlots, abi: MemorySlotsAbi, functionName: "write", args: args(call), gas: call.gas });
     },
     receipt: async (hash) => {
