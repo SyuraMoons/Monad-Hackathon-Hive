@@ -1,12 +1,13 @@
 "use client";
 
 import { authMessage, HiveError, type Address, type AgentId, type AgentType } from "@hive/shared";
-import { bytesToHex } from "viem";
+import { bytesToHex, zeroAddress } from "viem";
 import { privateKeyToAddress } from "viem/accounts";
 import { create } from "zustand";
 import { getHiveClient, HIVE_MODE } from "@/lib/hive/client";
 import type { HiveMode } from "@/lib/hive/types";
 import { useGraph } from "./graph";
+import type { LiveHiveClient } from "@/lib/hive/live";
 import type { MockHiveClient } from "@/lib/hive/mock";
 import { getPasskeyService, PasskeyError, type HiveKeys, type PasskeyErrorCode } from "@/lib/passkey";
 
@@ -101,6 +102,8 @@ export const useSession = create<SessionState>()((set, get) => ({
       if (client.mode === "mock") {
         const k = keys;
         (client as MockHiveClient).adoptDemoAgents(session.owner, (n) => privateKeyToAddress(k.agentPrivateKey(n)));
+      } else {
+        (client as LiveHiveClient).useSigner({ account: keys.owner, end: () => {} });
       }
       const agents = await client.agents.list().catch(() => []);
       if (ac.signal.aborted) throw new PasskeyError("CANCELLED", "Cancelled");
@@ -117,6 +120,7 @@ export const useSession = create<SessionState>()((set, get) => ({
       });
     } catch (e) {
       keys?.end();
+      void getHiveClient().then((c) => c.mode === "live" && (c as LiveHiveClient).useSigner(null));
       if (e instanceof PasskeyError && e.code === "CANCELLED") {
         set({ ...initial });
         return;
@@ -142,7 +146,8 @@ export const useSession = create<SessionState>()((set, get) => ({
       const graph = useGraph.getState();
       let agent = Object.values(graph.agents).find((a) => a.agentType === agentType);
 
-      if (!agent) {
+      // An agent with no writer key is a registration that stopped after the first transaction: finish it.
+      if (!agent || agent.agentKey === zeroAddress) {
         setConn({ phase: "registering" });
         const n = nextAgentIndex(keys, Object.values(graph.agents).map((a) => a.agentKey));
         const agentKey = privateKeyToAddress(keys.agentPrivateKey(n));
@@ -195,6 +200,7 @@ export const useSession = create<SessionState>()((set, get) => ({
       if (owner && userToken && expiresAt) await (await getHiveClient()).auth.signOut({ owner, userToken, expiresAt });
     } finally {
       keys?.end();
+      void getHiveClient().then((c) => c.mode === "live" && (c as LiveHiveClient).useSigner(null));
       set({ ...initial, signedOutOnPurpose: true, owner: undefined, userToken: undefined, expiresAt: undefined, keys: undefined, credentialId: undefined, destination: undefined, error: undefined });
     }
   },
