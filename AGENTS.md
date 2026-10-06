@@ -52,7 +52,7 @@ Short list, details in [docs/decisions.md](docs/decisions.md) and [docs/gotchas.
 - **Gas:** testnet, the Mera EOA pays and is faucet-funded (ADR-006). Don't write "sponsored" in UI or docs.
 - **Writes:** the agent key sends `MemorySlots.write`; the bridge funds that key (ADR-007).
 - **Name:** the product is Mindshare, the code still says Hive until one scripted rename PR (ADR-008). Never rename the HKDF string `hive/encrypt`.
-- **Demo agents:** Claude and ChatGPT only.
+- **Demo agents:** Claude and ChatGPT only (several named agents of those two types are allowed, ADR-012).
 - **Before you start:** `git fetch && git merge --ff-only origin/development`. Stacked PR merges leave local `development` stale.
 
 ## Conventions
@@ -65,10 +65,10 @@ Short list, details in [docs/decisions.md](docs/decisions.md) and [docs/gotchas.
 
 ## Bridge (`apps/bridge`)
 
-- **The interface is defined in `@hive/shared`** (`schema/api.ts`, `schema/mcp.ts`, `schema/events.ts`, `errors.ts`), not in the PRD. Where they differ, shared wins: port **4000**, MCP tools `hive_write_memory`, `hive_read_memory`, `hive_save_session` (the agent's own compact summary, default topic `brain`), `hive_whoami` (no `register` tool: agents are registered by the user from the canvas), `/health` fields per `zHealthResponse`. Don't change a shape the web or the mock agents already use without telling their owners.
+- **The interface is defined in `@hive/shared`** (`schema/api.ts`, `schema/mcp.ts`, `schema/events.ts`, `errors.ts`), not in the PRD. Where they differ, shared wins: port **4000**, MCP tools `hive_write_memory`, `hive_list_memory` (previews, no full content), `hive_read_memory` (newest 20 by default, `slotIds` to pick), `hive_save_session` (the agent's own compact summary, default topic `general`), `hive_whoami` (no `register` tool: agents are registered by the user from the canvas), `/health` fields per `zHealthResponse`. Don't change a shape the web or the mock agents already use without telling their owners.
 - **JSON has no `bigint`.** uint256 values (`agentId`, `slotId`, `edgeId`) are decimal strings on the wire and `bigint` in TS. Convert before `JSON.stringify` and before MCP `structuredContent`.
 - **Identity comes from the token, never from an argument.** User tokens (`typ: "user"`) are for `/v1/*`, agent tokens (`typ: "agent"`) plus a live in-memory session are for `/mcp`. Each is refused on the other's routes. Agent keys live in `SessionStore` memory only.
-- **Default deny.** `permissions.ts` mirrors `KnowledgeGraph.hasPermission`: edge active, `expiresAt > now` (equal means expired), same from / to, and `keccak256(topic)` equals the stored topic hash. Any error or doubt returns no data. Permission checks read live chain state, never Envio, so a revoke is immediate.
+- **Default deny.** `permissions.ts` mirrors `KnowledgeGraph.hasPermission`: edge active, `expiresAt > now` (equal means expired), same from / to, and `keccak256(topic)` equals the stored topic hash, or the edge is an all-topics edge (`*`, ADR-013). Any error or doubt returns no data. Permission checks read live chain state, never Envio, so a revoke is immediate.
 - **KnowledgeGraph stores only `keccak256(topic)`.** The bridge can verify a topic but cannot list readable topics from the chain alone (`hive_whoami.readableTopics` is a STUB until `EdgeAdded` logs or Envio feed it).
 - **`ChainReader` and `CiphertextStore` are interfaces.** `stubs.ts` has in-memory implementations marked `// STUB: replace when <X> lands`. Use the interfaces in tests; don't reach for the real chain or Supabase there.
 - **Encryption format:** AES-256-GCM, 12-byte IV, 16-byte tag appended to the ciphertext, `contentHash = keccak256(iv ‖ ciphertext)` (never a hash of plaintext). Use `@hive/crypto`; don't re-implement it.

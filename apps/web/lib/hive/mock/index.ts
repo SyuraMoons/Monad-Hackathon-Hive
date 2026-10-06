@@ -7,10 +7,13 @@ import {
   zAuthorizeResponse,
   zAuthChallengeResponse,
   zAuthVerifyResponse,
+  zContentHash,
   zGraphSnapshot,
   zHealthResponse,
   zHiveEvent,
   zProvenance,
+  zSlotId,
+  zTopic,
   zTxHash,
   type Address,
   type AuditEvent,
@@ -257,6 +260,15 @@ export function createMockClient(): MockHiveClient {
     },
 
     memory: {
+      async history(agentId) {
+        await latency();
+        if (mockFlag("bridge-offline")) throw offline();
+        return slots
+          .filter((s) => s.agentId === String(agentId))
+          .map((s) => ({ slotId: zSlotId.parse(s.slotId), topic: zTopic.parse(s.topic), contentHash: zContentHash.parse(s.contentHash), writtenAt: s.writtenAt }))
+          .sort((a, b) => b.writtenAt - a.writtenAt)
+          .slice(0, 50);
+      },
       async preview(contentHash) {
         await latency();
         if (mockFlag("bridge-offline")) throw offline();

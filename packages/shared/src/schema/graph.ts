@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { zAddress, zAgentId, zAgentType, zContentHash, zEdgeId, zSlotId, zTopic, zTxHash, zUnixSeconds } from "../ids.js";
+import { zAddress, zAgentId, zAgentType, zContentHash, zEdgeId, zEdgeTopic, zSlotId, zTopic, zTxHash, zUnixSeconds } from "../ids.js";
 
 // Envio entities the web app reads (rules §5.3): graph state, audit history, provenance.
 
@@ -16,7 +16,7 @@ export const zEdge = z.object({
   edgeId: zEdgeId,
   from: zAgentId,
   to: zAgentId,
-  topic: zTopic,
+  topic: zEdgeTopic,
   expiresAt: zUnixSeconds,
   active: z.boolean(),
   addedTx: zTxHash,
@@ -51,8 +51,8 @@ const audit = <K extends string, S extends z.ZodRawShape>(kind: K, shape: S) =>
 
 export const zAuditEvent = z.discriminatedUnion("kind", [
   audit("agent.registered", { agentId: zAgentId, name: z.string(), agentType: zAgentType }),
-  audit("edge.added", { edgeId: zEdgeId, from: zAgentId, to: zAgentId, topic: zTopic, expiresAt: zUnixSeconds }),
-  audit("edge.removed", { edgeId: zEdgeId, from: zAgentId, to: zAgentId, topic: zTopic }),
+  audit("edge.added", { edgeId: zEdgeId, from: zAgentId, to: zAgentId, topic: zEdgeTopic, expiresAt: zUnixSeconds }),
+  audit("edge.removed", { edgeId: zEdgeId, from: zAgentId, to: zAgentId, topic: zEdgeTopic }),
   audit("memory.written", { slotId: zSlotId, agentId: zAgentId, contentHash: zContentHash, topic: zTopic, propagatedCount: z.number().int().nonnegative() }),
   audit("memory.propagated", { slotId: zSlotId, from: zAgentId, to: zAgentId, contentHash: zContentHash, topic: zTopic }),
 ]);

@@ -1,24 +1,164 @@
 "use client";
 
+import type { ContentHash } from "@hive/shared";
 import Image from "next/image";
-import { useEffect, useRef, type MouseEvent } from "react";
+import { useEffect, useRef, useState, type MouseEvent } from "react";
+import { zeroAddress } from "viem";
 import { cn } from "@/lib/cn";
 import { explorerAddress, explorerTx } from "@/lib/explorer";
 import { longDate, shortHash } from "@/lib/format";
-import { useFeed } from "@/lib/stores/feed";
-import { useGraph, type EdgeView } from "@/lib/stores/graph";
+import { claudeCommand, claudeTerminalCommand, gptSnippet } from "@/lib/hive/commands";
+import type { MemoryHistoryRow } from "@/lib/hive/types";
+import { useFeed, type FeedRow } from "@/lib/stores/feed";
+import { useGraph, type AgentNode, type EdgeView } from "@/lib/stores/graph";
+import { useSession } from "@/lib/stores/session";
 import { useUi } from "@/lib/stores/ui";
-import { topicColor } from "@/lib/topics";
+import { topicColor, topicLabel } from "@/lib/topics";
 
 const ICONS: Partial<Record<string, string>> = { claude: "/agents/claude.png", gpt: "/agents/gpt.png" };
 const eyebrow = "font-mono text-[14px] tracking-[0.08em] whitespace-pre text-ink-3";
 const section = "flex flex-col gap-2.5 border-t border-line px-6 py-[18px]";
+
+type Entry = { slotId: bigint; topic: string; contentHash: ContentHash; at: number; propagatedTo?: bigint[] };
+
+/** Chain history and this session's live writes, one row per slot, newest first. Live rows know who the write reached. */
+function historyEntries(past: MemoryHistoryRow[] | "loading" | "error" | undefined, rows: FeedRow[], agentId: bigint): Entry[] {
+  const bySlot = new Map<string, Entry>();
+  if (Array.isArray(past)) for (const h of past) bySlot.set(h.slotId.toString(), { slotId: h.slotId, topic: h.topic, contentHash: h.contentHash, at: h.writtenAt });
+  for (const r of rows) {
+    if (r.kind === "written" && r.agentId === agentId) bySlot.set(r.slotId.toString(), { slotId: r.slotId, topic: r.topic, contentHash: r.contentHash, at: r.at, propagatedTo: r.propagatedTo });
+  }
+  return [...bySlot.values()].sort((a, b) => b.at - a.at || (b.slotId > a.slotId ? 1 : -1)).slice(0, 20);
+}
 
 function scopeKey(expiresAt: number | null): string {
   if (!expiresAt) return "not issued · connect this agent first";
   const s = expiresAt - Math.floor(Date.now() / 1000);
   if (s <= 0) return "expired · reconnect to renew";
   return s >= 3600 ? `expires in ${Math.floor(s / 3600)}h` : `expires in ${Math.max(1, Math.floor(s / 60))}m`;
+}
+
+const button = "min-h-9 cursor-pointer rounded-chip border border-ink px-3.5 text-[14px] font-medium text-ink hover:bg-paper-2 disabled:cursor-default disabled:opacity-50";
+
+// Reconnect after a bridge restart or an expired token; Disconnect ends the bridge session. Both act on the signed-in owner's agent.
+function ConnectionSection({ agent }: { agent: AgentNode }) {
+  const id = agent.agentId.toString();
+  const authorization = useSession((s) => s.authorizations[id]);
+  const authorizeAgent = useSession((s) => s.authorizeAgent);
+  const disconnectAgent = useSession((s) => s.disconnectAgent);
+  const [busy, setBusy] = useState<"reconnect" | "disconnect">();
+  const [error, setError] = useState<string>();
+  const [copied, setCopied] = useState<"terminal" | "folder" | "gpt">();
+  const live = agent.tokenExpiresAt !== null && agent.tokenExpiresAt > Math.floor(Date.now() / 1000);
+  const unfinished = agent.agentKey === zeroAddress;
+
+  async function run(kind: "reconnect" | "disconnect") {
+    setBusy(kind);
+    setError(undefined);
+    try {
+      await (kind === "reconnect" ? authorizeAgent(agent.agentId) : disconnectAgent(agent.agentId));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Something went wrong. Try again.");
+    } finally {
+      setBusy(undefined);
+    }
+  }
+
+  async function copy(kind: "terminal" | "folder" | "gpt") {
+    if (!authorization) return;
+    try {
+      await navigator.clipboard.writeText(
+        kind === "terminal"
+          ? claudeTerminalCommand(authorization.mcpUrl, authorization.agentToken, agent.name)
+          : kind === "folder"
+            ? claudeCommand(authorization.mcpUrl, authorization.agentToken)
+            : gptSnippet(authorization.mcpUrl, authorization.agentToken),
+      );
+      setCopied(kind);
+      setTimeout(() => setCopied(undefined), 1500);
+    } catch {
+      setError("Could not copy. Open Connect to select the command.");
+    }
+  }
+
+  return (
+    <section className={section} aria-label="Connection">
+      <p className={eyebrow}>CONNECTION</p>
+      <p className="text-[15px] leading-[1.5] text-ink-2">
+        {unfinished
+          ? `${agent.name} was registered, but its setup stopped halfway. Finishing is one transaction.`
+          : live
+          ? agent.connected
+            ? `${agent.name} is connected.`
+            : "Authorized. A token under 24h old works again: run /mcp in Claude Code to reconnect."
+          : `${agent.name} has no session on the bridge. This happens after a bridge restart. Reconnect gives it its keys again.`}
+      </p>
+      <div className="flex flex-wrap gap-2.5">
+        <button type="button" className={button} disabled={busy !== undefined} onClick={() => void run("reconnect")}>
+          {busy === "reconnect" ? "Waiting for your passkey…" : unfinished ? "Finish setup" : live ? "Authorize again" : "Reconnect"}
+        </button>
+        {live && (
+          <button type="button" className={button} disabled={busy !== undefined} onClick={() => void run("disconnect")}>
+            {busy === "disconnect" ? "Disconnecting…" : "Disconnect"}
+          </button>
+        )}
+        {authorization && agent.agentType === "gpt" && (
+          <button type="button" className={button} onClick={() => void copy("gpt")}>
+            {copied === "gpt" ? "Copied" : "Copy GPT config"}
+          </button>
+        )}
+        {authorization && agent.agentType === "claude" && (
+          <>
+            <button type="button" className={button} onClick={() => void copy("terminal")}>
+              {copied === "terminal" ? "Copied" : "Copy terminal command"}
+            </button>
+            <button type="button" className={button} onClick={() => void copy("folder")}>
+              {copied === "folder" ? "Copied" : "Copy folder command"}
+            </button>
+          </>
+        )}
+      </div>
+      {error && <p role="alert" className="text-[14px] leading-[1.45] text-status-revoked">{error}</p>}
+    </section>
+  );
+}
+
+// The registry can't delete an agent, so this hides it on this browser and ends its bridge session (ADR-012).
+function RemoveSection({ agent }: { agent: AgentNode }) {
+  const hide = useGraph((s) => s.hide);
+  const disconnectAgent = useSession((s) => s.disconnectAgent);
+  const setUi = useUi((s) => s.set);
+  const [confirming, setConfirming] = useState(false);
+  const [error, setError] = useState<string>();
+
+  async function remove() {
+    const result = hide(agent.agentId);
+    if ("error" in result) return setError(result.error);
+    setUi({ drawerAgentId: null });
+    await disconnectAgent(agent.agentId).catch(() => {}); // best effort: the keys also leave the bridge when it restarts
+  }
+
+  return (
+    <section className={section} aria-label="Remove">
+      <p className={eyebrow}>REMOVE</p>
+      {confirming ? (
+        <>
+          <p className="text-[15px] leading-[1.5] text-ink-2">
+            {agent.name} leaves your canvas and its bridge session ends. It stays registered on Monad, and you can show it again from the sidebar.
+          </p>
+          <div className="flex gap-2.5">
+            <button type="button" className={cn(button, "border-status-revoked text-status-revoked")} onClick={() => void remove()}>Remove from canvas</button>
+            <button type="button" className={button} onClick={() => { setConfirming(false); setError(undefined); }}>Cancel</button>
+          </div>
+        </>
+      ) : (
+        <div>
+          <button type="button" className={button} onClick={() => setConfirming(true)}>Remove from canvas</button>
+        </div>
+      )}
+      {error && <p role="alert" className="text-[14px] leading-[1.45] text-status-revoked">{error}</p>}
+    </section>
+  );
 }
 
 // Figma Canvas 5 Node drawer (61:710): covers the feed panel, closes on ✕, Esc or a canvas click.
@@ -28,8 +168,14 @@ export function NodeDrawer({ agentId }: { agentId: string }) {
   const edges = useGraph((s) => s.edges);
   const rows = useFeed((s) => s.rows);
   const previews = useFeed((s) => s.previews);
+  const past = useFeed((s) => s.history[agentId]);
+  const loadHistory = useFeed((s) => s.loadHistory);
   const setUi = useUi((s) => s.set);
   const closeRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    void loadHistory(BigInt(agentId));
+  }, [agentId, loadHistory]);
 
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
@@ -42,7 +188,7 @@ export function NodeDrawer({ agentId }: { agentId: string }) {
   const live = Object.values(edges).filter((e) => e.state === "signed" || e.state === "revoking" || e.state === "pending");
   const outgoing = live.filter((e) => e.from === agent.agentId);
   const incoming = live.filter((e) => e.to === agent.agentId);
-  const writes = rows.filter((r) => r.kind === "written" && r.agentId === agent.agentId).slice(0, 5);
+  const writes = historyEntries(past, rows, agent.agentId);
   const icon = ICONS[agent.agentType];
 
   function revoke(e: EdgeView, ev: MouseEvent<HTMLButtonElement>) {
@@ -57,7 +203,7 @@ export function NodeDrawer({ agentId }: { agentId: string }) {
     <li className="flex items-center justify-between gap-3 rounded-chip border px-3 py-2.5" style={{ borderColor: e.state === "pending" ? "var(--color-ink-3)" : topicColor(e.topic) }}>
       <div className="flex min-w-0 flex-col gap-0.5">
         <p className="text-[15px] font-medium whitespace-pre text-ink">
-          {dir === "out" ? `→ ${name(e.to)}` : `← ${name(e.from)}`}  ·  {e.topic}
+          {dir === "out" ? `→ ${name(e.to)}` : `← ${name(e.from)}`}  ·  {topicLabel(e.topic)}
         </p>
         <p className="font-mono text-[14px] whitespace-pre text-ink-3">
           {e.state === "pending" ? "pending" : `until ${longDate(e.expiresAt).replace(/ \d{4}$/, "")}`}
@@ -110,6 +256,8 @@ export function NodeDrawer({ agentId }: { agentId: string }) {
         </dl>
       </section>
 
+      <ConnectionSection agent={agent} />
+
       <section className={section} aria-label="Outgoing edges">
         <p className={eyebrow}>OUTGOING EDGES  ·  {outgoing.length}</p>
         {outgoing.length ? <ul className="flex flex-col gap-2">{outgoing.map((e) => <EdgeRow key={e.key} e={e} dir="out" />)}</ul> : (
@@ -124,30 +272,35 @@ export function NodeDrawer({ agentId }: { agentId: string }) {
         )}
       </section>
 
-      <section className={section} aria-label="Recent writes">
-        <p className={eyebrow}>RECENT WRITES  ·  {writes.length}</p>
+      <section className={section} aria-label="Memory history">
+        <p className={eyebrow}>MEMORY HISTORY  ·  {writes.length}</p>
+        {past === "error" && <p className="text-[14px] leading-[1.45] text-ink-3">Couldn’t read the history from Monad. New writes still appear here.</p>}
+        {past === "loading" && !writes.length && <p className="text-[15px] leading-[1.5] text-ink-2">Loading history from Monad…</p>}
         {writes.length ? (
           <ul className="flex flex-col gap-3">
             {writes.map((w) => {
-              if (w.kind !== "written") return null;
               const p = previews[w.contentHash];
+              const text = p && p !== "loading" && p !== "error" ? p : null;
               return (
-                <li key={w.id} className="flex flex-col gap-1">
+                <li key={w.slotId.toString()} className="flex flex-col gap-1">
                   <p className="text-[15px] leading-[1.45] break-words text-ink">
-                    {p && p !== "loading" && p !== "error" ? p : <span className="text-ink-3">{p === "error" ? "Couldn’t decrypt this memory here." : "Decrypting on this device…"}</span>}
+                    {text ?? <span className="font-mono text-[14px] text-ink-3">content {shortHash(w.contentHash)}  ·  encrypted</span>}
                   </p>
                   <p className="flex items-center gap-2 font-mono text-[14px] whitespace-pre text-ink-2">
                     <span aria-hidden="true" className="h-[3px] w-3.5" style={{ background: topicColor(w.topic) }} />
-                    {w.topic}  ·  {w.propagatedTo.length ? `→ ${w.propagatedTo.map(name).join(", ")}` : "stayed here"}
+                    {w.topic}  ·  {longDate(w.at).replace(/ \d{4}$/, "")}
+                    {w.propagatedTo ? `  ·  ${w.propagatedTo.length ? `→ ${w.propagatedTo.map(name).join(", ")}` : "stayed here"}` : ""}
                   </p>
                 </li>
               );
             })}
           </ul>
         ) : (
-          <p className="text-[15px] leading-[1.5] text-ink-2">No writes yet in this session.</p>
+          past !== "loading" && past !== "error" && <p className="text-[15px] leading-[1.5] text-ink-2">No writes yet.</p>
         )}
       </section>
+
+      <RemoveSection agent={agent} />
 
       <div className="border-t border-line px-6 py-[18px]">
         <a href={explorerAddress(agent.agentKey)} target="_blank" rel="noreferrer" className="inline-flex min-h-9 items-center text-[15px] font-medium whitespace-pre text-ink underline underline-offset-2 hover:text-ink-2">

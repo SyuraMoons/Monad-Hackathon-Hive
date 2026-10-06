@@ -8,13 +8,13 @@ import { clockTime, shortHash } from "@/lib/format";
 import { useFeed, type FeedRow as Row } from "@/lib/stores/feed";
 import { useGraph } from "@/lib/stores/graph";
 import { useUi } from "@/lib/stores/ui";
-import { topicColor } from "@/lib/topics";
+import { topicColor, topicLabel } from "@/lib/topics";
 
 function TopicTag({ topic }: { topic: string }) {
   // Topic text stays ink inside a topic-coloured border until D1 is decided (design.md §3.3).
   return (
     <span className="rounded-tag border px-1.5 py-px font-mono text-[14px] leading-tight text-ink" style={{ borderColor: topicColor(topic) }}>
-      {topic}
+      {topicLabel(topic)}
     </span>
   );
 }
@@ -44,7 +44,7 @@ function FeedRow({ row, newest }: { row: Row; newest: boolean }) {
     // Canvas 4 Revoked (61:431)
     who = "Edge revoked";
     topic = row.topic;
-    message = `${name(row.from)} ✕ ${name(row.to)} on “${row.topic}”. ${name(row.to)}’s next read returns nothing from ${name(row.from)}.`;
+    message = `${name(row.from)} ✕ ${name(row.to)} on ${row.topic === "*" ? "all topics" : `“${row.topic}”`}. ${name(row.to)}’s next read returns nothing from ${name(row.from)}.`;
     meta = "signed with passkey  ·  ";
     txLink = row.txHash;
   }

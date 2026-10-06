@@ -7,12 +7,14 @@ import type {
   AuthorizeResponse,
   ContentHash,
   EdgeId,
-  GraphSnapshot,
+  Agent as ChainAgent,
+  Edge as ChainEdge,
   HealthResponse,
   Hex,
   HiveError,
   HiveEvent,
   Provenance,
+  SlotId,
   Topic,
   TxHash,
   UnixSeconds,
@@ -28,6 +30,12 @@ export type TxResult<T extends object = object> =
 
 /** Returned as soon as the userOp is sent, so the UI can draw it as pending (golden rule 6). */
 export type TxHandle<T extends object = object> = { status: "pending"; wait(): Promise<TxResult<T>> };
+
+/** One past write of an agent, as the chain keeps it: hashes and topics, never content. */
+export type MemoryHistoryRow = { slotId: SlotId; topic: Topic; contentHash: ContentHash; writtenAt: UnixSeconds };
+
+/** An edge as read from the chain. `addedTx` is null when this browser did not sign it: the chain keeps no transaction hash. */
+export type EdgeRow = Omit<ChainEdge, "addedTx"> & { addedTx: TxHash | null };
 
 export type BridgeStatus = "connecting" | "open" | "reconnecting" | "offline";
 
@@ -62,7 +70,7 @@ export interface HiveClient {
     disconnect(agentId: AgentId): Promise<void>;
   };
   graph: {
-    load(owner: Address): Promise<GraphSnapshot>;
+    load(owner: Address): Promise<{ agents: ChainAgent[]; edges: EdgeRow[] }>;
     auditEvents(owner: Address): Promise<AuditEvent[]>;
     provenance(contentHash: ContentHash): Promise<Provenance | null>;
   };
@@ -71,6 +79,8 @@ export interface HiveClient {
     subscribe(onEvent: (event: HiveEvent) => void, onStatus?: (status: BridgeStatus) => void): () => void;
   };
   memory: {
+    /** The agent's past writes from the chain, newest first (at most 50). Content stays encrypted: this is hashes and topics. */
+    history(agentId: AgentId): Promise<MemoryHistoryRow[]>;
     /** Fetches the ciphertext and decrypts it on this device (rules O4). */
     preview(contentHash: ContentHash): Promise<string>;
   };

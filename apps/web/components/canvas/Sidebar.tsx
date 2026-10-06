@@ -1,15 +1,16 @@
 "use client";
 
+import { useReactFlow } from "@xyflow/react";
 import Image from "next/image";
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { NewAgentForm } from "@/components/app/NewAgentForm";
 import { StatusDot } from "@/components/ui/StatusDot";
 import { cn } from "@/lib/cn";
 import { getHiveClient } from "@/lib/hive/client";
 import type { Layout } from "@/lib/layout";
-import { useGraph } from "@/lib/stores/graph";
+import { useGraph, visibleAgents } from "@/lib/stores/graph";
 import { useUi } from "@/lib/stores/ui";
-import { topicColor } from "@/lib/topics";
+import { topicColor, topicLabel } from "@/lib/topics";
 import { AGENT_MIME, freeSlot } from "./GraphCanvas";
 
 const ICONS: Partial<Record<string, string>> = { claude: "/agents/claude.png", gpt: "/agents/gpt.png" };
@@ -36,10 +37,16 @@ function useHealth() {
 
 // Figma sidebar (55:53): agent chips, topics from the edges that exist, network status.
 export function Sidebar({ layout, place }: { layout: Layout; place(patch: Layout, persist?: boolean): void }) {
-  const agents = useGraph((s) => s.agents);
+  const allAgents = useGraph((s) => s.agents);
+  const hidden = useGraph((s) => s.hidden);
+  const unhide = useGraph((s) => s.unhide);
+  const agents = useMemo(() => visibleAgents(allAgents, hidden), [allAgents, hidden]);
+  const hiddenList = useMemo(() => Object.values(allAgents).filter((a) => hidden[a.agentId.toString()]).sort((a, b) => Number(a.agentId - b.agentId)), [allAgents, hidden]);
   const edges = useGraph((s) => s.edges);
   const bridge = useUi((s) => s.bridge);
   const rpc = useHealth();
+  const [naming, setNaming] = useState(false);
+  const rf = useReactFlow();
 
   const list = useMemo(() => Object.values(agents).sort((a, b) => Number(a.agentId - b.agentId)), [agents]);
   const topics = useMemo(
@@ -49,6 +56,22 @@ export function Sidebar({ layout, place }: { layout: Layout; place(patch: Layout
 
   function placeNext(id: string) {
     place({ [id]: freeSlot(Object.values(layout), Object.keys(layout).length, list.length) });
+  }
+
+  // A placed agent can be off-screen (a saved position from another window size or a pan): bring it into view and open it.
+  function reveal(a: { agentId: bigint }) {
+    const p = layout[a.agentId.toString()];
+    if (p) void rf.setCenter(p.x + 110, p.y + 36, { zoom: 1, duration: 300 });
+    useUi.getState().set({ drawerAgentId: a.agentId });
+  }
+
+  // A new agent lands on the canvas with its drawer open, where its command is ready to copy.
+  function created(agentId: bigint) {
+    const id = agentId.toString();
+    const total = Object.keys(useGraph.getState().agents).length;
+    place({ [id]: freeSlot(Object.values(layout), Object.keys(layout).length, total) });
+    useUi.getState().set({ drawerAgentId: agentId });
+    setNaming(false);
   }
 
   return (
@@ -68,12 +91,11 @@ export function Sidebar({ layout, place }: { layout: Layout; place(patch: Layout
                   e.dataTransfer.setData(AGENT_MIME, id);
                   e.dataTransfer.effectAllowed = "move";
                 }}
-                onClick={() => !placed && placeNext(id)}
-                aria-label={placed ? `${a.name} is on the canvas` : `Place ${a.name} on the canvas (or drag it)`}
-                aria-disabled={placed}
+                onClick={() => (placed ? reveal(a) : placeNext(id))}
+                aria-label={placed ? `Show ${a.name} on the canvas` : `Place ${a.name} on the canvas (or drag it)`}
                 className={cn(
                   "flex h-10 w-full items-center gap-2.5 rounded-chip border border-line bg-paper px-3 text-left",
-                  placed ? "cursor-default" : "cursor-grab hover:border-ink-3 active:cursor-grabbing",
+                  placed ? "cursor-pointer hover:border-ink-3" : "cursor-grab hover:border-ink-3 active:cursor-grabbing",
                 )}
               >
                 {icon ? <Image src={icon} alt="" width={18} height={18} /> : <span aria-hidden="true" className="size-[18px] rounded-full border border-dashed border-clay" />}
@@ -85,9 +107,28 @@ export function Sidebar({ layout, place }: { layout: Layout; place(patch: Layout
         })}
         {list.length === 0 && <li className="text-[14px] leading-[1.5] text-ink-2">No agents registered yet.</li>}
       </ul>
-      <Link href="/connect" className="mt-3 inline-flex min-h-9 items-center text-[14px] font-medium text-ink-2 underline underline-offset-2 hover:text-ink">
-        + Connect another agent
-      </Link>
+      {naming ? (
+        <div className="mt-3">
+          <NewAgentForm onCreated={created} onCancel={() => setNaming(false)} />
+        </div>
+      ) : (
+        <button type="button" onClick={() => setNaming(true)} className="mt-3 inline-flex min-h-9 cursor-pointer items-center text-[14px] font-medium text-ink-2 underline underline-offset-2 hover:text-ink">
+          + New agent
+        </button>
+      )}
+      {hiddenList.length > 0 && (
+        <details className="mt-1 text-[14px] text-ink-2">
+          <summary className="inline-flex min-h-9 cursor-pointer items-center">{hiddenList.length} hidden</summary>
+          <ul className="flex flex-col gap-1.5 pb-1">
+            {hiddenList.map((a) => (
+              <li key={a.agentId.toString()} className="flex items-center justify-between gap-2">
+                <span className="min-w-0 truncate">{a.name}</span>
+                <button type="button" onClick={() => unhide(a.agentId)} className="min-h-9 shrink-0 cursor-pointer font-medium text-ink underline underline-offset-2">Show</button>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
 
       <h2 className={cn(eyebrow, "mt-7")}>TOPICS</h2>
       {topics.length ? (
@@ -95,7 +136,7 @@ export function Sidebar({ layout, place }: { layout: Layout; place(patch: Layout
           {topics.map((t) => (
             <li key={t} className="flex items-center gap-2.5 font-mono text-[14px] text-ink-2">
               <span aria-hidden="true" className="h-[3px] w-[18px]" style={{ background: topicColor(t) }} />
-              {t}
+              {topicLabel(t)}
             </li>
           ))}
         </ul>

@@ -27,7 +27,12 @@ Known pitfalls. Add to this list when you hit a new one.
 - A reload keeps you signed in (live mode) but locked: the keys are derived again from the passkey, and the Connect page shows "Unlock with passkey" until then. Mock mode still goes to `/login`.
 - The saved session is the 24h user token, fixed from sign-in. It does not slide forward with use.
 - Sign out clears this browser only. Another tab stays signed in until it reloads, because the bridge does not revoke user tokens.
-- After a bridge restart the user token still works, but agent sessions are gone: authorize the agents again on `/connect`.
+- After a bridge restart the user token still works, but agent sessions are gone: authorize the agents again. On the canvas, open the agent's drawer and press **Reconnect** (one passkey touch). A token under 24h old works again with no new command, so run `/mcp` in Claude Code. Only a token older than 24h needs the new command from `/connect`.
+- Several agents in one folder: create each from the canvas sidebar ("+ New agent") or on `/connect`, two transactions that cost gas, then start one terminal per agent with its "terminal" command (`claude -n hive-<name> --mcp-config '<json>'`). The config lives in that terminal only. `claude mcp add` (the "folder" command) saves one `hive` server per folder, so every session there is one agent. Don't use both in a folder: remove the folder entry with `claude mcp remove hive`. Not yet tried against a real Claude Code.
+- Live edges: the canvas signs `addEdge` / `removeEdge` with the owner key (one passkey touch after a reload) and reads edges with `KnowledgeGraph.edgesFrom`. The chain keeps only `keccak256(topic)` and no transaction hash, so the topic text is recovered from `brain`, the edges signed in this browser (`localStorage`, `hive:edges:<owner>`) and the topics the agents wrote to. An edge whose topic can't be recovered is drawn as `unknown` and can still be revoked, and an edge made in another browser has no transaction link. Edges are one direction, and cover one topic or, by default, all topics (`*`, ADR-013). Built, not yet run on testnet.
+- Registering an agent is two transactions (`register`, then `setAgentWriter`). If the page is reloaded between them the agent exists with no writer key and the bridge refuses to authorize it. The drawer and Connect show "Finish setup", which sends only the second transaction. Agent tokens are kept in `sessionStorage` for the life of the tab, so a reload keeps the commands. Not yet run in a browser.
+- The agent drawer's memory history comes from `MemorySlots.slotsSince`. Slots store no transaction hash, so rows show the content hash and no explorer link, and the text of an old memory is not shown (live writes of this session are).
+- "Remove from canvas" only hides the agent on this browser (`hive:hidden:<owner>`): it stays registered on Monad and shows again on another browser, because `AgentRegistry` has no delete. The sidebar lists hidden agents with a Show button. A hidden agent is skipped by Connect, so it is not authorized again by accident.
 
 ## Tooling
 
@@ -43,5 +48,5 @@ Known pitfalls. Add to this list when you hit a new one.
 
 ## Memory
 
-- **An agent never reads its own writes.** `hive_read_memory` returns only notes from other agents that have an edge to the reader (`apps/bridge/src/memory.ts`). A `hive_save_session` is for the other agents, so give every agent an edge to the others on the shared topic (`brain`) to get one shared brain.
+- **An agent never reads its own writes.** `hive_read_memory` returns only notes from other agents that have an edge to the reader (`apps/bridge/src/memory.ts`). A `hive_save_session` is for the other agents. Draw an edge with "All topics" (the editor default, ADR-013) to share everything, or one for `general` (the default save topic, ADR-014). An all-topics edge gives reads but no propagation pulse (planned, needs a contract redeploy).
 - **Each write is a transaction.** About 0.01 MON or more per save at the current gas price, paid by the agent key. The bridge tops a key up only at authorize, so many saves can run it dry ("The agent key has no MON for gas.").

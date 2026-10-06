@@ -3,6 +3,7 @@
 import type { Address, Agent, AgentId, AgentStatus, Edge, EdgeId, HiveError, HiveEvent, Topic, TxHash, UnixSeconds } from "@hive/shared";
 import { create } from "zustand";
 import { getHiveClient } from "@/lib/hive/client";
+import { loadHidden, saveHidden } from "@/lib/hive/hidden";
 import type { TxResult } from "@/lib/hive/types";
 
 export type AgentNode = Agent & { connected: boolean; lastCallAt: UnixSeconds | null; tokenExpiresAt: UnixSeconds | null };
@@ -20,11 +21,20 @@ export type EdgeView = Omit<Edge, "edgeId" | "addedTx"> & {
 
 export const GHOST_MS = 3000;
 
+/** The agents the canvas, sidebar and Connect show: all of them except the ones the owner hid. */
+export const visibleAgents = (agents: Record<string, AgentNode>, hidden: Record<string, true>) =>
+  Object.fromEntries(Object.entries(agents).filter(([id]) => !hidden[id]));
+
 type GraphState = {
   status: "idle" | "loading" | "ready" | "error";
   error?: string;
   agents: Record<string, AgentNode>;
   edges: Record<string, EdgeView>;
+  /** Agent ids removed from the canvas in this browser (ADR-012). The agents stay onchain and in `agents`. */
+  hidden: Record<string, true>;
+  /** Refused while the agent has a live edge, so a hidden agent never keeps sharing. */
+  hide(agentId: AgentId): { ok: true } | { error: string };
+  unhide(agentId: AgentId): void;
   load(owner: Address): Promise<void>;
   loadNow(owner: Address): Promise<void>;
   refreshAgents(): Promise<void>;
@@ -50,11 +60,30 @@ const failed = (error: HiveError) => ({ status: "failed" as const, error });
 
 // Sign-in and AppShell both call load(); share one in-flight request per owner so the chain is scanned once.
 let inflight: { owner: Address; promise: Promise<void> } | null = null;
+let hiddenOwner: Address | undefined;
 
 export const useGraph = create<GraphState>()((set, get) => ({
   status: "idle",
   agents: {},
   edges: {},
+  hidden: {},
+
+  hide(agentId) {
+    const id = idKey(agentId);
+    const live = Object.values(get().edges).some((e) => (e.from === agentId || e.to === agentId) && e.state !== "revoked");
+    if (live) return { error: "This agent still has edges. Revoke them first." };
+    const hidden = { ...get().hidden, [id]: true as const };
+    set({ hidden });
+    if (hiddenOwner) saveHidden(hiddenOwner, Object.keys(hidden));
+    return { ok: true };
+  },
+
+  unhide(agentId) {
+    const { [idKey(agentId)]: _shown, ...hidden } = get().hidden;
+    void _shown;
+    set({ hidden });
+    if (hiddenOwner) saveHidden(hiddenOwner, Object.keys(hidden));
+  },
 
   load(owner) {
     if (inflight && inflight.owner.toLowerCase() === owner.toLowerCase()) return inflight.promise;
@@ -77,7 +106,8 @@ export const useGraph = create<GraphState>()((set, get) => ({
         if (!e.active) continue;
         edges[idKey(e.edgeId)] = { ...e, key: idKey(e.edgeId), state: "signed" };
       }
-      set({ status: "ready", agents: mergeStatus(agents, statuses), edges });
+      hiddenOwner = owner;
+      set({ status: "ready", agents: mergeStatus(agents, statuses), edges, hidden: Object.fromEntries(loadHidden(owner).map((id) => [id, true as const])) });
     } catch (e) {
       set({ status: "error", error: e instanceof Error ? e.message : String(e) });
     }
@@ -134,6 +164,7 @@ export const useGraph = create<GraphState>()((set, get) => ({
   },
 
   reset() {
-    set({ status: "idle", error: undefined, agents: {}, edges: {} });
+    hiddenOwner = undefined;
+    set({ status: "idle", error: undefined, agents: {}, edges: {}, hidden: {} });
   },
 }));

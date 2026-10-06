@@ -9,7 +9,7 @@ const COMMAND = [
   `  --header "Authorization: Bearer ${TOKEN}"`,
 ].join("\n");
 
-const TOOLS = ["hive_write_memory", "hive_read_memory", "hive_whoami"];
+const TOOLS = ["hive_write_memory", "hive_list_memory", "hive_read_memory", "hive_whoami"];
 
 // Figma Section/Wire-up 12:23, with the Connect terminal card (54:89) in place of the TBD panel (design.md D8).
 export function WireUp() {

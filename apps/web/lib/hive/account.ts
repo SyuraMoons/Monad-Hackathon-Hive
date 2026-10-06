@@ -36,6 +36,19 @@ export function decodeAgentRegisteredId(receipt: TransactionReceipt): bigint | u
   return undefined;
 }
 
+// Reads the new edge id from an EdgeAdded log.
+export function decodeEdgeAddedId(receipt: TransactionReceipt): bigint | undefined {
+  for (const log of receipt.logs) {
+    try {
+      const decoded = decodeEventLog({ abi: KnowledgeGraphAbi, data: log.data, topics: log.topics });
+      if (decoded.eventName === "EdgeAdded" && typeof decoded.args.edgeId === "bigint") return decoded.args.edgeId;
+    } catch {
+      // not a KnowledgeGraph log
+    }
+  }
+  return undefined;
+}
+
 export async function registerAgent(
   signer: HiveSigner,
   name: string,
@@ -88,6 +101,19 @@ export async function addEdge(
     GAS_FALLBACKS.addEdge,
   );
   return client.writeContract({ address, abi: KnowledgeGraphAbi, functionName: "addEdge", args, gas });
+}
+
+export async function removeEdge(signer: HiveSigner, edgeId: bigint): Promise<Hex> {
+  const client = createHiveWalletClient(signer);
+  const address = hiveDeployment.knowledgeGraph;
+  const args = [edgeId] as const;
+  const gas = await bufferedGas(
+    client,
+    address,
+    encodeFunctionData({ abi: KnowledgeGraphAbi, functionName: "removeEdge", args }),
+    GAS_FALLBACKS.removeEdge,
+  );
+  return client.writeContract({ address, abi: KnowledgeGraphAbi, functionName: "removeEdge", args, gas });
 }
 
 export async function writeMemory(

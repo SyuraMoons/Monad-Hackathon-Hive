@@ -69,11 +69,18 @@ describe("registerAndBind", () => {
   });
 
   it("only binds the writer for an agent a stopped attempt left without one", async () => {
-    const deps = fake([agent(1)]);
+    const deps = fake([agent(1, { name: "Claude" })]);
     const out = await registerAndBind(deps, input);
     expect(deps.register).not.toHaveBeenCalled();
     expect(deps.setWriter).toHaveBeenCalledWith(BigInt(1), KEY);
     expect(out.agentId).toBe(BigInt(1));
+  });
+
+  it("registers a new agent when the unbound one has another name", async () => {
+    const deps = fake([agent(1, { name: "Claude" })]);
+    const out = await registerAndBind(deps, { ...input, name: "Claude · bridge" });
+    expect(deps.register).toHaveBeenCalledWith("Claude · bridge", "claude", KEY);
+    expect(out.agentId).toBe(BigInt(2));
   });
 
   it("does not reuse another owner's unbound agent", async () => {

@@ -5,7 +5,7 @@ import { memo } from "react";
 import { shortHash } from "@/lib/format";
 import { explorerTx } from "@/lib/explorer";
 import { useGraph } from "@/lib/stores/graph";
-import { expiresIn, topicColor } from "@/lib/topics";
+import { expiresIn, topicColor, topicLabel } from "@/lib/topics";
 
 export type HiveEdgeData = { edgeKey: string };
 export type HiveFlowEdge = Edge<HiveEdgeData, "hive">;
@@ -101,7 +101,7 @@ function HiveEdgeImpl({ data, source, target }: EdgeProps<HiveFlowEdge>) {
           style={{ transform: `translate(-50%, 0) translate(${mid.x}px, ${mid.y + 22}px)`, borderColor: color }}
         >
           <span className="font-mono font-medium whitespace-pre text-ink">
-            {edge.topic}  ·  {pending ? "pending" : edge.state === "revoking" ? "revoking…" : expiresIn(edge.expiresAt)}
+            {topicLabel(edge.topic)}  ·  {pending ? "pending" : edge.state === "revoking" ? "revoking…" : expiresIn(edge.expiresAt)}
           </span>
           {txHash && !pending && (
             <a

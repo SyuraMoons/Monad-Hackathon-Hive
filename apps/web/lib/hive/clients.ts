@@ -1,5 +1,5 @@
 import { createPublicClient, http } from "viem";
-import { monadTestnet } from "@hive/shared";
+import { monadTestnet, rateLimitedFetch } from "@hive/shared";
 
 export const hiveChain = monadTestnet;
 
@@ -7,8 +7,8 @@ export const hiveChain = monadTestnet;
 // of app code; monadTestnet defaults to https://testnet-rpc.monad.xyz).
 const rpcUrl = process.env.NEXT_PUBLIC_MONAD_RPC;
 // batch: the registry scan reads several agents at once; JSON-RPC batching sends them as one HTTP request, and the
-// longer backoff rides out the public RPC's 429s.
-const transportOptions = { batch: true, retryCount: 5, retryDelay: 400 };
+// rateLimitedFetch retries the public RPC's 429s (-32011), which viem's own retry does not.
+const transportOptions = { batch: true, retryCount: 5, retryDelay: 400, fetchFn: rateLimitedFetch };
 export const hiveTransport = rpcUrl ? http(rpcUrl, transportOptions) : http(undefined, transportOptions);
 
 // Read-only client for the permission layer. Writes land behind the HiveSigner

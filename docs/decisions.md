@@ -95,4 +95,41 @@ Short architecture decision records. To add one, append the next number and don'
 
 **Decision.** In live mode the web app saves `{ owner, userToken, expiresAt, credentialId }` in `localStorage` (`hive:session`) and restores it on load. The owner, encryption and agent keys are never stored. After a reload the app is signed in but locked, and `unlock()` derives the keys again from the passkey (one touch) the first time an action needs them. At `expiresAt` the saved session is dropped and the user signs in again.
 
-**Consequences.** Any script on the page can read the token. It can list agents, end agent sessions and read the event stream, but it cannot sign a transaction or authorize an agent, which need the keys. The bridge does not revoke user tokens, so signing out clears only this browser. Mock mode keeps its state in memory and still asks to log in after a reload. Agent sessions on the bridge are still in memory: a bridge restart needs a new authorize on `/connect`.
+**Consequences.** Any script on the page can read the token. It can list agents, end agent sessions and read the event stream, but it cannot sign a transaction or authorize an agent, which need the keys. The bridge does not revoke user tokens, so signing out clears only this browser. Mock mode keeps its state in memory and still asks to log in after a reload. Agent sessions on the bridge are still in memory: a bridge restart needs a new authorize on `/connect`. The agent tokens the bridge issued are kept in `sessionStorage` (`hive:agent-tokens:<owner>`), so a reload of the tab keeps the commands on screen. A script on the page could read a 24h agent token for the life of the tab, which an agent key or an owner key it cannot. They end with the tab and at sign-out.
+
+## ADR-012: Several named agents per type, and removal is hiding
+**Date:** 2026-10-05 · **Status:** proposed
+
+**Context.** The web app found an agent by its type, so a user could have one Claude and one GPT. Several Claude Code sessions in different project folders could not be separate nodes. `AgentRegistry` has no function to remove or deactivate an agent.
+
+**Decision.** The bridge and the contracts already allow many agents per owner, so the web app does too. The Connect page lists a type's agents and creates a new one with a name (unique among the owner's agents, 64 characters at most). Each agent gets the next free agent key index. Registering is an owner transaction that costs gas, so it never runs automatically for a second agent. Removing an agent only hides it on this browser (`localStorage`) and ends its bridge session. It stays onchain, and the drawer refuses to hide an agent that still has an active edge.
+
+**Consequences.** `claude mcp add` keeps the `hive` server per project folder, so sessions in one folder are one agent. The default command is therefore per terminal (`claude --mcp-config '<json>'`), which writes nothing to the folder, so several agents can share one folder, one terminal each. The folder command stays as the alternative. A hidden agent comes back on another browser. The demo still shows Claude and ChatGPT only (the Demo agents line stays true for the pitch). Agents are created from the canvas sidebar as well as on Connect; a user who already has agents signs in to the canvas, and Connect is the first-run page. Registering is two transactions, so a stopped one leaves an agent with no writer key and "Finish setup" sends the second.
+
+## ADR-013: An edge covers all topics by default
+**Date:** 2026-10-05 · **Status:** proposed
+
+**Context.** `KnowledgeGraph` stores `keccak256(topic)` and matches it exactly. `hive_save_session` writes to `brain` by default, but the edge editor only offered work, research and personal, so a default save could never be read.
+
+**Decision.** An edge whose topic is `*` (`ALL_TOPICS` in `@hive/shared`) means every topic. The contract hashes `*` like any other string, so nothing is redeployed. The bridge allows it in `edgeAllows` (`permissions.ts`), on top of the usual checks (active, not expired, same sender and reader). The editor signs `*` by default and "Only one topic" restricts the edge to one. `*` is valid for edges only: a slot topic still has to match `^[a-z0-9-]{1,31}$`, so a real topic can never collide with it.
+
+**Consequences.** Reads work along an all-topics edge, because the bridge decides them. `PropagationEngine` and `KnowledgeGraph.hasPermission` match exact hashes only, so an all-topics edge emits no `Propagate` event: `propagatedTo` stays empty, the canvas pulse does not fire for it, and the onchain `hasPermission` returns false. An edge for one topic behaves as before. Making the contracts treat `*` (or an empty topic) as a wildcard is planned and needs a redeploy of `KnowledgeGraph`, `PropagationEngine` and `MemorySlots`.
+
+## ADR-014: `hive_save_session` defaults to topic `general`
+**Date:** 2026-10-05 · **Status:** proposed
+
+**Context.** ADR-010 made `brain` the default topic of `hive_save_session`. The canvas never offered `brain`, and users do not think in topics when they tell an agent to save.
+
+**Decision.** The default is `general` (`DEFAULT_TOPIC` in `@hive/shared`, renamed from `DEFAULT_BRAIN_TOPIC`). With an all-topics edge (ADR-013) the topic does not matter for reading, and `general` is a topic the user can also pick on an edge. An agent can still pass a topic. This supersedes the `brain` default of ADR-010.
+
+**Consequences.** Memories already saved under `brain` stay readable through all-topics edges, and the web app still resolves `brain` edges. Nothing is migrated.
+
+## ADR-015: Listing memories is cheap, reading them is explicit
+**Date:** 2026-10-06 · **Status:** proposed
+
+**Context.** `hive_read_memory` returned the full content of every readable slot, up to 4096 bytes each, so a read grew with the history and all of it landed in the agent's context. Letting agents query Supabase for an index was considered.
+
+**Decision.** The chain is already the index: `MemorySlots.slotsSince` returns id, sender, topic, content hash and time. The bridge adds `hive_list_memory` (id, sender, topic, time, size and a 160-character preview, no full content) and gives `hive_read_memory` `slotIds`, `limit` (default 20, at most 50, newest first) and a `more` flag. Both run the same selection and the same permission check on live chain state. Agents never get a database credential: a direct query would need a second copy of the permission rules, the agent cannot decrypt, and a revoke would stop being immediate (rules 2 and 3).
+
+**Consequences.** No migration and no new stored plaintext: the preview is computed from the decrypted content for an authorized reader, like `content`. A bare read now returns at most 20 memories, and `more: true` says older ones were left out. Still open: batching the ciphertext fetches, and search, which would need plaintext or a second encrypted column.
+

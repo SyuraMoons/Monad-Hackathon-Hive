@@ -1,5 +1,5 @@
 import { createPublicClient, http } from "viem";
-import { monadTestnet } from "@hive/shared";
+import { monadTestnet, rateLimitedFetch } from "@hive/shared";
 import { createApp } from "./app.js";
 import { ViemChainReader, viemChainWriter } from "./chain.js";
 import { loadConfig } from "./config.js";
@@ -17,7 +17,7 @@ try {
 }
 
 const config = loadConfig();
-const rpc = createPublicClient({ chain: monadTestnet, transport: http(config.rpcUrl) });
+const rpc = createPublicClient({ chain: monadTestnet, transport: http(config.rpcUrl, { batch: true, fetchFn: rateLimitedFetch }) });
 const supabase = config.supabase && new SupabaseCiphertextStore(config.supabase.url, config.supabase.serviceKey);
 if (!supabase) console.warn("bridge: SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY unset, memory is kept in this process only");
 

@@ -1,4 +1,4 @@
-import { monadTestnet } from "@hive/shared";
+import { monadTestnet, rateLimitedFetch } from "@hive/shared";
 import { createWalletClient, http, parseEther, type Hex, type PublicClient } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 
@@ -69,7 +69,7 @@ export class ViemGasFunder implements GasFunder {
 }
 
 export function viemGasFunder(rpc: Pick<PublicClient, "getBalance" | "waitForTransactionReceipt">, rpcUrl: string, funderKey: Hex): GasFunder {
-  const wallet = createWalletClient({ account: privateKeyToAccount(funderKey), chain: monadTestnet, transport: http(rpcUrl) });
+  const wallet = createWalletClient({ account: privateKeyToAccount(funderKey), chain: monadTestnet, transport: http(rpcUrl, { fetchFn: rateLimitedFetch }) });
   return new ViemGasFunder({
     getBalance: (address) => rpc.getBalance({ address }),
     send: async (to, value) => {

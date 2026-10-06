@@ -1,8 +1,8 @@
 import { decrypt, encrypt } from "@hive/crypto";
-import { HiveError, zTxHash, type Hex, type ReadMemoryOutput, type WriteMemoryOutput } from "@hive/shared";
+import { HiveError, MEMORY_PAGE_DEFAULT, PREVIEW_CHARS, zTxHash, type Hex, type ListMemoryOutput, type ReadMemoryOutput, type WriteMemoryOutput } from "@hive/shared";
 import { concatBytes, hexToBytes, keccak256, stringToBytes } from "viem";
 import { permittedSlots } from "./permissions.js";
-import type { ChainReader, ChainWriter, CiphertextStore } from "./types.js";
+import type { ChainReader, ChainSlot, ChainWriter, CiphertextStore } from "./types.js";
 
 export type ReadDeps = {
   chain: ChainReader;
@@ -14,43 +14,89 @@ export type ReadDeps = {
   onError?: (stage: string, error: unknown) => void;
 };
 
+type Selection = { slots: ChainSlot[]; more: boolean };
+
 /**
- * `hive_read_memory`: incoming edges -> slots since `since` from each sender -> permission filter -> decrypt.
+ * incoming edges -> slots since `since` from each sender -> permission filter -> `slotIds` filter -> newest `limit`.
+ * `slotIds` only narrows the permitted set: an id the reader has no edge for is dropped, never fetched.
+ */
+async function selectSlots(deps: ReadDeps, args: ReadArgs): Promise<Selection> {
+  const now = deps.now();
+  const edges = await deps.chain.edgesTo(args.agentId);
+  const senders = [...new Set(edges.map((e) => e.from))].filter((id) => id !== args.agentId);
+  const since = BigInt(args.since ?? 0);
+  const slots = (await Promise.all(senders.map((id) => deps.chain.slotsSince(id, since)))).flat();
+  let allowed = permittedSlots({ reader: args.agentId, edges, slots, now, topic: args.topic });
+  if (args.slotIds) {
+    const wanted = new Set(args.slotIds);
+    allowed = allowed.filter((s) => wanted.has(s.id));
+  }
+  const oldestFirst = (a: ChainSlot, b: ChainSlot) => Number(a.writtenAt - b.writtenAt) || Number(a.id - b.id);
+  const limit = args.limit ?? MEMORY_PAGE_DEFAULT;
+  const sorted = allowed.sort(oldestFirst);
+  return { slots: sorted.slice(-limit), more: sorted.length > limit };
+}
+
+type ReadArgs = { agentId: bigint; since?: number; topic?: string; slotIds?: bigint[]; limit?: number };
+
+/** Decrypts each selected slot and hands the plaintext to `shape`. A slot that fails is skipped, the others still return. */
+async function openSlots<T>(deps: ReadDeps, slots: ChainSlot[], shape: (slot: ChainSlot, name: string, content: string) => T): Promise<T[]> {
+  const names = new Map<bigint, string>();
+  const out: T[] = [];
+  for (const slot of slots) {
+    try {
+      const sealed = await deps.store.get(slot.contentHash);
+      if (!sealed) continue;
+      if (!names.has(slot.agentId)) names.set(slot.agentId, (await deps.chain.agent(slot.agentId)).name);
+      out.push(shape(slot, names.get(slot.agentId)!, await decrypt(sealed, deps.encryptionKey)));
+    } catch (e) {
+      deps.onError?.("memory", e);
+    }
+  }
+  return out;
+}
+
+const topicOf = (slot: ChainSlot) => slot.topic as ReadMemoryOutput["memories"][number]["topic"];
+
+/**
+ * `hive_read_memory`: the newest permitted slots, decrypted in full.
  * Default deny: an error at any stage returns what is safe to return (nothing), never partial plaintext.
  */
-export async function readMemory(deps: ReadDeps, args: { agentId: bigint; since?: number; topic?: string }): Promise<ReadMemoryOutput> {
-  const empty: ReadMemoryOutput = { memories: [] };
+export async function readMemory(deps: ReadDeps, args: ReadArgs): Promise<ReadMemoryOutput> {
   try {
-    const now = deps.now();
-    const edges = await deps.chain.edgesTo(args.agentId);
-    const senders = [...new Set(edges.map((e) => e.from))].filter((id) => id !== args.agentId);
-    const since = BigInt(args.since ?? 0);
-    const slots = (await Promise.all(senders.map((id) => deps.chain.slotsSince(id, since)))).flat();
-    const allowed = permittedSlots({ reader: args.agentId, edges, slots, now, topic: args.topic });
-
-    const names = new Map<bigint, string>();
-    const memories: ReadMemoryOutput["memories"] = [];
-    for (const slot of allowed.sort((a, b) => Number(a.writtenAt - b.writtenAt) || Number(a.id - b.id))) {
-      try {
-        const sealed = await deps.store.get(slot.contentHash);
-        if (!sealed) continue;
-        if (!names.has(slot.agentId)) names.set(slot.agentId, (await deps.chain.agent(slot.agentId)).name);
-        memories.push({
-          slotId: slot.id,
-          fromAgentId: slot.agentId,
-          fromName: names.get(slot.agentId)!,
-          topic: slot.topic as ReadMemoryOutput["memories"][number]["topic"],
-          content: await decrypt(sealed, deps.encryptionKey),
-          writtenAt: Number(slot.writtenAt),
-        });
-      } catch (e) {
-        deps.onError?.("memory", e);
-      }
-    }
-    return { memories };
+    const { slots, more } = await selectSlots(deps, args);
+    const memories = await openSlots(deps, slots, (slot, name, content) => ({
+      slotId: slot.id,
+      fromAgentId: slot.agentId,
+      fromName: name,
+      topic: topicOf(slot),
+      content,
+      writtenAt: Number(slot.writtenAt),
+    }));
+    return { memories, more };
   } catch (e) {
     deps.onError?.("permission-check", e);
-    return empty;
+    return { memories: [], more: false };
+  }
+}
+
+/** `hive_list_memory`: the same selection and permission checks as a read, but each memory is a short preview and a size. */
+export async function listMemory(deps: ReadDeps, args: Omit<ReadArgs, "slotIds">): Promise<ListMemoryOutput> {
+  try {
+    const { slots, more } = await selectSlots(deps, args);
+    const memories = await openSlots(deps, slots, (slot, name, content) => ({
+      slotId: slot.id,
+      fromAgentId: slot.agentId,
+      fromName: name,
+      topic: topicOf(slot),
+      writtenAt: Number(slot.writtenAt),
+      bytes: new TextEncoder().encode(content).length,
+      preview: [...content].slice(0, PREVIEW_CHARS).join(""),
+    }));
+    return { memories, more };
+  } catch (e) {
+    deps.onError?.("permission-check", e);
+    return { memories: [], more: false };
   }
 }
 

@@ -22,7 +22,8 @@ function AgentNodeImpl({ id, data, selected }: NodeProps<AgentFlowNode>) {
   const { isolated, revoked } = data;
   const icon = ICONS[agent.agentType];
   const status = revoked ? "revoked" : agent.connected ? "active" : "idle";
-  const statusText = revoked ? "revoked" : agent.connected ? "connected" : "not connected";
+  const authorized = !agent.connected && agent.tokenExpiresAt !== null && agent.tokenExpiresAt > Math.floor(Date.now() / 1000);
+  const statusText = revoked ? "revoked" : agent.connected ? "connected" : authorized ? "waiting for its first call" : "not connected";
 
   return (
     <div className="relative" data-agent-node={data.agentId}>
