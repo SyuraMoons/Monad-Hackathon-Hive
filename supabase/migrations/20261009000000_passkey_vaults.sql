@@ -3,7 +3,7 @@
 -- so anon and authenticated get nothing; grants are revoked as a second layer.
 
 create table if not exists public.passkey_vaults (
-  credential_id text primary key check (credential_id ~ '^[A-Za-z0-9_-]{1,512}$'),
+  credential_id text primary key check (credential_id ~ '^[A-Za-z0-9_-]{1,255}$'),
   owner         text not null,
   vault         jsonb not null,
   created_at    timestamptz not null default now()

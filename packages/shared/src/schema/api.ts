@@ -42,7 +42,7 @@ export const zAuthorizeResponse = z.object({ agentToken: z.string().min(1), expi
 export const zMemoryResponse = z.object({ ciphertext: zBase64, iv: zBase64, keyId: z.string().min(1) });
 
 /** A Mera passkey credential ID as the web client holds it (base64url). */
-export const zCredentialId = z.string().regex(/^[A-Za-z0-9_-]{1,512}$/, "expected a base64url credential id");
+export const zCredentialId = z.string().regex(/^[A-Za-z0-9_-]{1,255}$/, "expected a base64url credential id");
 
 /** The Mera secret vault JSON (ciphertext only). Opaque to the bridge: it stores and serves it as is. */
 export const zVault = z.record(z.string(), z.unknown());
