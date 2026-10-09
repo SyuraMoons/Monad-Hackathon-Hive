@@ -13,35 +13,45 @@ Foundry project for the Hive permission layer: `AgentRegistry`, `KnowledgeGraph`
 
 Source of truth: `deployments/monad-testnet.json`. Apps consume these through `@hive/shared` (`hiveDeployment`), regenerated with `pnpm --filter @hive/contracts abi`.
 
+## Prerequisites
+
+- Foundry 1.8.x (`brew install foundry`), which sets the Monad execution environment from `foundry.toml`.
+- Submodules (`forge-std`, `openzeppelin-contracts`): `git submodule update --init` from the repo root.
+- A funded deployer key. Claim testnet MON at `https://faucet.monad.xyz`.
+
 ## Build, test, coverage
 
 ```bash
 forge build
-forge test --network monad
+forge test
 pnpm --filter @hive/contracts coverage
 ```
 
-42 tests, 100% line coverage.
+42 tests, 100% line coverage on the four contracts.
 
 ## Redeploy loop
 
-```bash
-# forge reads the key from the process env (docs/gotchas.md), not the repo root .env
-$env:DEPLOYER_PRIVATE_KEY = "0x…"
+Run from `packages/contracts`.
 
-# 1. Deploy (fail-fast: aborts if the deployer has 0 MON)
+```bash
+# forge reads the key from the process env, not the repo root .env (docs/gotchas.md)
+export DEPLOYER_PRIVATE_KEY=0x…        # PowerShell: $env:DEPLOYER_PRIVATE_KEY = "0x…"
+
+# 1. Deploy (fail-fast: aborts if the deployer has 0 MON). Writes deployments/monad-testnet.json
 pnpm --filter @hive/contracts deploy:testnet
 
-# 2. Regenerate ABIs + addresses for @hive/shared
+# 2. Regenerate ABIs + addresses for @hive/shared, then commit both generated files
 pnpm --filter @hive/contracts abi
 
-# 3. Confirm bytecode landed before trusting the JSON — a failed broadcast still writes it
-cast code 0x949Deac6ec66387778CEDe6643b875127FBb340F --rpc-url monad_testnet
+# 3. Confirm bytecode landed before trusting the JSON: a failed broadcast still writes it
+cast code <agentRegistry address from the JSON> --rpc-url monad_testnet
 ```
 
-Claim testnet MON at `https://faucet.monad.xyz` before deploying.
+After a redeploy, update the address table above and rebuild the apps that import `@hive/shared`.
 
 ## Verify
+
+**Not yet verified:** Sourcify has no match for the current addresses. Run this once per contract (no API key needed):
 
 ```bash
 forge verify-contract <addr> <Name> --chain 10143 --verifier sourcify \
