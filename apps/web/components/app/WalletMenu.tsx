@@ -66,7 +66,7 @@ export function WalletMenu({ address }: { address: string }) {
   async function leave() {
     setLeaving(true);
     // Ends every agent session on the bridge, zeroes the passkey keys and clears the session store.
-    setUi({ walletMenu: false, drawerAgentId: null, edgeMenu: null, revokeEdge: null, edgeEditor: null, zones: false });
+    setUi({ walletMenu: false, drawerAgentId: null, edgeMenu: null, revokeEdge: null, edgeEditor: null, newAgent: false, zones: false });
     await signOut(); // the app shell then sends us home (signedOutOnPurpose)
     router.replace("/");
   }

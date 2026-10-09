@@ -9,15 +9,19 @@ const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), selec
  * design.md §6 Modal: 520 wide, radius 14, ink border, shadow-modal, scrim ink 28%.
  * Esc closes, Tab stays inside, and focus goes back to `returnFocus` (or the previous element) on close.
  */
-export function Modal({ labelledBy, onClose, returnFocus, children }: {
+export function Modal({ labelledBy, onClose, returnFocus, dismissible = true, children }: {
   labelledBy: string;
   onClose(): void;
+  /** False blocks Esc and scrim clicks (a transaction is in flight). */
+  dismissible?: boolean;
   returnFocus?: RefObject<HTMLElement | null>;
   children: ReactNode;
 }) {
   const dialog = useRef<HTMLDivElement>(null);
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
+  const dismissRef = useRef(dismissible);
+  dismissRef.current = dismissible;
 
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
@@ -29,7 +33,7 @@ export function Modal({ labelledBy, onClose, returnFocus, children }: {
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") {
         e.stopPropagation();
-        closeRef.current();
+        if (dismissRef.current) closeRef.current();
         return;
       }
       if (e.key !== "Tab" || !el) return;
@@ -48,7 +52,7 @@ export function Modal({ labelledBy, onClose, returnFocus, children }: {
 
   return createPortal(
     <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto p-4">
-      <div className="hive-scrim absolute inset-0 bg-ink/28" onClick={() => closeRef.current()} aria-hidden="true" />
+      <div className="hive-scrim absolute inset-0 bg-ink/28 backdrop-blur-[3px]" onClick={() => dismissRef.current && closeRef.current()} aria-hidden="true" />
       <div
         ref={dialog}
         role="dialog"

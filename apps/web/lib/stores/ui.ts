@@ -20,6 +20,11 @@ type UiState = {
   edgeEditor: { from: AgentId; to: AgentId; topic?: string } | null;
   edgeMenu: { key: string; at: Anchor } | null;
   revokeEdge: { key: string; at: Anchor } | null;
+  /** Right-click menu of a sidebar agent chip. `at` is viewport-relative (the menu is fixed). */
+  agentMenu: { agentId: string; at: Anchor } | null;
+  hideAgent: { agentId: string; at: Anchor } | null;
+  /** The "New agent" modal on the canvas. */
+  newAgent: boolean;
   zones: boolean;
   walletMenu: boolean;
   toasts: ToastItem[];
@@ -39,6 +44,9 @@ export const useUi = create<UiState>()((set, get) => ({
   edgeEditor: null,
   edgeMenu: null,
   revokeEdge: null,
+  agentMenu: null,
+  hideAgent: null,
+  newAgent: false,
   zones: false,
   walletMenu: false,
   toasts: [],
@@ -47,6 +55,8 @@ export const useUi = create<UiState>()((set, get) => ({
   closeLayers() {
     const s = get();
     // innermost first: confirm → menu → wallet → drawer
+    if (s.hideAgent) return set({ hideAgent: null }), true;
+    if (s.agentMenu) return set({ agentMenu: null }), true;
     if (s.revokeEdge) return set({ revokeEdge: null }), true;
     if (s.edgeMenu) return set({ edgeMenu: null }), true;
     if (s.walletMenu) return set({ walletMenu: false }), true;
