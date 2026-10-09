@@ -10,7 +10,7 @@ import { decrypt } from "@hive/crypto";
 import { createApp } from "../src/app.js";
 import { HIVE_INSTRUCTIONS } from "../src/mcp.js";
 import { SessionStore } from "../src/sessions.js";
-import { InMemoryChain, InMemoryCiphertextStore } from "../src/stubs.js";
+import { InMemoryChain, InMemoryCiphertextStore, InMemoryVaultStore } from "../src/stubs.js";
 import { topicHash } from "../src/permissions.js";
 import { TokenService } from "../src/tokens.js";
 
@@ -61,7 +61,7 @@ beforeAll(async () => {
   await store.put(sealed.contentHash, { ...sealed, owner: OWNER, keyId: "hive/encrypt" });
   chain.slots.push({ id: 7n, agentId: CLAUDE, contentHash: sealed.contentHash, topic: "work", writtenAt: BigInt(nowS() - 5) });
 
-  const app = createApp({ corsOrigins: [], tokens, verifySignature: async () => false, probes: { rpc: async () => true, supabase: async () => true }, sessions, chain, store, writer });
+  const app = createApp({ corsOrigins: [], tokens, verifySignature: async () => false, probes: { rpc: async () => true, supabase: async () => true }, sessions, chain, store, vaults: new InMemoryVaultStore(), writer });
   server = app.listen(0);
   url = `http://127.0.0.1:${(server.address() as AddressInfo).port}/mcp`;
 });

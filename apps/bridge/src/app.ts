@@ -1,6 +1,6 @@
 import {
-  HiveError, zAgentId, zAgentType, zAgentsResponse, zAuthChallengeBody, zAuthVerifyBody, zAuthorizeBody, monadTestnet,
-  type AuthChallengeResponse, type AuthVerifyResponse, type AuthorizeResponse, type Hex, type HealthResponse,
+  HiveError, zAgentId, zAgentType, zAgentsResponse, zAuthChallengeBody, zAuthVerifyBody, zAuthorizeBody, zCredentialId, zPutVaultBody, monadTestnet,
+  type VaultResponse, type AuthChallengeResponse, type AuthVerifyResponse, type AuthorizeResponse, type Hex, type HealthResponse,
 } from "@hive/shared";
 import type { z } from "zod";
 import { privateKeyToAddress } from "viem/accounts";
@@ -11,7 +11,7 @@ import { noGasFunder, type GasFunder } from "./funder.js";
 import { mcpHandler } from "./mcp.js";
 import type { SessionStore } from "./sessions.js";
 import type { TokenService, UserClaims } from "./tokens.js";
-import { UnknownAgentError, type ChainAgent, type ChainReader, type ChainWriter, type CiphertextStore } from "./types.js";
+import { UnknownAgentError, type ChainAgent, type ChainReader, type ChainWriter, type CiphertextStore, type VaultStore } from "./types.js";
 
 export type AppDeps = {
   corsOrigins: string[];
@@ -24,6 +24,7 @@ export type AppDeps = {
   chain: ChainReader;
   store: CiphertextStore;
   writer: ChainWriter;
+  vaults: VaultStore;
   /** Tops up an agent key's gas on authorize (ADR-007). Default: no top-up. */
   funder?: GasFunder;
   /** Feeds GET /v1/events. Default: a fresh in-memory bus. */
@@ -53,7 +54,7 @@ export function createApp(deps: AppDeps): Express {
       res.setHeader("Access-Control-Allow-Origin", origin);
       res.setHeader("Vary", "Origin");
       res.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type, Last-Event-ID");
-      res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
+      res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
     }
     if (req.method === "OPTIONS") {
       res.sendStatus(204);
@@ -103,6 +104,31 @@ export function createApp(deps: AppDeps): Express {
     res.setHeader("Allow", "POST");
     res.status(405).json({ jsonrpc: "2.0", error: { code: -32000, message: "Method not allowed." }, id: null });
   });
+
+  // Public on purpose: a new device has no token before it can sign in. Returns only the vault ciphertext, never the owner.
+  app.get("/v1/vaults/:credentialId", wrap(async (req, res) => {
+    const id = zCredentialId.safeParse(req.params.credentialId);
+    if (!id.success) throw new HiveError("INVALID_INPUT", "Invalid credential id.");
+    const vault = await deps.vaults.get(id.data).catch(() => {
+      throw new HiveError("STORAGE_ERROR", "Could not read the vault.");
+    });
+    if (!vault) throw new HiveError("NOT_FOUND", "No vault for that credential.");
+    const body: VaultResponse = { vault };
+    res.json(body);
+  }));
+
+  app.put("/v1/vaults/:credentialId", requireUser, wrap(async (req, res) => {
+    const id = zCredentialId.safeParse(req.params.credentialId);
+    if (!id.success) throw new HiveError("INVALID_INPUT", "Invalid credential id.");
+    const body = zPutVaultBody.safeParse(req.body);
+    if (!body.success) throw new HiveError("INVALID_INPUT", "Expected { vault } as a JSON object.");
+    const user = res.locals.user as UserClaims;
+    const result = await deps.vaults.put(id.data, user.owner as Hex, body.data.vault).catch(() => {
+      throw new HiveError("STORAGE_ERROR", "Could not store the vault.");
+    });
+    if (result === "forbidden") throw new HiveError("FORBIDDEN", "That vault belongs to another owner.");
+    res.sendStatus(result === "created" ? 201 : 204);
+  }));
 
   const ZERO = "0x0000000000000000000000000000000000000000";
   const funder = deps.funder ?? noGasFunder;

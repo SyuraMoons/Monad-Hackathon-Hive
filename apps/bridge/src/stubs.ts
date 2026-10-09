@@ -1,5 +1,5 @@
 import type { Hex } from "@hive/shared";
-import { UnknownAgentError, type ChainAgent, type ChainEdge, type ChainReader, type ChainSlot, type CiphertextStore, type NewCiphertext, type StoredCiphertext } from "./types.js";
+import { UnknownAgentError, type ChainAgent, type ChainEdge, type ChainReader, type ChainSlot, type CiphertextStore, type NewCiphertext, type PutVaultResult, type StoredCiphertext, type VaultStore } from "./types.js";
 
 // STUB: replace when contracts are deployed (AK-7): a viem-backed ChainReader on the addresses from @hive/shared.
 export class InMemoryChain implements ChainReader {
@@ -31,5 +31,19 @@ export class InMemoryCiphertextStore implements CiphertextStore {
   }
   async put(contentHash: Hex, { ciphertext, iv }: NewCiphertext) {
     this.rows.set(contentHash.toLowerCase(), { ciphertext, iv });
+  }
+}
+
+// Used by tests, and by `pnpm dev` when SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY are unset. The real store is vaults.ts.
+export class InMemoryVaultStore implements VaultStore {
+  private rows = new Map<string, { owner: string; vault: Record<string, unknown> }>();
+  async get(credentialId: string) {
+    return this.rows.get(credentialId)?.vault;
+  }
+  async put(credentialId: string, owner: Hex, vault: Record<string, unknown>): Promise<PutVaultResult> {
+    const row = this.rows.get(credentialId);
+    if (row && row.owner !== owner.toLowerCase()) return "forbidden";
+    this.rows.set(credentialId, { owner: owner.toLowerCase(), vault });
+    return row ? "replaced" : "created";
   }
 }

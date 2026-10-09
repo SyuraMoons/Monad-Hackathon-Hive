@@ -9,7 +9,7 @@ import { createApp } from "../src/app.js";
 import { EventBus } from "../src/events.js";
 import { topicHash } from "../src/permissions.js";
 import { SessionStore } from "../src/sessions.js";
-import { InMemoryChain, InMemoryCiphertextStore } from "../src/stubs.js";
+import { InMemoryChain, InMemoryCiphertextStore, InMemoryVaultStore } from "../src/stubs.js";
 import { TokenService } from "../src/tokens.js";
 import type { ChainWriter } from "../src/types.js";
 
@@ -82,6 +82,7 @@ beforeAll(async () => {
     sessions,
     chain,
     store,
+    vaults: new InMemoryVaultStore(),
     writer,
     events,
   });
