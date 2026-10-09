@@ -14,14 +14,14 @@ import { useUi } from "@/lib/stores/ui";
 // Figma 07 · Canvas: 0 Empty (56:231) and 1 Live (55:46). 240 / canvas / 340 (design.md §5).
 // Real by construction: everything shown comes from the graph and feed stores, which only HiveClient fills.
 function Canvas({ owner }: { owner: string }) {
-  const { layout, place } = useLayout(owner);
+  const { layout, place, unplace } = useLayout(owner);
   const error = useGraph((s) => (s.status === "error" ? s.error : undefined));
   const drawer = useUi((s) => s.drawerAgentId);
 
   return (
     <ReactFlowProvider>
       <div className="grid h-[calc(100svh-56px)] min-h-0 grid-cols-[240px_minmax(0,1fr)_340px]">
-        <Sidebar layout={layout} place={place} />
+        <Sidebar layout={layout} place={place} unplace={unplace} />
         <main className="relative min-h-0 bg-paper">
           <GraphCanvas layout={layout} place={place} />
           <Toaster />
