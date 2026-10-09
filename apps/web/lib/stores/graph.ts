@@ -3,6 +3,7 @@
 import type { Address, Agent, AgentId, AgentStatus, Edge, EdgeId, HiveError, HiveEvent, Topic, TxHash, UnixSeconds } from "@hive/shared";
 import { create } from "zustand";
 import { getHiveClient } from "@/lib/hive/client";
+import { cleanLabel, loadAgentLabels, saveAgentLabels } from "@/lib/hive/agentLabels";
 import { loadHidden, saveHidden } from "@/lib/hive/hidden";
 import type { TxResult } from "@/lib/hive/types";
 
@@ -25,6 +26,9 @@ export const GHOST_MS = 3000;
 export const visibleAgents = (agents: Record<string, AgentNode>, hidden: Record<string, true>) =>
   Object.fromEntries(Object.entries(agents).filter(([id]) => !hidden[id]));
 
+/** What the owner sees for an agent: their label if they wrote one, else the name it was registered with. */
+export const displayName = (agent: Pick<Agent, "name" | "agentId">, labels: Record<string, string>) => labels[agent.agentId.toString()] ?? agent.name;
+
 type GraphState = {
   status: "idle" | "loading" | "ready" | "error";
   error?: string;
@@ -32,6 +36,10 @@ type GraphState = {
   edges: Record<string, EdgeView>;
   /** Agent ids removed from the canvas in this browser (ADR-012). The agents stay onchain and in `agents`. */
   hidden: Record<string, true>;
+  /** The owner's nickname per agent id, kept in this browser. The registered name stays in `agents` (ADR-018). */
+  labels: Record<string, string>;
+  /** An empty label clears it. */
+  setLabel(agentId: AgentId, raw: string): void;
   /** Refused while the agent has a live edge, so a hidden agent never keeps sharing. */
   hide(agentId: AgentId): { ok: true } | { error: string };
   unhide(agentId: AgentId): void;
@@ -67,6 +75,17 @@ export const useGraph = create<GraphState>()((set, get) => ({
   agents: {},
   edges: {},
   hidden: {},
+  labels: {},
+
+  setLabel(agentId, raw) {
+    const id = idKey(agentId);
+    const { [id]: _old, ...rest } = get().labels;
+    void _old;
+    const label = cleanLabel(raw);
+    const labels = label ? { ...rest, [id]: label } : rest;
+    set({ labels });
+    if (hiddenOwner) saveAgentLabels(hiddenOwner, labels);
+  },
 
   hide(agentId) {
     const id = idKey(agentId);
@@ -107,7 +126,7 @@ export const useGraph = create<GraphState>()((set, get) => ({
         edges[idKey(e.edgeId)] = { ...e, key: idKey(e.edgeId), state: "signed" };
       }
       hiddenOwner = owner;
-      set({ status: "ready", agents: mergeStatus(agents, statuses), edges, hidden: Object.fromEntries(loadHidden(owner).map((id) => [id, true as const])) });
+      set({ status: "ready", agents: mergeStatus(agents, statuses), edges, hidden: Object.fromEntries(loadHidden(owner).map((id) => [id, true as const])), labels: loadAgentLabels(owner) });
     } catch (e) {
       set({ status: "error", error: e instanceof Error ? e.message : String(e) });
     }
@@ -165,6 +184,6 @@ export const useGraph = create<GraphState>()((set, get) => ({
 
   reset() {
     hiddenOwner = undefined;
-    set({ status: "idle", error: undefined, agents: {}, edges: {}, hidden: {} });
+    set({ status: "idle", error: undefined, agents: {}, edges: {}, hidden: {}, labels: {} });
   },
 }));

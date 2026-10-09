@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useRef, useState, type ReactNode } from "react";
+import { Suspense, useEffect, useState, type ReactNode } from "react";
 import { Logo } from "@/components/ui/Logo";
 import { PillButton } from "@/components/ui/Pill";
 import { StatusDot } from "@/components/ui/StatusDot";
@@ -85,17 +85,10 @@ function LoginScreen() {
   const { status, progress, destination, error, signIn, cancel, reset } = useSession();
   const [barDone, setBarDone] = useState(false);
   const [barStarted, setBarStarted] = useState(false);
-  const started = useRef(false);
 
-  // Already signed in (back button, or a saved session after a reload): go straight on.
   useEffect(() => {
-    let alive = true;
-    void useSession.getState().restore().then(() => {
-      if (alive && !started.current && useSession.getState().status === "signed-in") router.replace(next?.startsWith("/") ? next : "/canvas");
-      started.current = true;
-    });
-    return () => { alive = false; };
-  }, [next, router]);
+    void useSession.getState().restore();
+  }, []);
 
   // Login 3: run the 1.2 s bar, then leave once the bridge has also confirmed.
   useEffect(() => {
@@ -110,9 +103,10 @@ function LoginScreen() {
   }, [status === "verified" || status === "signed-in"]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (status === "signed-in" && barDone && destination) {
-      router.replace(next?.startsWith("/") && next !== "/login" ? next : destination);
-    }
+    if (status !== "signed-in") return;
+    // A restored session (saved before a reload) has no destination and no keys to derive: go straight on.
+    if (destination && !barDone) return;
+    router.replace(next?.startsWith("/") && next !== "/login" ? next : destination ?? "/canvas");
   }, [status, barDone, destination, next, router]);
 
   let card: ReactNode;

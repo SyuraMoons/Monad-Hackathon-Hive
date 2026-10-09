@@ -48,5 +48,17 @@ export function useLayout(owner: string) {
     },
     [owner],
   );
-  return { layout, place };
+  /** Takes an agent off the canvas: it keeps no position, so the sidebar shows it as unplaced. */
+  const unplace = useCallback(
+    (id: string) => {
+      setLayout((prev) => {
+        const { [id]: _gone, ...next } = prev;
+        void _gone;
+        write(owner, next);
+        return next;
+      });
+    },
+    [owner],
+  );
+  return { layout, place, unplace };
 }

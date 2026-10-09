@@ -4,13 +4,15 @@ import type { ContentHash } from "@hive/shared";
 import Image from "next/image";
 import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { zeroAddress } from "viem";
+import { removeAgent } from "@/lib/agentActions";
 import { cn } from "@/lib/cn";
 import { explorerAddress, explorerTx } from "@/lib/explorer";
 import { longDate, shortHash } from "@/lib/format";
+import { pageOf } from "@/lib/pagination";
 import { claudeCommand, claudeTerminalCommand, gptSnippet } from "@/lib/hive/commands";
 import type { MemoryHistoryRow } from "@/lib/hive/types";
 import { useFeed, type FeedRow } from "@/lib/stores/feed";
-import { useGraph, type AgentNode, type EdgeView } from "@/lib/stores/graph";
+import { displayName, useGraph, type AgentNode, type EdgeView } from "@/lib/stores/graph";
 import { useSession } from "@/lib/stores/session";
 import { useUi } from "@/lib/stores/ui";
 import { topicColor, topicLabel } from "@/lib/topics";
@@ -18,6 +20,7 @@ import { topicColor, topicLabel } from "@/lib/topics";
 const ICONS: Partial<Record<string, string>> = { claude: "/agents/claude.png", gpt: "/agents/gpt.png" };
 const eyebrow = "font-mono text-[14px] tracking-[0.08em] whitespace-pre text-ink-3";
 const section = "flex flex-col gap-2.5 border-t border-line px-6 py-[18px]";
+const HISTORY_PAGE_SIZE = 5;
 
 type Entry = { slotId: bigint; topic: string; contentHash: ContentHash; at: number; propagatedTo?: bigint[] };
 
@@ -28,7 +31,7 @@ function historyEntries(past: MemoryHistoryRow[] | "loading" | "error" | undefin
   for (const r of rows) {
     if (r.kind === "written" && r.agentId === agentId) bySlot.set(r.slotId.toString(), { slotId: r.slotId, topic: r.topic, contentHash: r.contentHash, at: r.at, propagatedTo: r.propagatedTo });
   }
-  return [...bySlot.values()].sort((a, b) => b.at - a.at || (b.slotId > a.slotId ? 1 : -1)).slice(0, 20);
+  return [...bySlot.values()].sort((a, b) => b.at - a.at || (b.slotId > a.slotId ? 1 : -1));
 }
 
 function scopeKey(expiresAt: number | null): string {
@@ -125,17 +128,12 @@ function ConnectionSection({ agent }: { agent: AgentNode }) {
 
 // The registry can't delete an agent, so this hides it on this browser and ends its bridge session (ADR-012).
 function RemoveSection({ agent }: { agent: AgentNode }) {
-  const hide = useGraph((s) => s.hide);
-  const disconnectAgent = useSession((s) => s.disconnectAgent);
-  const setUi = useUi((s) => s.set);
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string>();
 
   async function remove() {
-    const result = hide(agent.agentId);
-    if ("error" in result) return setError(result.error);
-    setUi({ drawerAgentId: null });
-    await disconnectAgent(agent.agentId).catch(() => {}); // best effort: the keys also leave the bridge when it restarts
+    const result = await removeAgent(agent.agentId);
+    if ("error" in result) setError(result.error);
   }
 
   return (
@@ -165,6 +163,7 @@ function RemoveSection({ agent }: { agent: AgentNode }) {
 export function NodeDrawer({ agentId }: { agentId: string }) {
   const agent = useGraph((s) => s.agents[agentId]);
   const agents = useGraph((s) => s.agents);
+  const labels = useGraph((s) => s.labels);
   const edges = useGraph((s) => s.edges);
   const rows = useFeed((s) => s.rows);
   const previews = useFeed((s) => s.previews);
@@ -172,6 +171,7 @@ export function NodeDrawer({ agentId }: { agentId: string }) {
   const loadHistory = useFeed((s) => s.loadHistory);
   const setUi = useUi((s) => s.set);
   const closeRef = useRef<HTMLButtonElement>(null);
+  const [historyPage, setHistoryPage] = useState(0);
 
   useEffect(() => {
     void loadHistory(BigInt(agentId));
@@ -189,6 +189,7 @@ export function NodeDrawer({ agentId }: { agentId: string }) {
   const outgoing = live.filter((e) => e.from === agent.agentId);
   const incoming = live.filter((e) => e.to === agent.agentId);
   const writes = historyEntries(past, rows, agent.agentId);
+  const history = pageOf(writes, historyPage, HISTORY_PAGE_SIZE);
   const icon = ICONS[agent.agentType];
 
   function revoke(e: EdgeView, ev: MouseEvent<HTMLButtonElement>) {
@@ -232,10 +233,11 @@ export function NodeDrawer({ agentId }: { agentId: string }) {
       <div className="flex items-center gap-3 px-6 pt-[22px] pb-[18px]">
         {icon ? <Image src={icon} alt="" width={28} height={28} /> : <span aria-hidden="true" className="size-7 rounded-full border border-dashed border-clay" />}
         <div className="min-w-0 flex-1">
-          <h2 id="drawer-title" className="truncate font-display text-[26px] leading-tight text-ink">{agent.name}</h2>
+          <h2 id="drawer-title" className="truncate font-display text-[26px] leading-tight text-ink">{displayName(agent, labels)}</h2>
           <p className={cn("truncate font-mono text-[14px] whitespace-pre", agent.connected ? "text-status-active" : "text-ink-3")}>
             agent #{agent.agentId.toString()}  ·  {agent.connected ? "active" : "not connected"}
           </p>
+          {labels[agentId] && <p className="truncate font-mono text-[14px] text-ink-3">registered as {agent.name}</p>}
         </div>
         <button ref={closeRef} type="button" onClick={() => setUi({ drawerAgentId: null })} aria-label="Close" className="grid size-9 cursor-pointer place-items-center rounded-chip text-[18px] text-ink-2 hover:bg-paper-2 hover:text-ink">
           ✕
@@ -278,7 +280,7 @@ export function NodeDrawer({ agentId }: { agentId: string }) {
         {past === "loading" && !writes.length && <p className="text-[15px] leading-[1.5] text-ink-2">Loading history from Monad…</p>}
         {writes.length ? (
           <ul className="flex flex-col gap-3">
-            {writes.map((w) => {
+            {history.items.map((w) => {
               const p = previews[w.contentHash];
               const text = p && p !== "loading" && p !== "error" ? p : null;
               return (
@@ -297,6 +299,15 @@ export function NodeDrawer({ agentId }: { agentId: string }) {
           </ul>
         ) : (
           past !== "loading" && past !== "error" && <p className="text-[15px] leading-[1.5] text-ink-2">No writes yet.</p>
+        )}
+        {history.pages > 1 && (
+          <nav aria-label="Memory history pages" className="flex items-center justify-between gap-3 pt-1">
+            <p aria-live="polite" className="font-mono text-[14px] whitespace-pre text-ink-3">{history.from}–{history.to} of {history.total}</p>
+            <div className="flex gap-2">
+              <button type="button" className={button} aria-label="Newer writes" disabled={history.page === 0} onClick={() => setHistoryPage(history.page - 1)}>Prev</button>
+              <button type="button" className={button} aria-label="Older writes" disabled={history.page >= history.pages - 1} onClick={() => setHistoryPage(history.page + 1)}>Next</button>
+            </div>
+          </nav>
         )}
       </section>
 

@@ -133,3 +133,12 @@ Short architecture decision records. To add one, append the next number and don'
 
 **Consequences.** No migration and no new stored plaintext: the preview is computed from the decrypted content for an authorized reader, like `content`. A bare read now returns at most 20 memories, and `more: true` says older ones were left out. Still open: batching the ciphertext fetches, and search, which would need plaintext or a second encrypted column.
 
+
+## ADR-018: Agent labels are a per-browser nickname
+**Date:** 2026-10-09 · **Status:** proposed
+
+**Context.** `AgentRegistry.register` writes the agent name and the contract has no rename. The owner still wants to call an agent something else, from a right-click menu on the canvas sidebar.
+
+**Decision.** The owner can add a label to an agent. It is kept in `localStorage` (`hive:agent-labels:<owner>`, 64 characters at most) and shown instead of the registered name on the canvas, the sidebar and the drawer, which also prints `registered as <name>`. The registered name is never overwritten: name uniqueness, the Claude session name and the audit and feed pages keep using it.
+
+**Consequences.** A label does not follow the owner to another browser and nothing about it goes onchain or to the bridge. The same menu offers "Take off canvas" (drops the saved position) and "Hide agent…", which is the ADR-012 hide. There is still no real delete.

@@ -18,7 +18,9 @@ function AgentNodeImpl({ id, data, selected }: NodeProps<AgentFlowNode>) {
   const connection = useConnection();
   const connecting = connection.inProgress;
   const agent = useGraph((s) => s.agents[data.agentId]);
+  const label = useGraph((s) => s.labels[data.agentId]);
   if (!agent) return null;
+  const name = label ?? agent.name;
   const { isolated, revoked } = data;
   const icon = ICONS[agent.agentType];
   const status = revoked ? "revoked" : agent.connected ? "active" : "idle";
@@ -43,10 +45,11 @@ function AgentNodeImpl({ id, data, selected }: NodeProps<AgentFlowNode>) {
           )}
         </span>
         <span className="flex min-w-0 flex-col gap-0.5">
-          <span className={cn("truncate font-display text-[19px] leading-tight", isolated ? "text-ink-3" : "text-ink")}>{agent.name}</span>
+          <span className={cn("truncate font-display text-[19px] leading-tight", isolated ? "text-ink-3" : "text-ink")}>{name}</span>
+          {label && <span className="truncate text-[12px] leading-tight text-ink-3">{agent.name}</span>}
           <span className="font-mono text-[14px] text-ink-3">{agentLabel(agent.agentId, agent.agentKey)}</span>
         </span>
-        <StatusDot status={status} label={`${agent.name}: ${statusText}`} className="absolute top-[11px] right-[13px]" />
+        <StatusDot status={status} label={`${name}: ${statusText}`} className="absolute top-[11px] right-[13px]" />
         {/* Drag from the right handle to another agent to draw an edge. While a connection is being dragged,
             the whole node becomes the drop target, so it connects wherever you release on it. */}
         <Handle id="in" type="target" position={Position.Left} className="hive-handle" />
