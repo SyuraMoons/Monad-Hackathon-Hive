@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 // The store only reaches the client from load(), which these tests don't call.
 vi.mock("@/lib/hive/client", () => ({ getHiveClient: vi.fn() }));
 
-import { useGraph, visibleAgents, type AgentNode, type EdgeView } from "./graph";
+import { displayName, useGraph, visibleAgents, type AgentNode, type EdgeView } from "./graph";
 
 const agent = (id: number): AgentNode =>
   ({ agentId: BigInt(id), name: `agent-${id}`, agentType: "claude", connected: false, lastCallAt: null, tokenExpiresAt: null }) as AgentNode;
@@ -41,5 +41,25 @@ describe("hiding an agent", () => {
     useGraph.getState().hide(BigInt(1));
     useGraph.getState().unhide(BigInt(1));
     expect(useGraph.getState().hidden).toEqual({});
+  });
+});
+
+describe("agent labels", () => {
+  it("shows the label instead of the registered name, and keeps the name", () => {
+    seed();
+    useGraph.setState({ labels: {} });
+    useGraph.getState().setLabel(BigInt(1), "  my   backend ");
+    const { agents, labels } = useGraph.getState();
+    expect(labels).toEqual({ "1": "my backend" });
+    expect(displayName(agents["1"], labels)).toBe("my backend");
+    expect(displayName(agents["2"], labels)).toBe("agent-2");
+    expect(agents["1"].name).toBe("agent-1");
+  });
+
+  it("clears a label when it is set empty", () => {
+    seed();
+    useGraph.setState({ labels: { "1": "x" } });
+    useGraph.getState().setLabel(BigInt(1), "   ");
+    expect(useGraph.getState().labels).toEqual({});
   });
 });
