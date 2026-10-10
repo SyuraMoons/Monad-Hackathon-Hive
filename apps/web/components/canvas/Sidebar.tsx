@@ -11,12 +11,12 @@ import type { Layout } from "@/lib/layout";
 import { displayName, useGraph, visibleAgents } from "@/lib/stores/graph";
 import { useUi } from "@/lib/stores/ui";
 import { topicColor, topicLabel } from "@/lib/topics";
+import { agentTypeIcon } from "@/lib/hive/agentTypes";
 import { AgentMenu, clampToViewport } from "./AgentMenu";
 import { AGENT_MIME, freeSlot } from "./GraphCanvas";
 import { HideAgentConfirm } from "./HideAgentConfirm";
 import { NewAgentModal } from "./NewAgentModal";
 
-const ICONS: Partial<Record<string, string>> = { claude: "/agents/claude.png", gpt: "/agents/gpt.png" };
 const eyebrow = "font-mono text-[14px] tracking-[0.1em] text-ink-3";
 
 function useHealth() {
@@ -105,7 +105,7 @@ export function Sidebar({ layout, place, unplace }: { layout: Layout; place(patc
         {list.map((a) => {
           const id = a.agentId.toString();
           const placed = !!layout[id];
-          const icon = ICONS[a.agentType];
+          const icon = agentTypeIcon(a.agentType);
           const label = displayName(a, labels);
           if (editing === id) {
             return (

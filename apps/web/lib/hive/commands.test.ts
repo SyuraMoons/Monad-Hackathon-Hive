@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { claudeCommand, claudeDesktopConfig, claudeTerminalCommand, nameSlug, gptRunner, gptSnippet } from "./commands";
+import { claudeCommand, claudeDesktopConfig, claudeTerminalCommand, deepseekRunner, nameSlug, gptRunner, gptSnippet } from "./commands";
 
 describe("connect commands", () => {
+  it("passes the url and token to the DeepSeek runner and nothing else", () => {
+    expect(deepseekRunner("http://localhost:4000/mcp", "tok")).toBe(
+      "HIVE_MCP_URL=http://localhost:4000/mcp \\\nHIVE_TOKEN_DEEPSEEK=tok \\\npnpm --filter @hive/agents deepseek --chat",
+    );
+  });
+
   it("puts the url and token in the Claude Code command", () => {
     const cmd = claudeCommand("http://localhost:4000/mcp", "tok");
     expect(cmd).toContain("claude mcp add --transport http hive");

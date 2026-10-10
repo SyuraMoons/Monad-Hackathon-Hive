@@ -4,6 +4,7 @@ import type { AgentId, AgentType } from "@hive/shared";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/cn";
 import { checkAgentName, MAX_AGENT_NAME } from "@/lib/hive/agentName";
+import { agentTypeLabel, CREATABLE_TYPES } from "@/lib/hive/agentTypes";
 import { useGraph } from "@/lib/stores/graph";
 import { useSession, type CreateStep } from "@/lib/stores/session";
 
@@ -30,7 +31,7 @@ export function NewAgentForm({ type, stacked, onBusyChange, onCreated, onCancel 
   const [step, setStep] = useState<CreateStep>();
   const [error, setError] = useState<string>();
   const agentType = type ?? picked;
-  const label = agentType === "gpt" ? "GPT" : "Claude";
+  const label = agentTypeLabel(agentType);
   const busy = step !== undefined;
   useEffect(() => { onBusyChange?.(busy); }, [busy, onBusyChange]);
 
@@ -54,7 +55,7 @@ export function NewAgentForm({ type, stacked, onBusyChange, onCreated, onCancel 
     <form className={cn("flex w-full flex-wrap gap-2", stacked ? "items-stretch" : "items-center")} onSubmit={(e) => { e.preventDefault(); void submit(); }}>
       {!type && (
         <div className="flex w-full gap-2" role="group" aria-label="Agent type">
-          {(["claude", "gpt"] as const).map((t) => (
+          {CREATABLE_TYPES.map((t) => (
             <button
               key={t}
               type="button"
@@ -63,7 +64,7 @@ export function NewAgentForm({ type, stacked, onBusyChange, onCreated, onCancel 
               onClick={() => setPicked(t)}
               className={cn(chip, picked === t ? "border-ink bg-paper-2 text-ink" : "border-line text-ink-2 hover:border-ink-3")}
             >
-              {t === "gpt" ? "GPT" : "Claude"}
+              {agentTypeLabel(t)}
             </button>
           ))}
         </div>
