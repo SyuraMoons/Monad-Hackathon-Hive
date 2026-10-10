@@ -3,6 +3,9 @@ import { BaseError, ContractFunctionRevertedError, InsufficientFundsError, creat
 import { privateKeyToAccount } from "viem/accounts";
 import { UnknownAgentError, type ChainAgent, type ChainEdge, type ChainReader, type ChainSlot, type ChainWriter, type WriteReceipt } from "./types.js";
 
+const isUnknownSlotRevert = (e: unknown) =>
+  e instanceof BaseError && e.walk((x) => x instanceof ContractFunctionRevertedError && x.data?.errorName === "UnknownSlot") !== null;
+
 const isUnknownAgentRevert = (e: unknown) =>
   e instanceof BaseError && e.walk((x) => x instanceof ContractFunctionRevertedError && x.data?.errorName === "UnknownAgent") !== null;
 
@@ -21,6 +24,16 @@ export class ViemChainReader implements ChainReader {
   async slotsSince(agentId: bigint, since: bigint): Promise<ChainSlot[]> {
     const slots = await this.client.readContract({ address: hiveDeployment.memorySlots, abi: MemorySlotsAbi, functionName: "slotsSince", args: [agentId, since] });
     return slots.map((s) => ({ id: s.id, agentId: s.agentId, contentHash: s.contentHash, topic: s.topic, writtenAt: s.writtenAt }));
+  }
+
+  async slot(slotId: bigint): Promise<ChainSlot | undefined> {
+    try {
+      const s = await this.client.readContract({ address: hiveDeployment.memorySlots, abi: MemorySlotsAbi, functionName: "slots", args: [slotId] });
+      return { id: s.id, agentId: s.agentId, contentHash: s.contentHash, topic: s.topic, writtenAt: s.writtenAt };
+    } catch (e) {
+      if (isUnknownSlotRevert(e)) return undefined;
+      throw e;
+    }
   }
 
   async agent(agentId: bigint): Promise<ChainAgent> {

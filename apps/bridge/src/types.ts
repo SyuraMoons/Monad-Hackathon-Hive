@@ -35,6 +35,8 @@ export class UnknownAgentError extends Error {
 export interface ChainReader {
   edgesTo(agentId: bigint): Promise<ChainEdge[]>;
   slotsSince(agentId: bigint, since: bigint): Promise<ChainSlot[]>;
+  /** One slot by id, or undefined when it does not exist. Any rejection is a chain/RPC failure. */
+  slot(slotId: bigint): Promise<ChainSlot | undefined>;
   /** Rejects with `UnknownAgentError` for an unregistered id. Any other rejection is a chain/RPC failure. */
   agent(agentId: bigint): Promise<ChainAgent>;
   /** Every agent the owner registered, oldest first. */
