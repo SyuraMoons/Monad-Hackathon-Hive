@@ -3,6 +3,8 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import { DEFAULT_TOPIC, HiveError, zListMemoryInput, zReadMemoryInput, zSaveSessionInput, zWriteMemoryInput, type WhoamiOutput, type WriteMemoryOutput } from "@hive/shared";
 import type { Request, Response } from "express";
 import { getAddress } from "viem";
+import { privateKeyToAddress } from "viem/accounts";
+import type { GasFunder } from "./funder.js";
 import type { EventBus } from "./events.js";
 import { listMemory, readMemory, writeMemory, type ReadDeps } from "./memory.js";
 import { looksLikeSecret } from "./secrets.js";
@@ -16,6 +18,8 @@ export type McpDeps = {
   chain: ChainReader;
   store: CiphertextStore;
   writer: ChainWriter;
+  /** Tops the agent key up before a write. Default: none. */
+  funder?: GasFunder;
   now: () => bigint;
   /** Where `agent.connected`, `memory.written` and `memory.read` go. Default: nowhere. */
   events?: EventBus;
@@ -41,7 +45,10 @@ function buildServer(deps: McpDeps, session: AgentSession): McpServer {
 
   async function save(topic: string, content: string): Promise<WriteMemoryOutput> {
     const out = await writeMemory(
-      { writer: deps.writer, store: deps.store, agentKey: session.agentPrivateKey, encryptionKey: session.encryptionKey, owner: getAddress(session.owner), onError: (stage) => console.error(`bridge: write failed at ${stage}`) },
+      { writer: deps.writer, store: deps.store, agentKey: session.agentPrivateKey, encryptionKey: session.encryptionKey, owner: getAddress(session.owner),
+        ensureGas: deps.funder ? () => deps.funder!.ensureFunded(session.owner, privateKeyToAddress(session.agentPrivateKey)) : undefined,
+        // The error name only: messages can carry addresses and RPC details, and a log must never carry memory content.
+        onError: (stage, e) => console.error(`bridge: write failed at ${stage}${e instanceof Error ? ` (${e.name})` : ""}`) },
       { agentId: session.agentId, content, topic },
     );
     deps.events?.publish(session.owner, {

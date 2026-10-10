@@ -12,15 +12,16 @@ import { PillButton } from "@/components/ui/Pill";
 import { StatusDot } from "@/components/ui/StatusDot";
 import { Tabs } from "@/components/ui/Tabs";
 import { cn } from "@/lib/cn";
-import { claudeCommand, claudeTerminalCommand, gptRunner, gptSnippet } from "@/lib/hive/commands";
+import { claudeCommand, claudeTerminalCommand, deepseekRunner, gptRunner, gptSnippet } from "@/lib/hive/commands";
 import { useGraph, visibleAgents } from "@/lib/stores/graph";
 import { useSession, type Connection } from "@/lib/stores/session";
 
-type Tab = "claude" | "gpt";
+type Tab = "claude" | "gpt" | "deepseek";
 
-const AGENTS: Record<Tab, { name: string; type: AgentType; icon: string }> = {
+const AGENTS: Record<Tab, { name: string; type: AgentType; icon?: string }> = {
   claude: { name: "Claude", type: "claude", icon: "/agents/claude.png" },
   gpt: { name: "GPT", type: "gpt", icon: "/agents/gpt.png" },
+  deepseek: { name: "DeepSeek", type: "deepseek" },
 };
 
 // rules O5 / design D4: hive_whoami replaces hive_register_agent (the browser registers agents).
@@ -95,7 +96,7 @@ export default function ConnectPage() {
   }, [graphReady, locked, tab, connectAgent]);
 
   const ofType = (t: AgentType) => Object.values(agents).filter((a) => a.agentType === t).sort((a, b) => Number(a.agentId - b.agentId));
-  const all = [...ofType("claude"), ...ofType("gpt")];
+  const all = [...ofType("claude"), ...ofType("gpt"), ...ofType("deepseek")];
   const connectedCount = all.filter((a) => a.connected).length;
 
   const agent = AGENTS[tab];
@@ -163,6 +164,7 @@ export default function ConnectPage() {
           items={[
             { key: "claude", label: "Claude", icon: AGENTS.claude.icon },
             { key: "gpt", label: "GPT", icon: AGENTS.gpt.icon },
+            { key: "deepseek", label: "DeepSeek" },
           ]}
         />
 
@@ -195,7 +197,7 @@ export default function ConnectPage() {
         <div id="connect-panel" role="tabpanel" aria-labelledby={`connect-tab-${tab}`} className="w-full">
           <InstallCard
             tab={tab}
-            command={tab === "claude" ? claudeTerminalCommand(url, token, selected?.name ?? agent.name) : gptSnippet(url, token)}
+            command={tab === "claude" ? claudeTerminalCommand(url, token, selected?.name ?? agent.name) : tab === "deepseek" ? deepseekRunner(url, token) : gptSnippet(url, token)}
             token={token}
             pending={token || graphError || needsUnlock || needsAuthorize || allHidden ? undefined : pendingText(agent.name, conn, graphReady)}
             error={
@@ -224,14 +226,16 @@ export default function ConnectPage() {
                     : connectAgent(agent.type, agent.name))
             }
             secondary={
-              token
+              token && tab !== "deepseek"
                 ? tab === "gpt"
                   ? { caption: "or run Hive’s GPT agent (planned: apps/agents)", command: gptRunner(token) }
                   : { caption: "or save it for the whole folder: every Claude Code session in it becomes this agent", command: claudeCommand(url, token) }
                 : undefined
             }
             note={
-              tab === "claude"
+              tab === "deepseek"
+                ? "Run this from the repo, with DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL and DEEPSEEK_MODEL in .env. The runner calls the bridge for DeepSeek, so a local bridge works. Memories this agent reads are sent to DeepSeek’s API. Planned: not yet run against testnet."
+                : tab === "claude"
                 ? "Run this in your project folder. Only that terminal is this agent, so several agents can share one folder, one terminal each. The token is scoped to this agent and expires in 24h. Don’t also save it for the folder: run claude mcp remove hive first."
                 : "A separate token from Claude’s, so one leak can’t act as the other. OpenAI calls the bridge from its servers, so this URL must be public."
             }

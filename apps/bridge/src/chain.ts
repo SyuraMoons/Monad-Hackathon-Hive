@@ -41,6 +41,11 @@ export class ViemChainReader implements ChainReader {
 
 // Gas for MemorySlots.write grows with the sender's outgoing edges. Monad charges the declared limit, so use the
 // estimate plus a margin instead of a big fixed number. Placeholder until AK-11 publishes measured limits.
+// Monad's RPC reports an empty balance as "Signer had insufficient balance" in a generic invalid-params error, not as the
+// error viem maps to InsufficientFundsError.
+const isOutOfFunds = (x: unknown) =>
+  x instanceof InsufficientFundsError || (x instanceof Error && /insufficient (balance|funds)/i.test(`${x.message} ${(x as { details?: string }).details ?? ""}`));
+
 const GAS_MARGIN_PCT = 125n;
 const GAS_MIN = 100_000n;
 const GAS_MAX = 2_000_000n;
@@ -76,7 +81,7 @@ export class ViemChainWriter implements ChainWriter {
       return { txHash, slotId: written.args.slotId, propagatedTo };
     } catch (e) {
       if (e instanceof HiveError) throw e;
-      if (e instanceof BaseError && e.walk((x) => x instanceof InsufficientFundsError) !== null) throw new HiveError("CHAIN_ERROR", "The agent key has no MON for gas.");
+      if (e instanceof BaseError && e.walk(isOutOfFunds) !== null) throw new HiveError("CHAIN_ERROR", "The agent key has no MON for gas. Authorize the agent again to top it up.");
       throw e;
     }
   }

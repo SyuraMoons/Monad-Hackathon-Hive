@@ -7,11 +7,11 @@ import { StatusDot } from "@/components/ui/StatusDot";
 import { cn } from "@/lib/cn";
 import { agentLabel } from "@/lib/format";
 import { useGraph } from "@/lib/stores/graph";
+import { agentTypeIcon } from "@/lib/hive/agentTypes";
 
 export type AgentNodeData = { agentId: string; isolated: boolean; revoked?: boolean };
 export type AgentFlowNode = Node<AgentNodeData, "agent">;
 
-const ICONS: Partial<Record<string, string>> = { claude: "/agents/claude.png", gpt: "/agents/gpt.png" };
 
 // Figma Canvas Node 55:118: Active · Isolated · Revoked · Selected. Data is read from the store by id.
 function AgentNodeImpl({ id, data, selected }: NodeProps<AgentFlowNode>) {
@@ -22,7 +22,7 @@ function AgentNodeImpl({ id, data, selected }: NodeProps<AgentFlowNode>) {
   if (!agent) return null;
   const name = label ?? agent.name;
   const { isolated, revoked } = data;
-  const icon = ICONS[agent.agentType];
+  const icon = agentTypeIcon(agent.agentType);
   const status = revoked ? "revoked" : agent.connected ? "active" : "idle";
   const authorized = !agent.connected && agent.tokenExpiresAt !== null && agent.tokenExpiresAt > Math.floor(Date.now() / 1000);
   const statusText = revoked ? "revoked" : agent.connected ? "connected" : authorized ? "waiting for its first call" : "not connected";
