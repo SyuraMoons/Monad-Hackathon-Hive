@@ -33,6 +33,13 @@ export const claudeDesktopConfig = (url: string, token: string, name: string) =>
     2,
   );
 
+/** The URL for claude.ai's "Add custom connector": the bridge's own /mcp, no token (Claude signs in with OAuth, ADR-019). */
+export const connectorUrl = (mcpUrl: string | undefined, bridgeUrl: string | undefined) =>
+  mcpUrl || (bridgeUrl ? `${bridgeUrl.replace(/\/+$/, "")}/mcp` : "");
+
+/** Anthropic's servers call the connector, so a localhost or private address can never work. */
+export const isLocalUrl = (url: string) => /^https?:\/\/(localhost|127\.|10\.|192\.168\.|\[::1\])/i.test(url);
+
 // OpenAI Responses API with a remote MCP tool (rules O7 option b, design D11). The model comes from the env, never hardcoded.
 export const gptSnippet = (url: string, token: string) =>
   [

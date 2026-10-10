@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { claudeCommand, claudeDesktopConfig, claudeTerminalCommand, nameSlug, gptRunner, gptSnippet } from "./commands";
+import { claudeCommand, claudeDesktopConfig, connectorUrl, isLocalUrl, claudeTerminalCommand, nameSlug, gptRunner, gptSnippet } from "./commands";
 
 describe("connect commands", () => {
   it("puts the url and token in the Claude Code command", () => {
@@ -41,5 +41,14 @@ describe("connect commands", () => {
     expect(server.args).toEqual(["-y", "mcp-remote", "https://bridge.example/mcp", "--header", "Authorization:${HIVE_AUTH}"]);
     expect(server.env).toEqual({ HIVE_AUTH: "Bearer tok" });
     expect(JSON.stringify(server.args)).not.toContain("tok");
+  });
+
+  it("gives claude.ai the bridge's /mcp url without a token, and flags addresses Anthropic cannot reach", () => {
+    expect(connectorUrl("https://b.example/mcp", "http://other")).toBe("https://b.example/mcp");
+    expect(connectorUrl(undefined, "https://b.example/")).toBe("https://b.example/mcp");
+    expect(connectorUrl(undefined, undefined)).toBe("");
+    expect(isLocalUrl("http://localhost:4000/mcp")).toBe(true);
+    expect(isLocalUrl("http://192.168.1.4:4000/mcp")).toBe(true);
+    expect(isLocalUrl("https://hivebridge-production.up.railway.app/mcp")).toBe(false);
   });
 });

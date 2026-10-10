@@ -53,7 +53,7 @@ Agent B ─▶ bridge read_memory(topic) ─▶ onchain canRead check ─▶ dec
 Agent C (no edge) ─▶ read_memory ─▶ nothing returned   ← the demo's WOW moment
 ```
 
-**Connect claude.ai or Claude Desktop** (built on the bridge, ADR-019; the web consent page is still planned)
+**Connect claude.ai or Claude Desktop** (ADR-019; built, not yet run against claude.ai)
 ```
 claude.ai ─▶ POST /mcp ─▶ 401 + WWW-Authenticate (resource_metadata)
           ─▶ /.well-known/* ─▶ POST /oauth/register (DCR) ─▶ GET /oauth/authorize + PKCE
