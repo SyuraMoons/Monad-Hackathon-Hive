@@ -153,3 +153,13 @@ Short architecture decision records. To add one, append the next number and don'
 
 **Consequences.** Codes and refresh tokens are in memory like sessions, so a bridge restart or 24 h means the owner signs in again, and the bridge must run as one instance. One connector is one agent: to use another agent, remove the connector in Claude and connect again. CIMD is not offered, so Claude falls back to DCR and the bridge never fetches a client-supplied URL. The `resource` parameter is accepted and ignored: tokens only work on this bridge. The web consent page (`/oauth/authorize`) and the claude.ai tab of the Connect popup use it. Not yet run against a real claude.ai.
 
+
+
+## ADR-020: AgentRegistry lists an owner's agents in one call
+**Date:** 2026-10-10 · **Status:** proposed
+
+**Context.** The registry had no per-owner index, so the web and the bridge found an owner's agents by reading `agents(id)` from 1 until an unknown id. That is every agent anyone registered, and `/connect` ran it three times. The public Monad RPC allows 15 requests per second per IP and `eth_getLogs` over about 100 blocks, so the scan failed under load ("Could not read the agent registry.") and logs could not replace it.
+
+**Decision.** `AgentRegistry` keeps `owner => agentId[]` and exposes `agentsOf(owner) returns (uint256[] ids, Agent[] list)`, oldest first. The web (`registryChain.ts`) and the bridge (`ViemChainReader.agentsOf`) call it once instead of scanning.
+
+**Consequences.** `KnowledgeGraph` and `MemorySlots` hold the registry address as `immutable`, so all four contracts were redeployed and testnet state started empty: agents, edges and memory slots from the old addresses are gone, and ciphertext rows in Supabase keyed by old slot ids are orphaned. The lookup cost now grows with one owner's agents, not with the whole registry.
