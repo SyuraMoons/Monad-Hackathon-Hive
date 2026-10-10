@@ -66,7 +66,7 @@ export function AgentMenu({ agentId, at, placed, onPrimary, onEditLabel, onTakeO
             title={linked ? "Revoke its edges first" : undefined}
             onClick={run(onTakeOff)}
           >
-            Take off canvas{linked && <span className="ml-auto pl-2 text-[13px]">has edges</span>}
+            Take off canvas{linked && <span className="ml-auto pl-2 text-[14px]">has edges</span>}
           </button>
         )}
         <div className="my-0 h-px bg-line" role="separator" />

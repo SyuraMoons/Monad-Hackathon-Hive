@@ -239,7 +239,7 @@ export default function ConnectPage() {
         </div>
 
         <div className="flex w-full flex-col gap-2 pt-1.5 text-[14px]">
-          <p className="font-mono tracking-[0.1em] text-ink-3">ADDS 4 TOOLS</p>
+          <p className="font-mono tracking-[0.1em] text-ink-3">ADDS {TOOLS.length} TOOLS</p>
           <ul className="flex flex-col gap-2">
             {TOOLS.map(([name, what]) => (
               <li key={name} className="flex gap-3.5">

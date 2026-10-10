@@ -19,6 +19,10 @@ function TopicTag({ topic }: { topic: string }) {
   );
 }
 
+// The feed shows the start of each memory (NL-8); the full text is in the tooltip and the drawer.
+const PREVIEW_CHARS = 60;
+const clip = (text: string) => (text.length > PREVIEW_CHARS ? `${text.slice(0, PREVIEW_CHARS).trimEnd()}…` : text);
+
 const joinNames = (names: string[]) => (names.length <= 1 ? names.join("") : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`);
 
 function FeedRow({ row, newest }: { row: Row; newest: boolean }) {
@@ -32,10 +36,12 @@ function FeedRow({ row, newest }: { row: Row; newest: boolean }) {
     who = name(row.agentId);
     topic = row.topic;
     const p = previews[row.contentHash];
-    message = p === undefined || p === "loading" ? <span className="text-ink-3">Decrypting on this device…</span> : p === "error" ? <span className="text-ink-3">Couldn’t decrypt this memory here.</span> : p;
+    message = p === undefined || p === "loading" ? <span className="text-ink-3">Decrypting on this device…</span> : p === "error" ? <span className="text-ink-3">Couldn’t decrypt this memory here.</span> : <span title={p.length > PREVIEW_CHARS ? p : undefined}>{clip(p)}</span>;
     meta = row.propagatedTo.length
       ? `→ propagated to ${joinNames(row.propagatedTo.map(name))}`
       : `no edge covers “${row.topic}” · stayed with ${who}`;
+    meta += "  ·  ";
+    txLink = row.txHash;
   } else if (row.kind === "read") {
     who = name(row.readerAgentId);
     message = `Read ${row.count} ${row.count === 1 ? "memory" : "memories"} from ${joinNames(row.fromAgentIds.map(name))}.`;
@@ -60,7 +66,7 @@ function FeedRow({ row, newest }: { row: Row; newest: boolean }) {
       <p className="font-mono text-[14px] whitespace-pre-wrap text-ink-3">
         {meta}
         {txLink && (
-          <a href={explorerTx(txLink)} target="_blank" rel="noreferrer" className="underline underline-offset-2 hover:text-ink" aria-label={`Revoke transaction ${shortHash(txLink)} on Monadscan`}>
+          <a href={explorerTx(txLink)} target="_blank" rel="noreferrer" className="underline underline-offset-2 hover:text-ink" aria-label={`Transaction ${shortHash(txLink)} on Monadscan`}>
             tx {shortHash(txLink)}
           </a>
         )}
