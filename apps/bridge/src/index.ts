@@ -6,8 +6,9 @@ import { loadConfig } from "./config.js";
 import { noGasFunder, viemGasFunder } from "./funder.js";
 import { SessionStore } from "./sessions.js";
 import { SupabaseCiphertextStore } from "./store.js";
-import { InMemoryChain, InMemoryCiphertextStore } from "./stubs.js";
+import { InMemoryChain, InMemoryCiphertextStore, InMemoryVaultStore } from "./stubs.js";
 import { TokenService } from "./tokens.js";
+import { SupabaseVaultStore } from "./vaults.js";
 
 // The repo-root .env (src/ and dist/ are both three levels down). Variables already set win.
 try {
@@ -36,6 +37,7 @@ const app = createApp({
   // BRIDGE_CHAIN=memory keeps the in-process chain for offline dev. Default is live Monad testnet.
   chain: process.env.BRIDGE_CHAIN === "memory" ? new InMemoryChain() : new ViemChainReader(rpc),
   store: supabase || new InMemoryCiphertextStore(),
+  vaults: config.supabase ? new SupabaseVaultStore(config.supabase.url, config.supabase.serviceKey) : new InMemoryVaultStore(),
   writer: viemChainWriter(rpc, config.rpcUrl),
   funder: config.funderKey ? viemGasFunder(rpc, config.rpcUrl, config.funderKey) : noGasFunder,
   publicUrl: config.publicUrl,

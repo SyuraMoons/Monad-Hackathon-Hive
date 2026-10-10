@@ -52,6 +52,14 @@ export interface CiphertextStore {
   put(contentHash: Hex, value: NewCiphertext): Promise<void>;
 }
 
+export type PutVaultResult = "created" | "replaced" | "forbidden";
+
+/** Mera secret vaults (ciphertext JSON) keyed by passkey credential ID. Write-once per credential: only the first owner may replace it. */
+export interface VaultStore {
+  get(credentialId: string): Promise<Record<string, unknown> | undefined>;
+  put(credentialId: string, owner: Hex, vault: Record<string, unknown>): Promise<PutVaultResult>;
+}
+
 export type WriteReceipt = { txHash: Hex; slotId: bigint; propagatedTo: bigint[] };
 
 /** Sends `MemorySlots.write` from the agent's own key (ADR-007) and reads the result from the receipt. */

@@ -7,7 +7,7 @@ import { createApp } from "../src/app.js";
 import { ChallengeStore } from "../src/auth.js";
 import type { GasFunder } from "../src/funder.js";
 import { SessionStore } from "../src/sessions.js";
-import { InMemoryChain, InMemoryCiphertextStore } from "../src/stubs.js";
+import { InMemoryChain, InMemoryCiphertextStore, InMemoryVaultStore } from "../src/stubs.js";
 import { TokenService } from "../src/tokens.js";
 
 const SECRET = "s".repeat(40);
@@ -67,6 +67,7 @@ beforeEach(() => {
     sessions,
     chain,
     store: new InMemoryCiphertextStore(),
+    vaults: new InMemoryVaultStore(),
     writer: { write: async () => { throw new Error("not used here"); } },
     funder,
     publicUrl: "https://bridge.example",
