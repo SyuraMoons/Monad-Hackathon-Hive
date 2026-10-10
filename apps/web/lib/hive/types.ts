@@ -13,6 +13,8 @@ import type {
   Hex,
   HiveError,
   HiveEvent,
+  OAuthApproveResponse,
+  OAuthAuthorizeParams,
   Provenance,
   SlotId,
   Topic,
@@ -68,6 +70,10 @@ export interface HiveClient {
     /** POST /v1/agents/:id/authorize. The bridge checks address(agentPrivateKey) == agents(id).agentKey. */
     authorize(agentId: AgentId, body: { agentPrivateKey: Hex; encryptionKey: Hex }): Promise<AuthorizeResponse>;
     disconnect(agentId: AgentId): Promise<void>;
+  };
+  oauth: {
+    /** POST /v1/oauth/approve: the owner's answer to a claude.ai connector request. Returns where to send the browser next (the agent must already be authorized). */
+    approve(body: { request: OAuthAuthorizeParams; decision: "allow" | "deny"; agentId?: AgentId }): Promise<OAuthApproveResponse>;
   };
   graph: {
     load(owner: Address): Promise<{ agents: ChainAgent[]; edges: EdgeRow[] }>;

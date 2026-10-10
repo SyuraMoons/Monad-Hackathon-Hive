@@ -7,6 +7,7 @@ import {
   zAuthorizeResponse,
   zErrorEnvelope,
   zHealthResponse,
+  zOAuthApproveResponse,
 } from "@hive/shared";
 import type { HiveClient, Session } from "../types";
 import { createEventStream } from "./events";
@@ -55,7 +56,7 @@ async function call<T>(method: string, path: string, opts: { body?: unknown; tok
 }
 
 /** `status`, `auth` and `agents` of the live client. The user token lives in this closure; the session store saves it for a reload (ADR-011). */
-export function createBridgeApi(): Pick<HiveClient, "auth" | "agents"> & {
+export function createBridgeApi(): Pick<HiveClient, "auth" | "agents" | "oauth"> & {
   health: HiveClient["status"]["health"];
   events: HiveClient["events"];
   /** Puts a saved session back after a reload. */
@@ -76,6 +77,12 @@ export function createBridgeApi(): Pick<HiveClient, "auth" | "agents"> & {
     disconnect: (agentId) => call("DELETE", `/v1/agents/${agentId}/session`, { token: token() }),
   };
 
+  const oauth: HiveClient["oauth"] = {
+    // agentId is a bigint in TS and a decimal string on the wire.
+    approve: ({ request, decision, agentId }) =>
+      call("POST", "/v1/oauth/approve", { token: token(), body: { request, decision, agentId: agentId?.toString() }, schema: zOAuthApproveResponse }),
+  };
+
   return {
     health: () => call("GET", "/health", { schema: zHealthResponse }),
     resume(session) {
@@ -83,6 +90,7 @@ export function createBridgeApi(): Pick<HiveClient, "auth" | "agents"> & {
       owner = session.owner;
     },
     owner: () => owner,
+    oauth,
     events: { subscribe: createEventStream({ baseUrl, token: () => userToken }) },
     auth: {
       challenge: (owner) => call("POST", "/v1/auth/challenge", { body: { owner }, schema: zAuthChallengeResponse }),
