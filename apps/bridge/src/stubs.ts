@@ -1,5 +1,5 @@
 import type { Hex } from "@hive/shared";
-import { UnknownAgentError, type ChainAgent, type ChainEdge, type ChainReader, type ChainSlot, type CiphertextStore, type NewCiphertext, type PutVaultResult, type StoredCiphertext, type VaultStore } from "./types.js";
+import { UnknownAgentError, type ChainAgent, type ChainEdge, type ChainReader, type ChainSlot, type CiphertextStore, type NewCiphertext, type PutVaultResult, type StoredCiphertext, type VaultStore, type VectorStore } from "./types.js";
 
 // STUB: replace when contracts are deployed (AK-7): a viem-backed ChainReader on the addresses from @hive/shared.
 export class InMemoryChain implements ChainReader {
@@ -42,6 +42,22 @@ export class InMemoryCiphertextStore implements CiphertextStore {
   }
   async put(contentHash: Hex, { ciphertext, iv }: NewCiphertext) {
     this.rows.set(contentHash.toLowerCase(), { ciphertext, iv });
+  }
+}
+
+// Used by tests, and by `pnpm dev` when SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY are unset. The real store is vectors.ts.
+export class InMemoryVectorStore implements VectorStore {
+  private rows = new Map<string, StoredCiphertext>();
+  async getVectors(contentHashes: readonly Hex[], model: string) {
+    const out = new Map<string, StoredCiphertext>();
+    for (const hash of contentHashes) {
+      const row = this.rows.get(`${model}:${hash.toLowerCase()}`);
+      if (row) out.set(hash.toLowerCase(), row);
+    }
+    return out;
+  }
+  async putVector(contentHash: Hex, model: string, _dims: number, { ciphertext, iv }: NewCiphertext) {
+    this.rows.set(`${model}:${contentHash.toLowerCase()}`, { ciphertext, iv });
   }
 }
 
