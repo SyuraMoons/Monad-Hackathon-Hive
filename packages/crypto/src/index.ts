@@ -34,23 +34,32 @@ export function contentHash(iv: Uint8Array, ciphertext: Uint8Array): ContentHash
   return zContentHash.parse(keccak256(concatBytes([iv, ciphertext])));
 }
 
-export async function encrypt(plaintext: string, key: Hex | Uint8Array): Promise<Sealed> {
+async function seal(data: Uint8Array, key: Hex | Uint8Array): Promise<Sealed> {
   const iv = crypto.getRandomValues(new Uint8Array(IV_BYTES));
-  const data = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, await importKey(key), new TextEncoder().encode(plaintext)));
-  return { ciphertext: data, iv, contentHash: contentHash(iv, data) };
+  const out = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, await importKey(key), new Uint8Array(data)));
+  return { ciphertext: out, iv, contentHash: contentHash(iv, out) };
 }
 
+export const encrypt = (plaintext: string, key: Hex | Uint8Array): Promise<Sealed> => seal(new TextEncoder().encode(plaintext), key);
+
+/** Same layout for binary data, such as an embedding vector (ADR-022). */
+export const encryptBytes = (data: Uint8Array, key: Hex | Uint8Array): Promise<Sealed> => seal(data, key);
+
 /** Throws `CryptoError` on a wrong key, a modified ciphertext or a malformed input. The message never includes content. */
-export async function decrypt(sealed: { ciphertext: Uint8Array; iv: Uint8Array }, key: Hex | Uint8Array): Promise<string> {
+export async function decryptBytes(sealed: { ciphertext: Uint8Array; iv: Uint8Array }, key: Hex | Uint8Array): Promise<Uint8Array> {
   if (sealed.iv.length !== IV_BYTES) throw new CryptoError(`iv must be ${IV_BYTES} bytes`);
   if (sealed.ciphertext.length < TAG_BYTES) throw new CryptoError("ciphertext is too short");
   try {
     const plain = await crypto.subtle.decrypt({ name: "AES-GCM", iv: new Uint8Array(sealed.iv) }, await importKey(key), new Uint8Array(sealed.ciphertext));
-    return new TextDecoder().decode(plain);
+    return new Uint8Array(plain);
   } catch (e) {
     if (e instanceof CryptoError) throw e;
     throw new CryptoError("decryption failed");
   }
+}
+
+export async function decrypt(sealed: { ciphertext: Uint8Array; iv: Uint8Array }, key: Hex | Uint8Array): Promise<string> {
+  return new TextDecoder().decode(await decryptBytes(sealed, key));
 }
 
 export const toBase64 = (bytes: Uint8Array): string => Buffer.from(bytes).toString("base64");
