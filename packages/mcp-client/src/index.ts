@@ -21,6 +21,9 @@ export type HiveClientOptions = {
   agentToken: string;
 };
 
+export type HiveTool = { name: string; description?: string; inputSchema: { type: "object"; [key: string]: unknown } };
+export type HiveToolResult = { isError: boolean; text: string };
+
 /** Seconds-since-epoch `exp` of a JWT, read without verifying it (the bridge verifies). Undefined if unreadable. */
 function tokenExp(token: string): number | undefined {
   try {
@@ -59,10 +62,14 @@ export class HiveClient {
     return this.connected;
   }
 
-  private async call<T>(name: string, args: Record<string, unknown>, schema: ZodType<T>): Promise<T> {
+  private async ready(): Promise<void> {
     // Fail with a clear error instead of an opaque 401 mid-demo. The bridge has no refresh: authorize the agent again.
     if (this.exp !== undefined && this.exp <= Math.floor(Date.now() / 1000)) throw new HiveError("SESSION_EXPIRED", "Agent token expired. Authorize the agent again and use the new token.");
     await this.connect();
+  }
+
+  private async call<T>(name: string, args: Record<string, unknown>, schema: ZodType<T>): Promise<T> {
+    await this.ready();
     const res = await this.client.callTool({ name, arguments: args });
     if (res.isError) throw new HiveError("INTERNAL", (res.content as { text?: string }[])[0]?.text ?? `${name} failed`);
     return schema.parse(res.structuredContent);
@@ -79,6 +86,24 @@ export class HiveClient {
 
   whoami(): Promise<WhoamiOutput> {
     return this.call("hive_whoami", {}, zWhoamiOutput);
+  }
+
+  /** The bridge's tools with their JSON Schema inputs, for a model that picks the tool itself. */
+  async listTools(): Promise<HiveTool[]> {
+    await this.ready();
+    const { tools } = await this.client.listTools();
+    return tools.map((t) => ({ name: t.name, description: t.description, inputSchema: t.inputSchema }));
+  }
+
+  /**
+   * Calls a tool by name and returns its text, for a model-driven loop. A tool failure comes back as `isError` so the
+   * model can read it; an expired token or a transport error still throws.
+   */
+  async callTool(name: string, args: Record<string, unknown>): Promise<HiveToolResult> {
+    await this.ready();
+    const res = await this.client.callTool({ name, arguments: args });
+    const text = (res.content as { type: string; text?: string }[]).flatMap((c) => (c.type === "text" && c.text !== undefined ? [c.text] : [])).join("\n");
+    return { isError: res.isError === true, text };
   }
 
   async close(): Promise<void> {

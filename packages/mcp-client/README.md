@@ -15,3 +15,4 @@ await hive.close();
 - `mcpUrl` and `agentToken` come from `POST /v1/agents/:id/authorize` (the owner authorizes each agent from the canvas). The token is valid for 24h and there is no refresh: authorize again.
 - Ids in results are `bigint`, parsed with the `@hive/shared` schemas.
 - Errors are `HiveError` with the bridge's code (`UNAUTHORIZED`, `SESSION_EXPIRED`, ...). An expired token fails before any request. A read with no permission returns an empty list, not an error.
+- For a model that picks tools itself (the DeepSeek runner, ADR-020), `listTools()` returns each tool's name, description and JSON Schema input, and `callTool(name, args)` returns `{ isError, text }`. A tool failure comes back as `isError: true` so the model can read it; an expired token or a transport error still throws.
