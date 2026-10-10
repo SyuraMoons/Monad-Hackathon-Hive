@@ -70,12 +70,16 @@ describe("runTurn", () => {
     expect(callTool).toHaveBeenCalledTimes(2);
   });
 
-  it("sends reasoning back within a turn and drops it once the turn ends", async () => {
-    const { complete, seen } = scripted({ ...call("c1", "hive_list_memory", "{}"), reasoning_content: "think" }, { ...say("done"), reasoning_content: "more" });
+  it("keeps reasoning in the history, within a turn and into the next one (DeepSeek thinking mode with tools)", async () => {
+    const { complete, seen } = scripted({ ...call("c1", "hive_list_memory", "{}"), reasoning_content: "think" }, { ...say("done"), reasoning_content: "more" }, say("again"));
+    const hive = { callTool: async () => ({ isError: false, text: "{}" }) };
     const messages = start("hi");
-    await runTurn({ complete, hive: { callTool: async () => ({ isError: false, text: "{}" }) }, tools, messages });
+    await runTurn({ complete, hive, tools, messages });
     expect(seen[1]!.find((m) => m.role === "assistant")).toMatchObject({ reasoning_content: "think" });
-    expect(messages.some((m) => "reasoning_content" in m)).toBe(false);
+
+    messages.push({ role: "user", content: "and now?" });
+    await runTurn({ complete, hive, tools, messages });
+    expect(seen[2]!.filter((m) => m.role === "assistant").map((m) => (m as AssistantMessage).reasoning_content)).toEqual(["think", "more"]);
   });
 
   it("lets a bridge error such as an expired token reach the caller", async () => {
