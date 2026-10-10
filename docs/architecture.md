@@ -53,6 +53,14 @@ Agent B ─▶ bridge read_memory(topic) ─▶ onchain canRead check ─▶ dec
 Agent C (no edge) ─▶ read_memory ─▶ nothing returned   ← the demo's WOW moment
 ```
 
+**Connect claude.ai or Claude Desktop** (built on the bridge, ADR-019; the web consent page is still planned)
+```
+claude.ai ─▶ POST /mcp ─▶ 401 + WWW-Authenticate (resource_metadata)
+          ─▶ /.well-known/* ─▶ POST /oauth/register (DCR) ─▶ GET /oauth/authorize + PKCE
+          ─▶ web /oauth/authorize: passkey, pick an agent ─▶ /v1/agents/:id/authorize + /v1/oauth/approve
+          ─▶ redirect to claude.ai with a 60 s code ─▶ POST /oauth/token ─▶ agent token (refreshable while the session lives)
+```
+
 ## Trust model and honest limits
 
 - The bridge holds the per-agent keys of agents the user has authorized. It is a trusted component in the hackathon version.

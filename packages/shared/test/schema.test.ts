@@ -13,6 +13,8 @@ import {
   zHealthResponse,
   zHiveEvent,
   zMemoryResponse,
+  zOAuthApproveBody,
+  zOAuthAuthorizeParams,
   zListMemoryInput,
   zListMemoryOutput,
   zReadMemoryInput,
@@ -139,5 +141,23 @@ describe("graph", () => {
     const slot = { slotId: "1", agentId: "1", contentHash: HASH, topic: "work", propagatedCount: 1, txHash: TX, writtenAt: 1 };
     expect(zProvenance.safeParse({ slot, propagations: [{ slotId: "1", from: "1", to: "2", contentHash: HASH, topic: "work", txHash: TX, at: 1 }] }).success).toBe(true);
     expect(zProvenance.safeParse({ slot: { ...slot, propagatedCount: -1 }, propagations: [] }).success).toBe(false);
+  });
+});
+
+describe("OAuth consent contract", () => {
+  const challenge = "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM";
+  const params = { response_type: "code", client_id: "c", redirect_uri: "https://claude.ai/api/mcp/auth_callback", code_challenge: challenge, code_challenge_method: "S256" };
+
+  it("accepts an S256 authorize request and refuses plain PKCE or a short challenge", () => {
+    expect(zOAuthAuthorizeParams.safeParse(params).success).toBe(true);
+    expect(zOAuthAuthorizeParams.safeParse({ ...params, code_challenge_method: "plain" }).success).toBe(false);
+    expect(zOAuthAuthorizeParams.safeParse({ ...params, code_challenge: "abc" }).success).toBe(false);
+    expect(zOAuthAuthorizeParams.safeParse({ ...params, response_type: "token" }).success).toBe(false);
+  });
+
+  it("reads the approved agent id as a bigint", () => {
+    const body = zOAuthApproveBody.parse({ request: params, decision: "allow", agentId: "7" });
+    expect(body.agentId).toBe(7n);
+    expect(zOAuthApproveBody.safeParse({ request: params, decision: "maybe" }).success).toBe(false);
   });
 });

@@ -90,6 +90,9 @@ We build one layer at a time. Tick each step off here when it's done.
 - [x] Remove an agent from the canvas: hidden in this browser, bridge session ended, refused while it has edges (ADR-012). The registry has no delete. Not yet tried in a browser
 - [x] One terminal per agent: `claude --mcp-config` command on Connect and in the drawer, so several agents share one folder. Not yet tried against a real Claude Code
 - [x] Create agents from the canvas, keep agent tokens across a reload, and "Finish setup" for a registration that stopped halfway. Not yet run in a browser
+- [ ] claude.ai / Claude Desktop connector (OAuth, ADR-019)
+  - [x] Bridge: metadata, DCR, authorize redirect, `/v1/oauth/approve`, token and refresh, `WWW-Authenticate` on `/mcp` 401s. Tested with supertest and the SDK client against a real port, not yet run against claude.ai
+  - [ ] Web consent page `/oauth/authorize` and the claude.ai steps in the Connect popup
 - [ ] Propagation animation (CP2)
 - [ ] Demo script and rehearsal (CP3)
 

@@ -2,6 +2,7 @@ import { HiveError, zAddress } from "@hive/shared";
 import { jwtVerify, SignJWT } from "jose";
 
 export const USER_TOKEN_TTL_S = 24 * 60 * 60;
+const CLIENT_TTL_S = 365 * 24 * 60 * 60;
 
 export type UserClaims = { owner: string; expiresAt: number };
 export type AgentClaims = { agentId: bigint; owner: string; expiresAt: number };
@@ -50,6 +51,27 @@ export class TokenService {
       if (e instanceof HiveError) throw e;
       if (e instanceof Error && e.name === "JWTExpired") throw new HiveError("SESSION_EXPIRED", "Agent session expired. Authorize the agent again.");
       throw new HiveError("UNAUTHORIZED", "Invalid token.");
+    }
+  }
+
+  /**
+   * A dynamically registered OAuth client is a signed `client_id` that carries its redirect URIs, so registering stores nothing
+   * and survives a restart (`typ: "client"`, never accepted as a user or agent token).
+   */
+  async signClient(redirectUris: string[]): Promise<string> {
+    const iat = this.now();
+    return new SignJWT({ typ: "client", redirect_uris: redirectUris }).setProtectedHeader({ alg: "HS256" }).setIssuedAt(iat).setExpirationTime(iat + CLIENT_TTL_S).sign(this.key);
+  }
+
+  /** The registered redirect URIs, or `undefined` for anything that is not a live client id. */
+  async verifyClient(clientId: string): Promise<string[] | undefined> {
+    try {
+      const { payload } = await jwtVerify(clientId, this.key, { algorithms: ["HS256"], currentDate: new Date(this.now() * 1000) });
+      const uris = payload.redirect_uris;
+      if (payload.typ !== "client" || !Array.isArray(uris) || !uris.every((u) => typeof u === "string")) return undefined;
+      return uris as string[];
+    } catch {
+      return undefined;
     }
   }
 }
