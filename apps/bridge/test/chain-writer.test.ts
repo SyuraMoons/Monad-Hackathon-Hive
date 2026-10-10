@@ -81,6 +81,17 @@ describe("ViemChainWriter", () => {
     expect(err.message).toMatch(/no MON|MON for gas/i);
   });
 
+  it("maps Monad's generic 'insufficient balance' error, from the estimate or the send, to the same message", async () => {
+    const monadError = () => new BaseError("invalid params", { cause: Object.assign(new Error("Signer had insufficient balance"), { details: "Signer had insufficient balance" }) });
+    const fromEstimate = new ViemChainWriter({ estimate: async () => { throw monadError(); }, submit: async () => TX, receipt: async () => ({ status: "success", logs: [] }) });
+    const fromSend = new ViemChainWriter({ estimate: async () => 100_000n, submit: async () => { throw monadError(); }, receipt: async () => ({ status: "success", logs: [] }) });
+    for (const writer of [fromEstimate, fromSend]) {
+      const err = await writer.write(args).catch((e) => e);
+      expect(err).toBeInstanceOf(HiveError);
+      expect(err.message).toMatch(/no MON for gas.*Authorize the agent again/);
+    }
+  });
+
   it("lets other failures out unchanged for the caller to wrap", async () => {
     const writer = new ViemChainWriter({
       estimate: async () => { throw new Error("rpc down"); },
