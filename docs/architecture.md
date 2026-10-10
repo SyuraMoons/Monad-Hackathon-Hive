@@ -61,7 +61,7 @@ claude.ai ─▶ POST /mcp ─▶ 401 + WWW-Authenticate (resource_metadata)
           ─▶ redirect to claude.ai with a 60 s code ─▶ POST /oauth/token ─▶ agent token (refreshable while the session lives)
 ```
 
-**Find memory without loading it all** (planned, ADR-022)
+**Find memory without loading it all** (built, ADR-022; not yet run on testnet or Railway)
 ```
 Agent ─▶ read_memory(kind=state) ─▶ list_memory(cursor) ─▶ search_memory(query)
       ─▶ permission filter on live chain state ─▶ rank in the bridge (BM25, then encrypted embeddings)

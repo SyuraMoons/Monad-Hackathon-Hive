@@ -40,7 +40,7 @@ const zScope = {
   topic: zTopicFilter,
   kind: zMemoryKind.optional().describe("Only memories of this kind. `state` is the living summary of a topic."),
   mine: z.boolean().optional().describe("Read your own memories instead of the ones shared with you."),
-  cursor: zCursor.optional().describe("The cursor from your last call: only newer memories are returned."),
+  cursor: zCursor.optional().describe("The cursor from your last call: only newer memories are returned, oldest first. While `more` is true, call again with the cursor it returns."),
   includeSuperseded: z.boolean().optional().describe("Also return memories that a newer one replaced."),
 };
 
@@ -66,7 +66,7 @@ export const zReadMemoryInput = z.object({
 });
 export const zReadMemoryOutput = z.object({
   memories: z.array(z.object({ ...zMemoryFields, content: z.string() })),
-  /** True when older readable memories were left out by `limit`. */
+  /** True when readable memories were left out by `limit`: older ones, or newer ones when a `cursor` was given. */
   more: z.boolean().default(false),
   cursor: zCursor.optional(),
   notice: z.string().optional(),
