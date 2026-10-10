@@ -182,6 +182,18 @@ export function createMockClient(): MockHiveClient {
       },
     },
 
+    oauth: {
+      // No real OAuth in the mock: send the browser back to the redirect URI with a made-up code.
+      async approve({ request, decision }) {
+        await latency();
+        const to = new URL(request.redirect_uri);
+        if (decision === "deny") to.searchParams.set("error", "access_denied");
+        else to.searchParams.set("code", `mock-code-${randomHex32().slice(2, 10)}`);
+        if (request.state) to.searchParams.set("state", request.state);
+        return { redirectTo: to.toString() };
+      },
+    },
+
     graph: {
       async load(owner) {
         await latency();

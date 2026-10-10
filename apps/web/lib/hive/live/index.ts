@@ -55,6 +55,7 @@ export function createLiveClient(): LiveHiveClient {
     },
     auth: bridge.auth,
     agents: bridge.agents,
+    oauth: bridge.oauth,
     graph: {
       load: async (owner) => {
         const mine = await agentsOf(chainReader, owner);
