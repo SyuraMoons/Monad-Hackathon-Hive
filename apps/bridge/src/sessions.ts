@@ -6,7 +6,20 @@ import type { Hex, MemoryDoc } from "@hive/shared";
  */
 export class DocCache {
   private rows = new Map<string, MemoryDoc>();
+  private vectors = new Map<string, Float32Array>();
   constructor(private max = 2000) {}
+
+  /** A vector of one model for one memory. The model is part of the key: vectors of two models never mix. */
+  getVector(contentHash: string, model: string): Float32Array | undefined {
+    return this.vectors.get(`${model}:${contentHash.toLowerCase()}`);
+  }
+
+  setVector(contentHash: string, model: string, vector: Float32Array): void {
+    const key = `${model}:${contentHash.toLowerCase()}`;
+    this.vectors.delete(key);
+    this.vectors.set(key, vector);
+    if (this.vectors.size > this.max) this.vectors.delete(this.vectors.keys().next().value!);
+  }
 
   get(contentHash: string): MemoryDoc | undefined {
     const key = contentHash.toLowerCase();

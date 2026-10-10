@@ -6,12 +6,13 @@ import { getAddress } from "viem";
 import { privateKeyToAddress } from "viem/accounts";
 import type { GasFunder } from "./funder.js";
 import type { EventBus } from "./events.js";
-import { listMemory, readMemory, writeMemory, type ReadDeps } from "./memory.js";
+import type { EmbeddingDeps } from "./embeddings.js";
+import { keyIdOf, listMemory, readMemory, writeMemory, type ReadDeps } from "./memory.js";
 import { searchMemory } from "./search.js";
 import { looksLikeSecret } from "./secrets.js";
 import type { SessionStore, AgentSession } from "./sessions.js";
 import type { TokenService } from "./tokens.js";
-import type { ChainReader, ChainWriter, CiphertextStore } from "./types.js";
+import type { ChainReader, ChainWriter, CiphertextStore, Embedder, VectorStore } from "./types.js";
 
 export type McpDeps = {
   tokens: TokenService;
@@ -21,6 +22,8 @@ export type McpDeps = {
   writer: ChainWriter;
   /** Tops the agent key up before a write. Default: none. */
   funder?: GasFunder;
+  /** Search by meaning (ADR-022). Unset: search ranks on words only. */
+  embeddings?: { embedder: Embedder; vectors: VectorStore; minSimilarity: number };
   now: () => bigint;
   /** Where `agent.connected`, `memory.written` and `memory.read` go. Default: nowhere. */
   events?: EventBus;
@@ -46,11 +49,13 @@ const metaLooksLikeSecret = (m: MemoryMeta) => [m.gist ?? "", ...(m.entities ?? 
 const metaOf = ({ gist, kind, entities, supersedes }: MemoryMeta): MemoryMeta => ({ gist, kind, entities, supersedes });
 
 function buildServer(deps: McpDeps, session: AgentSession): McpServer {
+  // The embedding setup of this session: the owner and key id are the session's, like on a write.
+  const embeddings: EmbeddingDeps | undefined = deps.embeddings && { ...deps.embeddings, owner: getAddress(session.owner), keyId: keyIdOf(session.encryptionKey) };
   const server = new McpServer({ name: "hive-bridge", version: "0.0.0" }, { instructions: HIVE_INSTRUCTIONS });
 
   async function save(topic: string, content: string, meta: MemoryMeta = {}): Promise<WriteMemoryOutput> {
     const out = await writeMemory(
-      { chain: deps.chain, writer: deps.writer, store: deps.store, agentKey: session.agentPrivateKey, encryptionKey: session.encryptionKey, owner: getAddress(session.owner),
+      { chain: deps.chain, docs: session.docs, embeddings, writer: deps.writer, store: deps.store, agentKey: session.agentPrivateKey, encryptionKey: session.encryptionKey, owner: getAddress(session.owner),
         ensureGas: deps.funder ? () => deps.funder!.ensureFunded(session.owner, privateKeyToAddress(session.agentPrivateKey)) : undefined,
         // The error name only: messages can carry addresses and RPC details, and a log must never carry memory content.
         onError: (stage, e) => console.error(`bridge: write failed at ${stage}${e instanceof Error ? ` (${e.name})` : ""}`) },
@@ -91,7 +96,7 @@ function buildServer(deps: McpDeps, session: AgentSession): McpServer {
     },
   );
 
-  const readDeps = (): ReadDeps => ({ chain: deps.chain, store: deps.store, encryptionKey: session.encryptionKey, now: deps.now, docs: session.docs, onError: (stage) => console.error(`bridge: read failed at ${stage}`) });
+  const readDeps = (): ReadDeps => ({ chain: deps.chain, store: deps.store, encryptionKey: session.encryptionKey, now: deps.now, docs: session.docs, embeddings, onError: (stage) => console.error(`bridge: read failed at ${stage}`) });
 
   server.registerTool(
     "hive_list_memory",

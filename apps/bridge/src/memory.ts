@@ -1,6 +1,7 @@
 import { decrypt, encrypt } from "@hive/crypto";
 import { HiveError, MEMORY_NOTICE, MEMORY_PAGE_DEFAULT, PREVIEW_CHARS, openDoc, sealDoc, zTxHash, type Hex, type ListMemoryOutput, type MemoryDoc, type MemoryKind, type MemoryMeta, type ReadMemoryOutput, type WriteMemoryOutput } from "@hive/shared";
 import { concatBytes, hexToBytes, keccak256, stringToBytes } from "viem";
+import { embedAfterWrite, type EmbeddingDeps } from "./embeddings.js";
 import { ownSlots, permittedSlots } from "./permissions.js";
 import type { DocCache } from "./sessions.js";
 import type { ChainReader, ChainSlot, ChainWriter, CiphertextStore } from "./types.js";
@@ -13,6 +14,8 @@ export type ReadDeps = {
   now: () => bigint;
   /** The session's decrypted memories. Optional: without it every call fetches and decrypts again. */
   docs?: DocCache;
+  /** Present when search may rank by meaning (ADR-022). Absent: search ranks on words only. */
+  embeddings?: EmbeddingDeps;
   /** Reports a failure without any memory content. */
   onError?: (stage: string, error: unknown) => void;
 };
@@ -214,6 +217,9 @@ export async function listMemory(deps: ReadDeps, args: Omit<Scope, "slotIds">): 
 export type WriteDeps = {
   /** Needed only to check `supersedes`. */
   chain?: ChainReader;
+  /** The session cache and embedding setup: a written memory is cached and embedded in the background. */
+  docs?: DocCache;
+  embeddings?: EmbeddingDeps;
   writer: ChainWriter;
   store: CiphertextStore;
   /** The agent's own key: it must be the registered writer, and it pays gas (ADR-007). */
@@ -227,7 +233,7 @@ export type WriteDeps = {
 };
 
 /** Which key sealed a row, without revealing it: a short domain-separated hash. */
-const keyIdOf = (key: Hex) => `hive-key:${keccak256(concatBytes([stringToBytes("hive/key-id"), hexToBytes(key)])).slice(0, 18)}`;
+export const keyIdOf = (key: Hex) => `hive-key:${keccak256(concatBytes([stringToBytes("hive/key-id"), hexToBytes(key)])).slice(0, 18)}`;
 
 // One transaction at a time per agent key, or two parallel writes race for the same nonce.
 const queues = new Map<string, Promise<unknown>>();
@@ -281,6 +287,9 @@ export async function writeMemory(deps: WriteDeps, args: { agentId: bigint; cont
   await deps.ensureGas?.().catch((e) => deps.onError?.("fund", e));
   try {
     const receipt = await oneAtATime(args.agentId, () => deps.writer.write({ agentKey: deps.agentKey, agentId: args.agentId, contentHash: sealed.contentHash, topic: args.topic }));
+    const written = openDoc(sealDoc({ content, gist, kind, entities, supersedes }));
+    deps.docs?.set(sealed.contentHash, written);
+    embedAfterWrite(deps.embeddings, deps.encryptionKey, deps.docs, sealed.contentHash, written, deps.onError);
     return { slotId: receipt.slotId, contentHash: sealed.contentHash, txHash: zTxHash.parse(receipt.txHash), propagatedTo: receipt.propagatedTo };
   } catch (e) {
     if (e instanceof HiveError) throw e;

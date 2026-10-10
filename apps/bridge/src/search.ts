@@ -1,5 +1,6 @@
 import { MEMORY_NOTICE, SEARCH_LIMIT_DEFAULT, type MemoryDoc, type SearchMemoryOutput } from "@hive/shared";
-import { bytesOf, memoryFields, previewOf, senderNames, visibleMemories, type Opened, type ReadDeps, type Scope } from "./memory.js";
+import { dot, queryVector, vectorsFor } from "./embeddings.js";
+import { bytesOf, memoryFields, previewOf, senderNames, visibleMemories, type ReadDeps, type Scope } from "./memory.js";
 
 // Search ranks inside the bridge, after the permission filter, over memories it already decrypted for this reader (ADR-022).
 // Nothing here is stored, and nothing in a log or an error carries a query or a memory.
@@ -106,11 +107,23 @@ export function lexicalScores(query: string, docs: readonly MemoryDoc[]): Lexica
   });
 }
 
+/** Reciprocal rank fusion: a memory high in either list ranks high, one high in both ranks highest. */
+const RRF_K = 60;
+
 const recency = (ageSeconds: number) => 1 + RECENCY_WEIGHT * 2 ** (-Math.max(ageSeconds, 0) / RECENCY_HALF_LIFE_S);
 
 export type SearchArgs = Omit<Scope, "slotIds" | "cursor" | "limit"> & { query: string; limit?: number };
 
-/** `hive_search_memory`: the permitted, visible memories ranked against the query. Previews only, like a list. */
+/** Rank positions (1 is best) of the entries that pass `keep`, best score first. */
+function ranks(scores: readonly (number | undefined)[], keep: (score: number) => boolean): Map<number, number> {
+  const order = scores.flatMap((s, i) => (s !== undefined && keep(s) ? [{ i, s }] : [])).sort((a, b) => b.s - a.s);
+  return new Map(order.map(({ i }, r) => [i, r + 1]));
+}
+
+/**
+ * `hive_search_memory`: the permitted, visible memories ranked against the query. Previews only, like a list.
+ * Words always count. When the embedding model is ready, meaning counts too and the two rankings are fused.
+ */
 export async function searchMemory(deps: ReadDeps, args: SearchArgs): Promise<SearchMemoryOutput> {
   const none: SearchMemoryOutput = { memories: [], mode: "lexical" };
   try {
@@ -119,20 +132,35 @@ export async function searchMemory(deps: ReadDeps, args: SearchArgs): Promise<Se
     const names = await senderNames(deps, found.map((o) => o.slot));
     const readable = found.filter((o) => names.has(o.slot.agentId));
     const now = Number(deps.now());
-    const scored = lexicalScores(args.query, readable.map((o) => o.doc))
-      .map((s, i) => ({ ...s, item: readable[i]! as Opened }))
-      .filter((s) => s.score > 0)
-      .map((s) => ({ ...s, final: s.score * recency(now - Number(s.item.slot.writtenAt)) }))
+    const lexical = lexicalScores(args.query, readable.map((o) => o.doc));
+
+    const qv = await queryVector(deps, args.query);
+    const { vectors, pending } = qv ? await vectorsFor(deps, readable) : { vectors: new Map<string, Float32Array>(), pending: 0 };
+    const hybrid = qv !== undefined && vectors.size > 0;
+    const min = deps.embeddings?.minSimilarity ?? 1;
+    const sims = readable.map((o) => (qv ? (vectors.has(o.slot.contentHash.toLowerCase()) ? dot(qv, vectors.get(o.slot.contentHash.toLowerCase())!) : undefined) : undefined));
+    const lexRank = ranks(lexical.map((l) => l.score), (s) => s > 0);
+    const vecRank = ranks(sims, (s) => s >= min);
+
+    const scored = readable
+      .map((item, i) => {
+        const lex = lexical[i]!;
+        const base = hybrid ? ((lexRank.has(i) ? 1 / (RRF_K + lexRank.get(i)!) : 0) + (vecRank.has(i) ? 1 / (RRF_K + vecRank.get(i)!) : 0)) * (RRF_K + 1) : lex.score;
+        return { item, base, lex, meaning: vecRank.has(i) };
+      })
+      .filter((s) => s.base > 0)
+      .map((s) => ({ ...s, final: s.base * recency(now - Number(s.item.slot.writtenAt)) }))
       .sort((a, b) => b.final - a.final || Number(b.item.slot.id - a.item.slot.id))
       .slice(0, args.limit ?? SEARCH_LIMIT_DEFAULT);
-    const memories = scored.map(({ item, final, text, entity }) => ({
+
+    const memories = scored.map(({ item, final, lex, meaning }) => ({
       ...memoryFields(item.slot, names.get(item.slot.agentId)!, item.doc),
       bytes: bytesOf(item.doc.content),
       preview: previewOf(item.doc.content),
       score: Math.round(final * 1000) / 1000,
-      matched: [...(text ? (["text"] as const) : []), ...(entity ? (["entity"] as const) : [])],
+      matched: [...(lex.text ? (["text"] as const) : []), ...(lex.entity ? (["entity"] as const) : []), ...(meaning ? (["meaning"] as const) : [])],
     }));
-    return { memories, mode: "lexical", ...(memories.length && { notice: MEMORY_NOTICE }) };
+    return { memories, mode: hybrid ? "hybrid" : "lexical", ...(pending > 0 && { pending }), ...(memories.length && { notice: MEMORY_NOTICE }) };
   } catch (e) {
     deps.onError?.("permission-check", e);
     return none;

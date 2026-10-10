@@ -98,6 +98,8 @@ export const zSearchMemoryOutput = z.object({
   memories: z.array(z.object({ ...zMemoryFields, bytes: z.number().int().nonnegative(), preview: z.string(), score: z.number(), matched: z.array(zMatchedBy) })),
   /** `hybrid` once the candidates also ranked by meaning, `lexical` when only the words did. */
   mode: z.enum(["lexical", "hybrid"]),
+  /** Candidates that had no vector yet and ranked on their words only. Left out when none. */
+  pending: z.number().int().positive().optional(),
   notice: z.string().optional(),
 });
 
