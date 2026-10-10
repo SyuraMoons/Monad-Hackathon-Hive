@@ -221,11 +221,16 @@ export function createApp(deps: AppDeps): Express {
     });
   }));
 
-import { mountOAuth, wwwAuthenticate } from "./oauth.js";
-import { buildOpenApi } from "./openapi.js";
-import type { SessionStore } from "./sessions.js";
-import type { TokenService, UserClaims } from "./tokens.js";
-import { UnknownAgentError, type ChainAgent, type ChainReader, type ChainWriter, type CiphertextStore, type VaultStore } from "./types.js";
+  // Public on purpose: it describes shapes, holds no secrets, and lets a new teammate try the API.
+  const spec = buildOpenApi(deps.version);
+  app.get("/openapi.json", (_req, res) => {
+    res.json(spec);
+  });
+  app.use("/docs", swaggerUi.serve, swaggerUi.setup(spec, { customSiteTitle: "Mindshare Bridge API" }));
+
+  // Off unless both URLs are known: the metadata must name the public URL exactly, and consent lives on the web app.
+  const oauthBase = deps.publicUrl && deps.webUrl ? deps.publicUrl.replace(/\/+$/, "") : undefined;
+  if (oauthBase && deps.webUrl) mountOAuth(app, { base: oauthBase, webUrl: deps.webUrl, tokens: deps.tokens, sessions: deps.sessions, requireUser, now: deps.now && (() => Number(deps.now!())) });
 
   app.use((_req, _res, next) => next(new HiveError("NOT_FOUND", "No such route.")));
 
