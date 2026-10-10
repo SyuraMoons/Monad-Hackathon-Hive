@@ -74,6 +74,7 @@ Short list, details in [docs/decisions.md](docs/decisions.md) and [docs/gotchas.
 - **Encryption format:** AES-256-GCM, 12-byte IV, 16-byte tag appended to the ciphertext, `contentHash = keccak256(iv ‖ ciphertext)` (never a hash of plaintext). Use `@hive/crypto`; don't re-implement it.
 - **MCP SDK:** `@modelcontextprotocol/sdk` 1.31 works with a stateless `StreamableHTTPServerTransport` (`sessionIdGenerator: undefined`, `enableJsonResponse: true`), one `McpServer` per request. `registerTool` takes a zod raw shape (`schema.shape`). Test it with the SDK's own `Client` over a real port, as `test/mcp.test.ts` does.
 - **Express 5 + pnpm:** exported functions that return an Express app need an explicit return type (`: Express`), otherwise `tsc` fails with TS2742.
+- **API docs:** Swagger UI at `/docs`, spec at `/openapi.json`, built in `src/openapi.ts` from the `@hive/shared` zod schemas. A new route must be added there: `test/openapi.test.ts` fails if a registered route is undocumented.
 - **Errors** use the shared envelope `{ error: { code, message } }`. Messages are fixed strings and never contain request bodies, keys or memory content.
 - **Writes and gas** follow ADR-007 and ADR-006 (see "Decisions in force"). Still open ([docs/backend-handoff.md](docs/backend-handoff.md) §2): whether `register` and `setAgentWriter` become one call, and the demo domain (passkey `rp.id`).
 

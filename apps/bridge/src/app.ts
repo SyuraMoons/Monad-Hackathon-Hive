@@ -5,11 +5,13 @@ import {
 import type { z } from "zod";
 import { privateKeyToAddress } from "viem/accounts";
 import express, { type ErrorRequestHandler, type Express, type Request, type RequestHandler, type Response } from "express";
+import swaggerUi from "swagger-ui-express";
 import { ChallengeStore, verifySignIn, type VerifySignature } from "./auth.js";
 import { EventBus } from "./events.js";
 import { noGasFunder, type GasFunder } from "./funder.js";
 import { mcpHandler } from "./mcp.js";
 import { mountOAuth, wwwAuthenticate } from "./oauth.js";
+import { buildOpenApi } from "./openapi.js";
 import type { SessionStore } from "./sessions.js";
 import type { TokenService, UserClaims } from "./tokens.js";
 import { UnknownAgentError, type ChainAgent, type ChainReader, type ChainWriter, type CiphertextStore, type VaultStore } from "./types.js";
@@ -219,9 +221,11 @@ export function createApp(deps: AppDeps): Express {
     });
   }));
 
-  // Off unless both URLs are known: the metadata must name the public URL exactly, and consent lives on the web app.
-  const oauthBase = deps.publicUrl && deps.webUrl ? deps.publicUrl.replace(/\/+$/, "") : undefined;
-  if (oauthBase && deps.webUrl) mountOAuth(app, { base: oauthBase, webUrl: deps.webUrl, tokens: deps.tokens, sessions: deps.sessions, requireUser, now: deps.now && (() => Number(deps.now!())) });
+import { mountOAuth, wwwAuthenticate } from "./oauth.js";
+import { buildOpenApi } from "./openapi.js";
+import type { SessionStore } from "./sessions.js";
+import type { TokenService, UserClaims } from "./tokens.js";
+import { UnknownAgentError, type ChainAgent, type ChainReader, type ChainWriter, type CiphertextStore, type VaultStore } from "./types.js";
 
   app.use((_req, _res, next) => next(new HiveError("NOT_FOUND", "No such route.")));
 

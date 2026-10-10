@@ -82,6 +82,31 @@ contract KnowledgeGraphTest is Test {
         assertFalse(graph.hasPermission(bobAgent, aliceAgent, "work"));
     }
 
+    function test_HasPermission_AllTopicsEdgeCoversAnyTopic() public {
+        vm.prank(alice);
+        graph.addEdge(aliceAgent, bobAgent, "*", _future(3600));
+
+        assertTrue(graph.hasPermission(aliceAgent, bobAgent, "work"));
+        assertTrue(graph.hasPermission(aliceAgent, bobAgent, "personal"));
+        assertFalse(graph.hasPermission(bobAgent, aliceAgent, "work"));
+    }
+
+    function test_HasPermission_AllTopicsEdgeStopsWhenRevokedOrExpired() public {
+        uint256 expiry = _future(1000);
+        vm.startPrank(alice);
+        uint256 id = graph.addEdge(aliceAgent, bobAgent, "*", expiry);
+        vm.stopPrank();
+
+        vm.warp(expiry);
+        assertFalse(graph.hasPermission(aliceAgent, bobAgent, "work"));
+
+        vm.warp(expiry - 500);
+        assertTrue(graph.hasPermission(aliceAgent, bobAgent, "work"));
+        vm.prank(alice);
+        graph.removeEdge(id);
+        assertFalse(graph.hasPermission(aliceAgent, bobAgent, "work"));
+    }
+
     function test_HasPermission_FalseAtExpiryBoundary() public {
         uint256 expiry = _future(1000);
         vm.prank(alice);
