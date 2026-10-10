@@ -71,17 +71,15 @@ describe("ViemChainReader", () => {
     await expect(down.agent(9n)).rejects.not.toBeInstanceOf(UnknownAgentError);
   });
 
-  it("agentsOf walks ids from 1 until the first unknown one and keeps only the owner's", async () => {
-    const other = "0x00000000000000000000000000000000000000B2";
-    const rows: Record<string, string> = { "1": OWNER, "2": other, "3": OWNER };
-    const { client, calls } = fakeClient((call) => {
-      const owner = rows[String(call.args[0])];
-      if (!owner) throw unknownAgentRevert();
-      return { owner, name: `agent-${call.args[0]}`, agentType: "claude", pubKey: "0x", writer: owner, registeredAt: 1n };
-    });
+  it("agentsOf is one AgentRegistry.agentsOf call keyed by owner", async () => {
+    const row = (name: string) => ({ owner: OWNER, name, agentType: "claude", pubKey: "0x", writer: OWNER, registeredAt: 1n });
+    const { client, calls } = fakeClient(() => [[1n, 3n], [row("a"), row("b")]]);
     const mine = await new ViemChainReader(client).agentsOf(OWNER);
-    expect(mine.map((a) => a.id)).toEqual([1n, 3n]);
-    expect(calls.length).toBeLessThanOrEqual(16);
+    expect(mine).toEqual([
+      { id: 1n, name: "a", owner: OWNER, agentType: "claude", writer: OWNER },
+      { id: 3n, name: "b", owner: OWNER, agentType: "claude", writer: OWNER },
+    ]);
+    expect(calls).toEqual([{ address: hiveDeployment.agentRegistry, abi: AgentRegistryAbi, functionName: "agentsOf", args: [OWNER] }]);
   });
 
   it("agentsOf lets an RPC failure propagate", async () => {

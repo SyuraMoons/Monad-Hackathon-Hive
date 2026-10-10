@@ -20,6 +20,7 @@ Known pitfalls. Add to this list when you hit a new one.
 - **The bridge needs MON on every agent key.** `MemorySlots.write` is sent by the agent's writer key (ADR-007). A write from an unfunded key fails with a chain error, not a permission error.
 - **Topics are stored as `keccak256(topic)`.** Permission checks work from the hash, but readable topic names exist only in `EdgeAdded` logs (or Envio). `AgentRegistry` has no "agents of owner" view either: list them from `AgentRegistered` logs filtered by the indexed `owner`.
 - **The public RPC limits `eth_getLogs` to a 100-block range** (`testnet-rpc.monad.xyz` answers 413, code -32614). Rebuilding edges and their topic names from `EdgeAdded` logs needs an indexer (Envio) or an RPC without that limit.
+- **The claude.ai connector URL comes from the bridge that authorized the agent.** From `localhost:3000` it is `http://localhost:4000/mcp`, which claude.ai can't reach. Connect from the deployed site, and set `BRIDGE_PUBLIC_URL` and `BRIDGE_WEB_URL` on the bridge or OAuth stays off ([deployment.md](deployment.md)).
 - **Bridge events and sessions are in memory.** `/v1/events` history and agent sessions are gone after a bridge restart (`pnpm dev` restarts it on every bridge edit). Open `/connect` again to re-authorize.
 
 ## Web session

@@ -8,6 +8,7 @@ contract AgentRegistry is IAgentRegistry {
 
     mapping(uint256 => Agent) private _agents;
     mapping(address => uint256) private _agentByWriter;
+    mapping(address => uint256[]) private _agentsByOwner;
 
     function register(string calldata name, string calldata agentType, bytes calldata agentPubKey)
         external
@@ -22,6 +23,7 @@ contract AgentRegistry is IAgentRegistry {
             writer: address(0),
             registeredAt: block.timestamp
         });
+        _agentsByOwner[msg.sender].push(agentId);
         emit AgentRegistered(agentId, msg.sender, name, agentType, agentPubKey);
     }
 
@@ -52,6 +54,14 @@ contract AgentRegistry is IAgentRegistry {
 
     function agentOf(address writer) external view returns (uint256) {
         return _agentByWriter[writer];
+    }
+
+    function agentsOf(address owner) external view returns (uint256[] memory ids, Agent[] memory list) {
+        ids = _agentsByOwner[owner];
+        list = new Agent[](ids.length);
+        for (uint256 i = 0; i < ids.length; i++) {
+            list[i] = _agents[ids[i]];
+        }
     }
 
     function agentExists(uint256 agentId) external view returns (bool) {

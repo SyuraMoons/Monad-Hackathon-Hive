@@ -43,6 +43,32 @@ This exercised the **dev-signer** path only (ADR-006), not a Mera passkey.
 
 Not checked: the transaction on Monadscan, a read by a second agent, or the Connect page reacting to the first call.
 
+### 10 Oct 2026 — two agents, one edge, through the web app and two Claude Code terminals
+Fresh passkey account in Chrome on `localhost` (owner `0xc659…5793`, funded from the faucet), `NEXT_PUBLIC_HIVE_MODE=live`, local bridge. Agents `6` `"Testing"` and `7` `"Testing 2"` were created from the canvas sidebar, then an all-topics edge `6 → 7` was signed with the passkey (ADR-013). Each agent ran in its own terminal with the `claude --mcp-config` command from its drawer. Every tool call was a fixed prompt ("call X with exactly these arguments and print the raw JSON"), so the results are reproducible.
+
+| # | Step | Result |
+| --- | --- | --- |
+| T1 | `hive_whoami` as agent 6 | ✅ `agentId "6"`, `"Testing"`, `readableTopics: []` (still a stub) |
+| T2 | `hive_read_memory` as agent 7, nothing written yet | ✅ `memories: []` |
+| T3 | agent 6 writes topic `work`, `MARKER-001: standup moved to 10:30` | ⚠️ slot `7`, tx confirmed, but `propagatedTo: []`, expected `["7"]` |
+| T4 | agent 7 reads topic `work` | ✅ one memory, `fromAgentId "6"`, `fromName "Testing"`, content equal to what was written |
+| T5 | agent 7 writes `MARKER-002`, then agent 6 reads | ✅ slot `8`, `propagatedTo: []`; agent 6 reads `memories: []` (no edge `7 → 6`) |
+| T6 | edge revoked on the canvas, then agent 6 writes `MARKER-003` | ✅ edge `active: false` and `hasPermission(6, 7, …)` false, checked with `cast`; slot `9`, `propagatedTo: []` |
+
+The three write transactions were checked on chain with `cast receipt`: `0xf4eb…199b` (slot 7, from agent 6's writer key), `0x02f1…b621` (slot 8, agent 7's writer key), `0xd9b4…74e9` (slot 9, agent 6's writer key). All three have status success.
+
+Found:
+- **`propagatedTo` stays empty on an all-topics edge.** The write receipt has only `MemoryWritten`. The deployed `PropagationEngine` compares `edge.topic` with `keccak256(topic)`, and the edge stores `keccak256("*")`. Reads are unaffected because the bridge allows `*`. The contracts' source was changed in #104, but the testnet contracts were not redeployed, so this still holds on testnet. An edge for one topic is expected to emit `Propagate` (not run today). The ADR-021 redeploy (#116) puts the #104 source on testnet; not re-run since.
+- **A write failed when the agent key ran out of gas.** The writer key held 0.0318 MON and one write declares about 317k gas × 102 gwei ≈ 0.0323 MON. The key had been topped up only at authorize, and the error said only "Could not write the memory to the chain." Fixed in #115 (top-up before each write, clear message); not yet merged when this was written.
+
+Not checked:
+- `hive_read_memory` as agent 7 after the revoke. Only the chain state was checked.
+- The `/connect` page. Agents were registered and authorized from the canvas, so "Unlock with passkey" and "Finish setup" on `/connect` were not run.
+- Whether the canvas dot of agent 7 turns green when its terminal connects (SSE in a browser), and the propagation animation.
+- The edge and register transactions on Monadscan, and ChatGPT.
+
+This is the first run with a real passkey-derived owner: agents and the edge were signed by it, not by the dev signer.
+
 ## P0 features (required)
 
 | # | Feature | Owner | Status |
@@ -74,7 +100,7 @@ We build one layer at a time. Tick each step off here when it's done.
 - [x] Canvas: React Flow with 3 nodes and drawable edges (mock client)
 - [ ] Live agent registration from `/connect`: `register` + `setAgentWriter`, then bridge `authorize`
   - [x] Code and unit tests with fake chain deps
-  - [ ] Run against testnet with a passkey-signed owner (needs MON on the owner address) and a real `claude mcp add`
+  - [x] Run against testnet with a passkey-signed owner and a real `claude --mcp-config` terminal, 10 Oct (see _Verified runs_). Done from the canvas sidebar; `/connect` itself was not run
 - [ ] Wire edge creation → contract tx (CP1). Works from `/smoke` (dev signer, 3 Oct); the live client now sends `addEdge` / `removeEdge` and reads edges from `KnowledgeGraph` (unit-tested, built but not yet run on testnet), so this stays open until it is
 - [ ] Envio indexer
 - [x] Bridge: MCP tools `write_memory` / `read_memory`, plus SSE `/events`

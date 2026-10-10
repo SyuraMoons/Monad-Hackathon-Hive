@@ -6,10 +6,6 @@ import { UnknownAgentError, type ChainAgent, type ChainEdge, type ChainReader, t
 const isUnknownAgentRevert = (e: unknown) =>
   e instanceof BaseError && e.walk((x) => x instanceof ContractFunctionRevertedError && x.data?.errorName === "UnknownAgent") !== null;
 
-// AgentRegistry ids count up from 1 with no gaps and has no per-owner index, so agentsOf walks them in batches.
-const SCAN_BATCH = 8n;
-const SCAN_MAX = 256n;
-
 /**
  * Live Monad testnet state. Nothing is cached: a revoked edge must block the very next read, so every call hits the RPC.
  * Errors propagate on purpose; `readMemory` turns any failure into default deny.
@@ -38,23 +34,18 @@ export class ViemChainReader implements ChainReader {
   }
 
   async agentsOf(owner: Hex): Promise<ChainAgent[]> {
-    const mine: ChainAgent[] = [];
-    for (let start = 1n; start <= SCAN_MAX; start += SCAN_BATCH) {
-      const ids = Array.from({ length: Number(SCAN_BATCH) }, (_, i) => start + BigInt(i));
-      for (const r of await Promise.allSettled(ids.map((id) => this.agent(id)))) {
-        if (r.status === "rejected") {
-          if (r.reason instanceof UnknownAgentError) return mine;
-          throw r.reason;
-        }
-        if (r.value.owner.toLowerCase() === owner.toLowerCase()) mine.push(r.value);
-      }
-    }
-    return mine;
+    const [ids, list] = await this.client.readContract({ address: hiveDeployment.agentRegistry, abi: AgentRegistryAbi, functionName: "agentsOf", args: [owner] });
+    return list.map((a, i) => ({ id: ids[i]!, name: a.name, owner: a.owner, agentType: a.agentType, writer: a.writer }));
   }
 }
 
 // Gas for MemorySlots.write grows with the sender's outgoing edges. Monad charges the declared limit, so use the
 // estimate plus a margin instead of a big fixed number. Placeholder until AK-11 publishes measured limits.
+// Monad's RPC reports an empty balance as "Signer had insufficient balance" in a generic invalid-params error, not as the
+// error viem maps to InsufficientFundsError.
+const isOutOfFunds = (x: unknown) =>
+  x instanceof InsufficientFundsError || (x instanceof Error && /insufficient (balance|funds)/i.test(`${x.message} ${(x as { details?: string }).details ?? ""}`));
+
 const GAS_MARGIN_PCT = 125n;
 const GAS_MIN = 100_000n;
 const GAS_MAX = 2_000_000n;
@@ -90,7 +81,7 @@ export class ViemChainWriter implements ChainWriter {
       return { txHash, slotId: written.args.slotId, propagatedTo };
     } catch (e) {
       if (e instanceof HiveError) throw e;
-      if (e instanceof BaseError && e.walk((x) => x instanceof InsufficientFundsError) !== null) throw new HiveError("CHAIN_ERROR", "The agent key has no MON for gas.");
+      if (e instanceof BaseError && e.walk(isOutOfFunds) !== null) throw new HiveError("CHAIN_ERROR", "The agent key has no MON for gas. Authorize the agent again to top it up.");
       throw e;
     }
   }

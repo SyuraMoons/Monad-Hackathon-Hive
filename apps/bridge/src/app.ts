@@ -53,6 +53,8 @@ export function createApp(deps: AppDeps): Express {
   const events = deps.events ?? new EventBus();
 
   app.disable("x-powered-by");
+  // Behind a TLS proxy (Railway), so a derived mcpUrl says https.
+  app.set("trust proxy", 1);
   app.use((req, res, next) => {
     const origin = req.headers.origin;
     if (origin && allowed.has(origin)) {
@@ -103,7 +105,7 @@ export function createApp(deps: AppDeps): Express {
     res.json(body);
   }));
 
-  app.post("/mcp", wrap(mcpHandler({ tokens: deps.tokens, sessions: deps.sessions, chain: deps.chain, store: deps.store, writer: deps.writer, events, now: deps.now ?? (() => BigInt(Math.floor(Date.now() / 1000))) })));
+  app.post("/mcp", wrap(mcpHandler({ tokens: deps.tokens, sessions: deps.sessions, chain: deps.chain, store: deps.store, writer: deps.writer, funder: deps.funder, events, now: deps.now ?? (() => BigInt(Math.floor(Date.now() / 1000))) })));
   // Stateless transport: no SSE stream to open and no session to end. SDK clients expect 405 here, not 404.
   app.all("/mcp", (_req, res) => {
     res.setHeader("Allow", "POST");
