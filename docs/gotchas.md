@@ -49,5 +49,5 @@ Known pitfalls. Add to this list when you hit a new one.
 
 ## Memory
 
-- **An agent never reads its own writes.** `hive_read_memory` returns only notes from other agents that have an edge to the reader (`apps/bridge/src/memory.ts`). A `hive_save_session` is for the other agents. Draw an edge with "All topics" (the editor default, ADR-013) to share everything, or one for `general` (the default save topic, ADR-014). An all-topics edge gives reads but no propagation pulse (planned, needs a contract redeploy).
+- **An agent does not read its own writes by default.** `hive_read_memory` returns only notes from other agents that have an edge to the reader (`apps/bridge/src/memory.ts`). `mine: true` reads the caller's own slots (ADR-022, planned). A `hive_save_session` is for the other agents. Draw an edge with "All topics" (the editor default, ADR-013) to share everything, or one for `general` (the default save topic, ADR-014). An all-topics edge gives reads but no propagation pulse (planned, needs a contract redeploy).
 - **Each write is a transaction.** About 0.01 MON or more per save at the current gas price, paid by the agent key. The bridge tops a key up only at authorize, so many saves can run it dry ("The agent key has no MON for gas.").

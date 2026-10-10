@@ -112,6 +112,13 @@ We build one layer at a time. Tick each step off here when it's done.
 - [x] Session restore: the web app keeps the 24h user token across a reload and asks for the passkey again only when keys are needed (ADR-011). Unit-tested for storage and token handling, not yet tried in a browser
 - [x] Canvas Reconnect and Disconnect: the agent drawer re-authorizes an agent after a bridge restart (an unexpired token works again) or ends its bridge session. Not yet tried in a browser
 - [x] Several named agents per type: Connect lists a type's agents and registers a new one by name (ADR-012). Not yet tried in a browser
+- [ ] Structured memory, delta reads and `hive_search_memory` (ADR-022, planned)
+  - [ ] Shared envelope, schema and crypto helpers
+  - [ ] Bridge: batch fetch and session cache
+  - [ ] Bridge: gist, kind, entities, supersede, state, own reads, cursor
+  - [ ] Bridge: lexical search
+  - [ ] Bridge: encrypted embeddings
+  - [ ] Shared agent instructions and context-size measurement
 - [x] Memory history in the agent drawer: past writes read from `MemorySlots.slotsSince` (topic, time and content hash, no content). Not yet tried in a browser
 - [x] Remove an agent from the canvas: hidden in this browser, bridge session ended, refused while it has edges (ADR-012). The registry has no delete. Not yet tried in a browser
 - [x] One terminal per agent: `claude --mcp-config` command on Connect and in the drawer, so several agents share one folder. Not yet tried against a real Claude Code
