@@ -1,7 +1,7 @@
 {
-  "agentRegistry": "0x949Deac6ec66387778CEDe6643b875127FBb340F",
+  "agentRegistry": "0x06F4401cF289bfc29de59Fc1B624096Dc69ff25B",
   "chainId": 10143,
-  "knowledgeGraph": "0x3d1cB1E65F90Fde55497d1eE9159c19e5C79Bde1",
-  "memorySlots": "0x45179F9abAC535924d49C2C8Fe2B72cDb69AeDcd",
-  "propagationEngine": "0x4B6890C4424B1f1d972b4B8Ec2167f5CD6A11479"
+  "knowledgeGraph": "0x80db4a46BEE029464Aa1fca083985d1C5178AFd6",
+  "memorySlots": "0xdE8DAf9599366b2ef8Ae245bF574808844Aa5f8a",
+  "propagationEngine": "0x4af2CC25026f918E88d727704D3FB888C20b0397"
 }

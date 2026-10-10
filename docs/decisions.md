@@ -162,3 +162,13 @@ Short architecture decision records. To add one, append the next number and don'
 **Decision.** `deepseek` joins `AGENT_TYPES` in `@hive/shared`. A DeepSeek agent is registered from the canvas like any other (`AgentRegistry` stores the type as a free string, so nothing is redeployed). It connects through a runner in `apps/agents`: the runner lists the bridge's MCP tools with the agent token, offers them to DeepSeek as function tools, runs each call through `@hive/mcp-client` and loops until the model answers. Identity still comes from the token, and the runner runs next to the user, so the bridge can stay on `localhost`. The API key, base URL and model come from the env, never from code. This supersedes the "Claude and ChatGPT only" line of ADR-012 and AGENTS.md.
 
 **Consequences.** Clients built before this change read a `deepseek` agent as `other`. The runner never logs or stores tool results; memories a DeepSeek agent reads are sent to DeepSeek's API, and the Connect page says so. The work lands in layers (shared type, generic tool calls in `@hive/mcp-client`, the runner, the web app) and DeepSeek stays planned in the UI and docs until a live run is recorded in the roadmap.
+
+
+## ADR-021: AgentRegistry lists an owner's agents in one call
+**Date:** 2026-10-10 · **Status:** proposed
+
+**Context.** The registry had no per-owner index, so the web and the bridge found an owner's agents by reading `agents(id)` from 1 until an unknown id. That is every agent anyone registered, and `/connect` ran it three times. The public Monad RPC allows 15 requests per second per IP and `eth_getLogs` over about 100 blocks, so the scan failed under load ("Could not read the agent registry.") and logs could not replace it.
+
+**Decision.** `AgentRegistry` keeps `owner => agentId[]` and exposes `agentsOf(owner) returns (uint256[] ids, Agent[] list)`, oldest first. The web (`registryChain.ts`) and the bridge (`ViemChainReader.agentsOf`) call it once instead of scanning.
+
+**Consequences.** `KnowledgeGraph` and `MemorySlots` hold the registry address as `immutable`, so all four contracts were redeployed and testnet state started empty: agents, edges and memory slots from the old addresses are gone, and ciphertext rows in Supabase keyed by old slot ids are orphaned. The lookup cost now grows with one owner's agents, not with the whole registry.

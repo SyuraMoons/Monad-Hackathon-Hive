@@ -29,6 +29,9 @@ interface IAgentRegistry {
 
     function agentOf(address writer) external view returns (uint256);
 
+    /// @notice Every agent `owner` registered, oldest first, so a client needs one call instead of scanning all ids.
+    function agentsOf(address owner) external view returns (uint256[] memory ids, Agent[] memory list);
+
     function agentExists(uint256 agentId) external view returns (bool);
 
     function ownerOf(uint256 agentId) external view returns (address);

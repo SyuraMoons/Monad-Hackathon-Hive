@@ -58,7 +58,7 @@ Fresh passkey account in Chrome on `localhost` (owner `0xc659…5793`, funded fr
 The three write transactions were checked on chain with `cast receipt`: `0xf4eb…199b` (slot 7, from agent 6's writer key), `0x02f1…b621` (slot 8, agent 7's writer key), `0xd9b4…74e9` (slot 9, agent 6's writer key). All three have status success.
 
 Found:
-- **`propagatedTo` stays empty on an all-topics edge.** The write receipt has only `MemoryWritten`. The deployed `PropagationEngine` compares `edge.topic` with `keccak256(topic)`, and the edge stores `keccak256("*")`. Reads are unaffected because the bridge allows `*`. The contracts' source was changed in #104, but the testnet contracts were not redeployed, so this still holds on testnet. An edge for one topic is expected to emit `Propagate` (not run today).
+- **`propagatedTo` stays empty on an all-topics edge.** The write receipt has only `MemoryWritten`. The deployed `PropagationEngine` compares `edge.topic` with `keccak256(topic)`, and the edge stores `keccak256("*")`. Reads are unaffected because the bridge allows `*`. The contracts' source was changed in #104, but the testnet contracts were not redeployed, so this still holds on testnet. An edge for one topic is expected to emit `Propagate` (not run today). The ADR-021 redeploy (#116) puts the #104 source on testnet; not re-run since.
 - **A write failed when the agent key ran out of gas.** The writer key held 0.0318 MON and one write declares about 317k gas × 102 gwei ≈ 0.0323 MON. The key had been topped up only at authorize, and the error said only "Could not write the memory to the chain." Fixed in #115 (top-up before each write, clear message); not yet merged when this was written.
 
 Not checked:
