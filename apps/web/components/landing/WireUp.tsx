@@ -9,7 +9,8 @@ const COMMAND = [
   `  --header "Authorization: Bearer ${TOKEN}"`,
 ].join("\n");
 
-const TOOLS = ["hive_write_memory", "hive_list_memory", "hive_read_memory", "hive_whoami"];
+// Same five tools the bridge registers (apps/bridge/src/mcp.ts) and the Connect page lists.
+const TOOLS = ["hive_write_memory", "hive_save_session", "hive_list_memory", "hive_read_memory", "hive_whoami"];
 
 // Figma Section/Wire-up 12:23, with the Connect terminal card (54:89) in place of the TBD panel (design.md D8).
 export function WireUp() {
@@ -33,7 +34,7 @@ export function WireUp() {
         {TOOLS.map((t, i) => (
           <span key={t}>
             <code className="font-mono text-[14px] text-ink-2">{t}</code>
-            {i === 0 ? ", " : i === 1 ? " and " : ""}
+            {i < TOOLS.length - 2 ? ", " : i === TOOLS.length - 2 ? " and " : ""}
           </span>
         ))}{" "}
         — plus the permissions you signed.
