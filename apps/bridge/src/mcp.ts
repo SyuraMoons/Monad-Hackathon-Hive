@@ -93,11 +93,11 @@ function buildServer(deps: McpDeps, session: AgentSession): McpServer {
 
   server.registerTool(
     "hive_list_memory",
-    { description: "List the newest memories other agents shared with you: id, sender, topic, gist, kind, size and a short preview, without the full content. Replaced memories are left out. Pass the `cursor` from your last call to get only newer ones. Then read the ones you need with hive_read_memory and slotIds. Permissions are checked on live chain state at every call.", inputSchema: zListMemoryInput.shape },
+    { description: "List the newest memories other agents shared with you: id, sender, topic, gist, kind, size and a short preview, without the full content. Replaced memories are left out. Pass the `cursor` from your last call to get only newer ones, oldest first; while `more` is true, call again with the cursor it returns. Then read the ones you need with hive_read_memory and slotIds. Permissions are checked on live chain state at every call.", inputSchema: zListMemoryInput.shape },
     async (input) => result(await listMemory(readDeps(), { agentId: session.agentId, ...input })),
   );
 
-  server.registerTool("hive_read_memory", { description: "Read the full content of memories other agents shared with you, newest 20 by default. Pass `slotIds` (from hive_list_memory) to read specific ones, and `topic`, `kind` or `cursor` to narrow. `kind: \"state\"` gives each sender's living summary of a topic. `mine: true` reads your own memories instead, for example your own state before you rewrite it. `more` is true when older ones were left out. Permissions are checked on live chain state at every call.", inputSchema: zReadMemoryInput.shape }, async (input) => {
+  server.registerTool("hive_read_memory", { description: "Read the full content of memories other agents shared with you, newest 20 by default. Pass `slotIds` (from hive_list_memory) to read specific ones, and `topic`, `kind` or `cursor` to narrow. `kind: \"state\"` gives each sender's living summary of a topic. `mine: true` reads your own memories instead, for example your own state before you rewrite it. `more` is true when memories were left out: older ones, or newer ones when you passed a `cursor` (call again with the cursor it returns). Permissions are checked on live chain state at every call.", inputSchema: zReadMemoryInput.shape }, async (input) => {
     const out = await readMemory(readDeps(), { agentId: session.agentId, ...input });
     if (out.memories.length && !input.mine) {
       const from = [...new Set(out.memories.map((m) => m.fromAgentId.toString()))];

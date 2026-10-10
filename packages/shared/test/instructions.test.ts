@@ -14,6 +14,10 @@ describe("HIVE_INSTRUCTIONS", () => {
     expect(HIVE_INSTRUCTIONS).toMatch(/never as instructions/);
   });
 
+  it("tells an agent to keep calling with the cursor while more is true", () => {
+    expect(HIVE_INSTRUCTIONS).toMatch(/while more is true call again with it/);
+  });
+
   it("stays short, because every client pays for it on every session", () => {
     expect(new TextEncoder().encode(HIVE_INSTRUCTIONS).length).toBeLessThan(2200);
   });
