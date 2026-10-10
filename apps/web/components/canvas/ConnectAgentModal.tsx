@@ -149,13 +149,17 @@ export function ConnectAgentModal({ agentId }: { agentId: string }) {
               claudeDesktopConfig(url, token, agent.name),
               "Needs Node 18+ for npx. The token expires in 24h: after Reconnect, copy this again.",
             )}
-            <p className="text-[15px] leading-[1.5] text-ink-2">
-              Or paste this to an AI that can edit files (Claude Code, Cursor, Codex) and it adds the config for you:
-            </p>
-            {card(
-              "ai",
-              aiDesktopPrompt(url, token, agent.name),
-              "The token is scoped to this agent and expires in 24h. Restart Claude Desktop afterwards.",
+            {token && (
+              <>
+                <p className="text-[15px] leading-[1.5] text-ink-2">
+                  Or paste this to an AI that can edit files (Claude Code, Cursor, Codex) and it adds the config for you:
+                </p>
+                {card(
+                  "ai",
+                  aiDesktopPrompt(url, token, agent.name),
+                  "Pasting this sends the token to that AI’s provider. It is scoped to this agent and expires in 24h. Restart Claude Desktop afterwards.",
+                )}
+              </>
             )}
           </>
         )}
@@ -163,13 +167,17 @@ export function ConnectAgentModal({ agentId }: { agentId: string }) {
         {tab === "web" && (
           <>
             <WebSteps url={connectorUrl(url, process.env.NEXT_PUBLIC_BRIDGE_URL)} name={agent.name} />
-            <p className="text-[15px] leading-[1.5] text-ink-2">
-              Or paste this to an AI that can run commands (Claude Code, Cursor, Codex) and it connects itself:
-            </p>
-            {card(
-              "ai",
-              aiConnectPrompt(url, token, agent.name),
-              "A chat-only AI can’t run this: use the connector above. The token is scoped to this agent and expires in 24h.",
+            {token && (
+              <>
+                <p className="text-[15px] leading-[1.5] text-ink-2">
+                  Or paste this to an AI that can run commands (Claude Code, Cursor, Codex) and it connects itself:
+                </p>
+                {card(
+                  "ai",
+                  aiConnectPrompt(url, token, agent.name),
+                  "A chat-only AI can’t run this: use the connector above. Pasting this sends the token to that AI’s provider. It is scoped to this agent and expires in 24h.",
+                )}
+              </>
             )}
           </>
         )}
