@@ -66,11 +66,19 @@ describe("connect commands", () => {
     expect(p).toContain("mcp-remote");
   });
 
+  it("replaces an existing entry and only calls hive_whoami once the tools are loaded", () => {
+    const p = aiConnectPrompt("http://localhost:4000/mcp", "tok", "Claude · FE");
+    expect(p).toContain("claude mcp remove hive-claude-fe");
+    expect(p).toContain("already available");
+  });
+
   it("asks the AI to merge the Desktop entry into claude_desktop_config.json", () => {
     const p = aiDesktopPrompt("https://b.example/mcp", "tok", "Claude · FE");
     expect(p).toContain("claude_desktop_config.json");
     expect(p).toContain('"hive-claude-fe"');
     expect(p).toContain('"HIVE_AUTH": "Bearer tok"');
+    expect(p).toContain('"command": "npx"');
+    expect(p).not.toContain('"mcpServers": {');
     expect(p).toContain("Library/Application Support/Claude");
   });
 });

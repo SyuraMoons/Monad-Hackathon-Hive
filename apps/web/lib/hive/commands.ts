@@ -18,51 +18,51 @@ export const claudeTerminalCommand = (url: string, token: string, name: string) 
  * Claude Desktop reaches the bridge through `mcp-remote` (a local stdio proxy). The token sits in `env` because Desktop
  * mangles a space inside `args`, so the header value is `Authorization:${HIVE_AUTH}` with no space after the colon.
  */
+const desktopEntry = (url: string, token: string) => ({
+  command: "npx",
+  args: ["-y", "mcp-remote", url, "--header", "Authorization:${HIVE_AUTH}"],
+  env: { HIVE_AUTH: `Bearer ${token}` },
+});
+
 export const claudeDesktopConfig = (url: string, token: string, name: string) =>
-  JSON.stringify(
-    {
-      mcpServers: {
-        [`hive-${nameSlug(name)}`]: {
-          command: "npx",
-          args: ["-y", "mcp-remote", url, "--header", "Authorization:${HIVE_AUTH}"],
-          env: { HIVE_AUTH: `Bearer ${token}` },
-        },
-      },
-    },
-    null,
-    2,
-  );
+  JSON.stringify({ mcpServers: { [`hive-${nameSlug(name)}`]: desktopEntry(url, token) } }, null, 2);
 
 /**
  * One prompt to paste into an AI that has shell or file access (Claude Code, Cursor, Codex, Gemini CLI, ...). It carries the
  * url and token and tells the AI to register Hive in whichever client it is. A chat-only AI cannot run it: those use the connector.
  */
-export const aiConnectPrompt = (url: string, token: string, name: string) =>
-  [
+export const aiConnectPrompt = (url: string, token: string, name: string) => {
+  const server = `hive-${nameSlug(name)}`;
+  return [
     `Connect yourself to my Hive memory as the agent "${name}". Hive is an MCP server over HTTP:`,
     ``,
     `  url:    ${url}`,
     `  header: Authorization: Bearer ${token}`,
     ``,
-    `Register it as an MCP server named "${`hive-${nameSlug(name)}`}" in the client you are running in, using that client's own command or config file.`,
-    `For Claude Code that is: claude mcp add --transport http hive-${nameSlug(name)} ${url} --header "Authorization: Bearer ${token}"`,
+    `Register it as an MCP server named "${server}" in the client you are running in, using that client's own command or config file.`,
+    `If "${server}" already exists, replace it: the old entry has an expired token.`,
+    `For Claude Code that is: claude mcp remove ${server} (ignore the error if it isn't there), then claude mcp add --transport http ${server} ${url} --header "Authorization: Bearer ${token}"`,
     `If the client only supports stdio servers, use: npx -y mcp-remote ${url} --header "Authorization:\${HIVE_AUTH}" with HIVE_AUTH set to "Bearer ${token}".`,
     ``,
-    `Don't print the token back to me or write it anywhere except that MCP config. When it's registered, tell me to restart or reload if your client needs it, then call hive_whoami to confirm.`,
+    `Don't print the token back to me or write it anywhere except that MCP config.`,
+    `When it's registered: if the hive tools are already available to you, call hive_whoami to confirm. Otherwise tell me to restart or reload your client, and stop there. I'll ask you to call hive_whoami after.`,
   ].join("\n");
+};
 
-/** The Desktop variant: the AI edits claude_desktop_config.json, merging the same entry the Desktop tab shows. */
-export const aiDesktopPrompt = (url: string, token: string, name: string) =>
-  [
+/** The Desktop variant: the AI edits claude_desktop_config.json, setting the same entry the Desktop tab shows. */
+export const aiDesktopPrompt = (url: string, token: string, name: string) => {
+  const server = `hive-${nameSlug(name)}`;
+  return [
     `Add my Hive memory to Claude Desktop as the agent "${name}".`,
     ``,
     `Edit claude_desktop_config.json (macOS: ~/Library/Application Support/Claude/, Windows: %APPDATA%\\Claude\\).`,
-    `Create the file if it doesn't exist. Merge this entry into "mcpServers" and keep every other server as it is:`,
+    `Create the file if it doesn't exist. Under "mcpServers", set the key "${server}" to this value (replace it if it exists) and keep every other server as it is:`,
     ``,
-    claudeDesktopConfig(url, token, name),
+    JSON.stringify(desktopEntry(url, token), null, 2),
     ``,
     `Don't print the token back to me or write it anywhere else. Then tell me to quit Claude Desktop fully and open it again.`,
   ].join("\n");
+};
 
 /** The URL for claude.ai's "Add custom connector": the bridge's own /mcp, no token (Claude signs in with OAuth, ADR-019). */
 export const connectorUrl = (mcpUrl: string | undefined, bridgeUrl: string | undefined) =>
