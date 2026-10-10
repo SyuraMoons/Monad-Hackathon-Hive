@@ -76,7 +76,9 @@ async function candidates(deps: ReadDeps, args: Scope): Promise<ChainSlot[]> {
 export async function visibleMemories(deps: ReadDeps, args: Scope, stop: number): Promise<Opened[]> {
   const all = await candidates(deps, args);
   const showAll = args.includeSuperseded === true || args.slotIds !== undefined;
-  const supersededBy = new Map<bigint, ChainSlot>();
+  // "<sender>:<topic>:<slot>" of every slot a memory replaces. The key carries the claimant's own sender and topic, so a
+  // claim on someone else's slot builds a key that never matches: it can neither hide that slot nor block the real claim.
+  const replaced = new Set<string>();
   const stateSeen = new Set<string>();
   const out: Opened[] = [];
   for (let i = 0; i < all.length && out.length < stop; i += PAGE) {
@@ -85,9 +87,8 @@ export async function visibleMemories(deps: ReadDeps, args: Scope, stop: number)
     for (const slot of page) {
       const doc = docs.get(slot.contentHash.toLowerCase());
       if (!doc) continue;
-      const by = supersededBy.get(slot.id);
-      let hidden = by !== undefined && by.agentId === slot.agentId && by.topic === slot.topic;
-      if (doc.supersedes !== undefined && !supersededBy.has(doc.supersedes)) supersededBy.set(doc.supersedes, slot);
+      let hidden = replaced.has(`${slot.agentId}:${slot.topic}:${slot.id}`);
+      if (doc.supersedes !== undefined) replaced.add(`${slot.agentId}:${slot.topic}:${doc.supersedes}`);
       if (doc.kind === "state") {
         const key = `${slot.agentId}:${slot.topic}`;
         if (stateSeen.has(key)) hidden = true;
