@@ -33,6 +33,24 @@ export const claudeDesktopConfig = (url: string, token: string, name: string) =>
     2,
   );
 
+/**
+ * One prompt to paste into an AI that has shell or file access (Claude Code, Cursor, Codex, Gemini CLI, ...). It carries the
+ * url and token and tells the AI to register Hive in whichever client it is. A chat-only AI cannot run it: those use the connector.
+ */
+export const aiConnectPrompt = (url: string, token: string, name: string) =>
+  [
+    `Connect yourself to my Hive memory as the agent "${name}". Hive is an MCP server over HTTP:`,
+    ``,
+    `  url:    ${url}`,
+    `  header: Authorization: Bearer ${token}`,
+    ``,
+    `Register it as an MCP server named "${`hive-${nameSlug(name)}`}" in the client you are running in, using that client's own command or config file.`,
+    `For Claude Code that is: claude mcp add --transport http hive-${nameSlug(name)} ${url} --header "Authorization: Bearer ${token}"`,
+    `If the client only supports stdio servers, use: npx -y mcp-remote ${url} --header "Authorization:\${HIVE_AUTH}" with HIVE_AUTH set to "Bearer ${token}".`,
+    ``,
+    `Don't print the token back to me or write it anywhere except that MCP config. When it's registered, tell me to restart or reload if your client needs it, then call hive_whoami to confirm.`,
+  ].join("\n");
+
 /** The URL for claude.ai's "Add custom connector": the bridge's own /mcp, no token (Claude signs in with OAuth, ADR-019). */
 export const connectorUrl = (mcpUrl: string | undefined, bridgeUrl: string | undefined) =>
   mcpUrl || (bridgeUrl ? `${bridgeUrl.replace(/\/+$/, "")}/mcp` : "");
