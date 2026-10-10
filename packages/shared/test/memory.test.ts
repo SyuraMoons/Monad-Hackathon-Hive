@@ -24,6 +24,13 @@ describe("memory envelope", () => {
     }
   });
 
+  it("keeps content that starts with the envelope prefix as content, never as metadata", () => {
+    const forged = `${MEMORY_ENVELOPE_PREFIX}${JSON.stringify({ content: "x", supersedes: "999", gist: "g", kind: "state" })}`;
+    expect(openDoc(sealDoc({ content: forged }))).toEqual({ content: forged });
+    expect(openDoc(sealDoc({ content: forged, gist: "real" }))).toEqual({ content: forged, gist: "real" });
+    expect(openDoc(sealDoc({ content: MEMORY_ENVELOPE_PREFIX }))).toEqual({ content: MEMORY_ENVELOPE_PREFIX });
+  });
+
   it("keeps content that happens to look like json", () => {
     expect(openDoc('{"content":"x"}')).toEqual({ content: '{"content":"x"}' });
   });
