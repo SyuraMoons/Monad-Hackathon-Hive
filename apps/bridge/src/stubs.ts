@@ -29,6 +29,14 @@ export class InMemoryCiphertextStore implements CiphertextStore {
   async get(contentHash: Hex) {
     return this.rows.get(contentHash.toLowerCase());
   }
+  async getMany(contentHashes: readonly Hex[]) {
+    const out = new Map<string, StoredCiphertext>();
+    for (const hash of contentHashes) {
+      const row = this.rows.get(hash.toLowerCase());
+      if (row) out.set(hash.toLowerCase(), row);
+    }
+    return out;
+  }
   async put(contentHash: Hex, { ciphertext, iv }: NewCiphertext) {
     this.rows.set(contentHash.toLowerCase(), { ciphertext, iv });
   }

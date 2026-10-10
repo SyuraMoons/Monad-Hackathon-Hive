@@ -48,6 +48,22 @@ describe.skipIf(!url || !serviceKey)("SupabaseCiphertextStore (live)", () => {
     await expect(store.put(sealed.contentHash, { ...sealed, owner: OWNER, keyId: "hive/encrypt" })).resolves.toBeUndefined();
   });
 
+  it("getMany reads several rows in one call, past one chunk, and leaves unknown hashes out", async () => {
+    const sealed = await Promise.all(Array.from({ length: 105 }, (_, i) => encrypt(`many ${Date.now()} ${i}`, KEY)));
+    for (const s of sealed) written.push(s.contentHash);
+    const { error } = await admin.from("memory_content").insert(
+      sealed.map((s) => ({ content_hash: s.contentHash, owner: OWNER.toLowerCase(), ciphertext: `\\x${Buffer.from(s.ciphertext).toString("hex")}`, iv: `\\x${Buffer.from(s.iv).toString("hex")}`, key_id: "hive/encrypt" })),
+    );
+    expect(error).toBeNull();
+    const unknown = ("0x" + "cd".repeat(32)) as Hex;
+    const got = await store.getMany([...sealed.map((s) => s.contentHash), unknown]);
+    expect(got.size).toBe(105);
+    expect(got.has(unknown)).toBe(false);
+    const first = sealed[0]!;
+    expect(got.get(first.contentHash)).toEqual({ ciphertext: first.ciphertext, iv: first.iv });
+    expect((await store.getMany([])).size).toBe(0);
+  });
+
   it("rejects a contentHash that doesn't match the ciphertext", async () => {
     const a = await encrypt("a", KEY);
     const b = await encrypt("b", KEY);
