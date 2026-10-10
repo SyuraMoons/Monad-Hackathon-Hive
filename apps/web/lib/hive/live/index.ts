@@ -10,7 +10,7 @@ import { chainHistory } from "./historyChain";
 import { loadEdgeNotes, saveEdgeNote } from "../edgeNotes";
 import { addEdgeTx, edgesOf, removeEdgeTx } from "./edges";
 import { chainEdges, edgeReader } from "./edgesChain";
-import { agentsOf, registerAndBind, toAgent } from "./registry";
+import { registerAndBind, toAgent } from "./registry";
 import { chainReader, chainRegistry } from "./registryChain";
 
 // Sign-in and agent sessions talk to the real bridge, agents are read from the AgentRegistry and edges from KnowledgeGraph.
@@ -58,7 +58,7 @@ export function createLiveClient(): LiveHiveClient {
     oauth: bridge.oauth,
     graph: {
       load: async (owner) => {
-        const mine = await agentsOf(chainReader, owner);
+        const mine = await chainReader.agentsOf(owner);
         const notes = loadEdgeNotes(owner);
         // The chain keeps only keccak256(topic): the topic text comes from "general" and the old "brain", the edges signed here, then what the agents wrote.
         const known = [DEFAULT_TOPIC, "brain", ...Object.values(notes).map((n) => n.topic)];
