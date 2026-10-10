@@ -1,10 +1,10 @@
 # Hive
 
-**IFTTT for AI agent memory.** Draw lines between your AI agents on a canvas to decide who may share what, and with no line, nothing is shared. Every permission is signed with your passkey (Face ID) and recorded on Monad, so anyone can check it.
+**IFTTT for AI agent memory.** Draw lines between your AI agents on a canvas to decide who may share what, and with no line, nothing is shared. Every permission is signed with your passkey and recorded on Monad, so anyone can check it.
 
 > Monad Metropolis Hackathon · Track 4 (Trust, Identity & AI) · submission deadline 13 Oct 2026
 
-> **Status:** early scaffold. Most layers below are *planned*. See [docs/roadmap.md](docs/roadmap.md) for what's done.
+> **Status:** in progress. Contracts are live on Monad testnet (10143), and registering agents and adding an edge is checked through the `/smoke` harness. The bridge (MCP tools, encrypted storage, event stream) is built, and an MCP write from Claude Code has been run against testnet. In live mode the Connect screen can register an agent (written and unit-tested, not yet run on testnet) and the canvas reads the bridge's live events (tested, not yet run in the browser). The canvas still runs on mock data, so drawing an edge does not send a transaction yet, and Envio indexing and end-to-end propagation are *planned*. See [docs/roadmap.md](docs/roadmap.md) for what's done.
 
 ## How it works
 
@@ -12,9 +12,9 @@
 ┌─────────────────────────────────────────────┐
 │ 1. Canvas            Next.js + React Flow   │  drag agents, draw permission edges
 ├─────────────────────────────────────────────┤
-│ 2. Passkey auth      Mera (WebAuthn PRF)    │  Face ID is the only key
+│ 2. Passkey auth      Mera (WebAuthn PRF)    │  your passkey is the only key
 ├─────────────────────────────────────────────┤
-│ 3. Agent bridge      Node + MCP SDK         │  lets Claude / Cursor / bots talk to Hive
+│ 3. Agent bridge      Node + MCP SDK         │  lets Claude / GPT / bots talk to Hive
 ├─────────────────────────────────────────────┤
 │ 4. Memory storage    Supabase (encrypted)   │  ciphertext only, server can't read it
 ├─────────────────────────────────────────────┤

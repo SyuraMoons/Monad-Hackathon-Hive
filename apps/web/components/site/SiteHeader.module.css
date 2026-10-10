@@ -1,0 +1,16 @@
+.chrome { position:sticky; top:0; z-index:40; display:flex; align-items:center;
+          justify-content:space-between; gap:12px; min-height:60px;
+          padding:max(14px, calc(env(safe-area-inset-top, 0px) + 12px)) clamp(16px, 3.4vw, 64px) 14px;
+          background:linear-gradient(to bottom,
+            color-mix(in srgb, var(--color-paper) 94%, transparent) 0%,
+            color-mix(in srgb, var(--color-paper) 78%, transparent) 72%,
+            color-mix(in srgb, var(--color-paper) 0%, transparent) 100%); }
+.home   { display:inline-flex; min-height:36px; align-items:center; text-decoration:none; }
+.nav    { display:flex; align-items:center; gap:clamp(14px, 2.4vw, 34px); flex-shrink:0; }
+.link   { color:var(--color-ink); text-decoration:none; font:400 14.5px/1.4 var(--font-body);
+          letter-spacing:-.008em; opacity:.88; transition:opacity .3s var(--ease-hive); }
+.link:hover { opacity:1; }
+@media (max-width:720px) { .link { display:none; } }
+/* At phone widths the full label doesn't fit beside the logo; the accessible name stays full. */
+.short  { display:none; }
+@media (max-width:420px) { .full { display:none; } .short { display:inline; } }

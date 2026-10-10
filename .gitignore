@@ -1,12 +1,71 @@
+# dependencies
 node_modules/
+.pnpm-store/
+
+# build output and caches
 dist/
+build/
+out/
 .next/
 .turbo/
+.vercel/
+*.tsbuildinfo
+next-env.d.ts
+
+# env files (keep the example)
 .env
-.env.local
+.env.*
+!.env.example
+
+# logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# tests
+coverage/
+test-results/
+playwright-report/
+
+# OS and editors
 .DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# local AI assistant settings and worktrees
+.claude/settings.local.json
+.kilo/
+
+# local Claude instructions
+claude.local.md
+CLAUDE.local.md
 
 # foundry
 packages/contracts/out/
 packages/contracts/cache/
 packages/contracts/broadcast/
+
+# Private planning docs (local working notes; docs/backend-handoff.md is the shared version)
+docs/rules.md
+docs/design.md
+docs/hero-prompt.md
+docs/claude-code-prompts.md
+
+# Hero video: the rendered files in apps/web/public/hero/ and the scripts are tracked.
+# Only the scratch frames from a re-render are ignored.
+apps/web/scripts/hero-video/frames/
+
+# extra build folders (NEXT_DIST_DIR)
+.next-*/
+
+# keys and certificates (never commit a deployer or signing key)
+*.pem
+*.key
+keystore/
+
+# tool caches
+.eslintcache

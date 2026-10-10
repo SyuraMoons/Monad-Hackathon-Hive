@@ -20,23 +20,46 @@ Deadline: **13 Oct 2026, 23:59 UTC**. Demo freeze: **10 Oct**.
 | **CP2**: end-to-end propagation | 5 Oct | Agent A writes memory, a propagation event fires, Agent B receives it, and all of it is visible on the canvas with animation |
 | **CP3**: demo freeze | 10 Oct | No new features after this. Only rehearsal and bug fixes |
 
+**Status, 5 Oct:** CP1 and CP2 are not met on `development`. The contracts are deployed and their source is merged (#76). Adding an edge works from `/smoke` with the dev signer, but the canvas still runs on the mock client. The bridge now streams `agent.connected`, `memory.written` and `memory.read` on `/v1/events` and the live client reads that stream (integration and unit tests, not yet run in the browser).
+
+## Verified runs
+
+### 3 Oct 2026 — write layer via dev signer
+`/smoke` with `NEXT_PUBLIC_HIVE_DEV_SIGNER` (owner `0x6AC6951B0a53d7a059A121494691A84b5403dF5A`): registered two agents, then added an edge. Three txs confirmed, then checked with `cast call`:
+
+- `agents(1)` → `"Claude"`, `"chatbot"`, owner `0x6AC6…dF5A`
+- `agents(2)` → `"ChatGPT"`, `"chatbot"`, owner `0x6AC6…dF5A`
+- `hasPermission(1, 2, "demo")` → `true`
+- `edge(1)` → `{ from: 1, to: 2, topic: keccak256("demo"), active: true }` · `edgeCount()` → `1`
+
+This exercised the **dev-signer** path only (ADR-006), not a Mera passkey.
+
+### 5 Oct 2026 — MCP write through the bridge
+`AgentRegistry.agents(3)` is `"GPT"` and `agents(4)` is `"Claude"`, both owned by `0xB62A…2a6F` with their writer key set (read with `cast call`). From Claude Code, with the `hive` MCP server pointing at the local bridge:
+
+- `hive_whoami` → agent `4`, name `Claude`, `readableTopics: []` (still a stub)
+- `hive_read_memory` → `memories: []` (no edge points at agent 4)
+- `hive_write_memory` topic `mcp-test` → `slotId` 1, `txHash` `0xc5de9453…ffe4`, `propagatedTo: []` (no edge from agent 4)
+
+Not checked: the transaction on Monadscan, a read by a second agent, or the Connect page reacting to the first call.
+
 ## P0 features (required)
 
 | # | Feature | Owner | Status |
 | --- | --- | --- | --- |
-| P0.1 | AgentRegistry contract | P1 | ⏳ |
-| P0.2 | KnowledgeGraph contract (edges) | P1 | ⏳ |
-| P0.3 | MemorySlots + propagation | P1 | ⏳ |
-| P0.4 | Passkey auth via Mera | P2 | ⏳ |
-| P0.5 | Encrypted storage (Supabase) | P2 | ⏳ |
-| P0.6 | MCP bridge server | P2 | ⏳ |
-| P0.7 | Visual canvas (React Flow) | P3 | ⏳ |
+| P0.1 | AgentRegistry contract | P1 | ✅ deployed to testnet, source and tests in #76 |
+| P0.2 | KnowledgeGraph contract (edges) | P1 | ✅ deployed to testnet, source and tests in #76 |
+| P0.3 | MemorySlots + PropagationEngine | P1 | ✅ deployed to testnet, source and tests in #76 |
+| P0.4 | Passkey auth via Mera | P2 | 🚧 real passkey ceremony and key derivation (ADR-005); `/smoke` can sign with the passkey (#79), but that path is untested |
+| P0.5 | Encrypted storage (Supabase) | P2 | ✅ ciphertext-only table, bridge store (#66, #69) |
+| P0.6 | MCP bridge server | P2 | 🚧 MCP read/write, authorize, gas top-up, chain reader (#71–#77); SSE `/v1/events` built (`agent.connected`, `memory.written`, `memory.read`, `agent.disconnected`); `session.expiring` and `GET /v1/memory/:hash` are planned |
+| P0.7 | Visual canvas (React Flow) | P3 | 🚧 canvas, audit and connect screens on the mock client. In live mode the live client reads agents and registers them from `/connect` (unit-tested, not yet run against testnet) and reads the bridge's event stream (unit-tested, not yet run in the browser); edges are read and signed on-chain (not yet run on testnet); audit and memory preview are still stubs |
 | P0.8 | Live propagation animation | P3 | ⏳ |
-| P0.9 | 2 mock chatbots | P4 | ⏳ |
+| P0.9 | 2 mock chatbots | P4 | ⏳ placeholder only |
 | P0.10 | Envio indexer (audit trail) | P2 | ⏳ |
 | P0.11 | Demo script + rehearsal | P4 | ⏳ |
 
-P1 nice-to-haves, only after all P0 items are done: Claude Desktop MCP integration, colored isolation zones, provenance view, time-travel replay, Cursor integration.
+P1 nice-to-haves, only after all P0 items are done: Claude Desktop MCP integration, colored isolation zones, provenance view, time-travel replay, ChatGPT integration.
 
 ## Build steps
 
@@ -44,21 +67,40 @@ We build one layer at a time. Tick each step off here when it's done.
 
 - [x] Blank monorepo scaffold
 - [x] Docs (README, AGENTS.md, docs/)
-- [ ] Mera passkey smoke test: `/smoke` page with Face ID → address → one sponsored tx
-- [ ] Contracts: AgentRegistry, KnowledgeGraph, MemorySlots, with tests and a deploy to testnet
-- [ ] Canvas: React Flow with 3 nodes and drawable edges
-- [ ] Wire edge creation → contract tx (CP1)
+- [ ] Mera passkey smoke test: `/smoke` page with passkey → address → one onchain tx (gas paid by the Mera EOA, ADR-006)
+  - [x] Dev-signer variant verified 3 Oct (see _Verified runs_)
+  - [ ] Passkey-signed tx: `/smoke` uses `lib/passkey` (#79) but nobody has run it yet
+- [x] Contracts: AgentRegistry, KnowledgeGraph, MemorySlots, PropagationEngine, with tests and a deploy to testnet (#71, #76)
+- [x] Canvas: React Flow with 3 nodes and drawable edges (mock client)
+- [ ] Live agent registration from `/connect`: `register` + `setAgentWriter`, then bridge `authorize`
+  - [x] Code and unit tests with fake chain deps
+  - [ ] Run against testnet with a passkey-signed owner (needs MON on the owner address) and a real `claude mcp add`
+- [ ] Wire edge creation → contract tx (CP1). Works from `/smoke` (dev signer, 3 Oct); the live client now sends `addEdge` / `removeEdge` and reads edges from `KnowledgeGraph` (unit-tested, built but not yet run on testnet), so this stays open until it is
 - [ ] Envio indexer
-- [ ] Bridge: MCP tools `write_memory` / `read_memory`, plus SSE `/events`
-- [ ] Supabase encrypted storage
+- [x] Bridge: MCP tools `write_memory` / `read_memory`, plus SSE `/events`
+  - [x] MCP `hive_write_memory` / `hive_read_memory` / `hive_whoami`, live chain reads, `authorize` with gas top-up, encrypted write to `MemorySlots` (#71, #74, #75, #77). A live write from Claude Code returned a receipt on 5 Oct (see _Verified runs_)
+  - [x] SSE `/v1/events`: bridge route and web client, tested against a real port and a fake `EventSource`. Not yet seen turning the Connect page green in a browser. `session.expiring` is planned
+- [x] Supabase encrypted storage (#66, #69)
+- [x] Bridge `hive_save_session`: the agent writes a compact summary of its own session to the shared `brain` topic (ADR-010). Tested with the SDK client, not yet run against testnet, ChatGPT not yet tested
 - [ ] Mock agents
+- [x] Session restore: the web app keeps the 24h user token across a reload and asks for the passkey again only when keys are needed (ADR-011). Unit-tested for storage and token handling, not yet tried in a browser
+- [x] Canvas Reconnect and Disconnect: the agent drawer re-authorizes an agent after a bridge restart (an unexpired token works again) or ends its bridge session. Not yet tried in a browser
+- [x] Several named agents per type: Connect lists a type's agents and registers a new one by name (ADR-012). Not yet tried in a browser
+- [x] Memory history in the agent drawer: past writes read from `MemorySlots.slotsSince` (topic, time and content hash, no content). Not yet tried in a browser
+- [x] Remove an agent from the canvas: hidden in this browser, bridge session ended, refused while it has edges (ADR-012). The registry has no delete. Not yet tried in a browser
+- [x] One terminal per agent: `claude --mcp-config` command on Connect and in the drawer, so several agents share one folder. Not yet tried against a real Claude Code
+- [x] Create agents from the canvas, keep agent tokens across a reload, and "Finish setup" for a registration that stopped halfway. Not yet run in a browser
+- [ ] claude.ai / Claude Desktop connector (OAuth, ADR-019)
+  - [x] Bridge: metadata, DCR, authorize redirect, `/v1/oauth/approve`, token and refresh, `WWW-Authenticate` on `/mcp` 401s. Tested with supertest and the SDK client against a real port, not yet run against claude.ai
+  - [x] Web consent page `/oauth/authorize` and the claude.ai steps in the Connect popup (unit-tested, not yet run in a browser)
+  - [ ] Run against a deployed bridge (`BRIDGE_WEB_URL` set) from claude.ai and Claude Desktop
 - [ ] Propagation animation (CP2)
 - [ ] Demo script and rehearsal (CP3)
 
 ## Open questions (from the PRD)
 
-- Does Mera PRF work under Next.js 15? The smoke test answers this.
+- Does Mera PRF work under Next.js 15? The smoke test answers this. _Still open 3 Oct — only the dev-signer path has been run._
 - Is an ERC-8004 registry deployed on Monad testnet?
 - Does the MCP TypeScript SDK support our custom server setup?
 - Can React Flow handle 20+ nodes with animation?
-- Final product name: Hive, Synapse, or AgentGraph (decide by 9 Oct).
+- ~~Final product name~~: decided, Mindshare (ADR-008). The rename PR is still to do.
