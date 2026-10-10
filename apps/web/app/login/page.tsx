@@ -186,10 +186,10 @@ function LoginScreen() {
             <em className="text-amber-strong">Every</em> key.
           </h1>
           <p className="max-w-[520px] text-[clamp(17px,1.32vw,19px)] leading-[1.5] text-ink-2">
-            No wallet to install, no seed phrase to keep. The passkey on this device signs every edge you draw and unlocks the memory only you can read.
+            No wallet to install, no seed phrase to keep. The passkey on this device signs every edge you draw and derives the key your memory is encrypted with.
           </p>
           <ul className="flex flex-col gap-3 font-mono text-[14px] text-ink-2">
-            {["keys are derived on your device", "Hive servers cannot read your memory", "every permission is signed on Monad"].map((t) => (
+            {["keys are derived on your device", "memory is stored only as ciphertext", "every permission is signed on Monad"].map((t) => (
               <li key={t} className="flex items-center gap-3">
                 <StatusDot status="pending" />
                 {t}
