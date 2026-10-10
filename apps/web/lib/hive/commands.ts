@@ -54,3 +54,7 @@ export const gptSnippet = (url: string, token: string) =>
   ].join("\n");
 
 export const gptRunner = (token: string) => `HIVE_TOKEN_GPT=${token} pnpm --filter @hive/agents gpt --chat`;
+
+// DeepSeek has no remote-MCP tool, so a local runner calls the bridge for it (ADR-020). Key and model come from .env.
+export const deepseekRunner = (url: string, token: string) =>
+  [`HIVE_MCP_URL=${url} \\`, `HIVE_TOKEN_DEEPSEEK=${token} \\`, `pnpm --filter @hive/agents deepseek --chat`].join("\n");
