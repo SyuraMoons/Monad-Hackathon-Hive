@@ -51,6 +51,19 @@ export const aiConnectPrompt = (url: string, token: string, name: string) =>
     `Don't print the token back to me or write it anywhere except that MCP config. When it's registered, tell me to restart or reload if your client needs it, then call hive_whoami to confirm.`,
   ].join("\n");
 
+/** The Desktop variant: the AI edits claude_desktop_config.json, merging the same entry the Desktop tab shows. */
+export const aiDesktopPrompt = (url: string, token: string, name: string) =>
+  [
+    `Add my Hive memory to Claude Desktop as the agent "${name}".`,
+    ``,
+    `Edit claude_desktop_config.json (macOS: ~/Library/Application Support/Claude/, Windows: %APPDATA%\\Claude\\).`,
+    `Create the file if it doesn't exist. Merge this entry into "mcpServers" and keep every other server as it is:`,
+    ``,
+    claudeDesktopConfig(url, token, name),
+    ``,
+    `Don't print the token back to me or write it anywhere else. Then tell me to quit Claude Desktop fully and open it again.`,
+  ].join("\n");
+
 /** The URL for claude.ai's "Add custom connector": the bridge's own /mcp, no token (Claude signs in with OAuth, ADR-019). */
 export const connectorUrl = (mcpUrl: string | undefined, bridgeUrl: string | undefined) =>
   mcpUrl || (bridgeUrl ? `${bridgeUrl.replace(/\/+$/, "")}/mcp` : "");

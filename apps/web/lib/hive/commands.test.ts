@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { aiConnectPrompt, claudeCommand, claudeDesktopConfig, claudeTerminalCommand, connectorUrl, deepseekRunner, isLocalUrl, nameSlug, gptRunner, gptSnippet } from "./commands";
+import { aiConnectPrompt, aiDesktopPrompt, claudeCommand, claudeDesktopConfig, claudeTerminalCommand, connectorUrl, deepseekRunner, isLocalUrl, nameSlug, gptRunner, gptSnippet } from "./commands";
 
 describe("connect commands", () => {
   it("passes the url and token to the DeepSeek runner and nothing else", () => {
@@ -64,5 +64,13 @@ describe("connect commands", () => {
     expect(p).toContain("Authorization: Bearer tok");
     expect(p).toContain("hive-claude-fe");
     expect(p).toContain("mcp-remote");
+  });
+
+  it("asks the AI to merge the Desktop entry into claude_desktop_config.json", () => {
+    const p = aiDesktopPrompt("https://b.example/mcp", "tok", "Claude · FE");
+    expect(p).toContain("claude_desktop_config.json");
+    expect(p).toContain('"hive-claude-fe"');
+    expect(p).toContain('"HIVE_AUTH": "Bearer tok"');
+    expect(p).toContain("Library/Application Support/Claude");
   });
 });

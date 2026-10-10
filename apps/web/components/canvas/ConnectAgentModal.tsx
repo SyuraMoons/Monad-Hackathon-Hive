@@ -5,7 +5,7 @@ import { zeroAddress } from "viem";
 import { InstallCard, type InstallTab } from "@/components/ui/InstallCard";
 import { Modal } from "@/components/ui/Modal";
 import { Tabs } from "@/components/ui/Tabs";
-import { aiConnectPrompt, claudeCommand, claudeDesktopConfig, claudeTerminalCommand, connectorUrl, isLocalUrl } from "@/lib/hive/commands";
+import { aiConnectPrompt, aiDesktopPrompt, claudeCommand, claudeDesktopConfig, claudeTerminalCommand, connectorUrl, isLocalUrl } from "@/lib/hive/commands";
 import { useGraph } from "@/lib/stores/graph";
 import { useSession } from "@/lib/stores/session";
 import { useUi } from "@/lib/stores/ui";
@@ -148,6 +148,14 @@ export function ConnectAgentModal({ agentId }: { agentId: string }) {
               "desktop",
               claudeDesktopConfig(url, token, agent.name),
               "Needs Node 18+ for npx. The token expires in 24h: after Reconnect, copy this again.",
+            )}
+            <p className="text-[15px] leading-[1.5] text-ink-2">
+              Or paste this to an AI that can edit files (Claude Code, Cursor, Codex) and it adds the config for you:
+            </p>
+            {card(
+              "ai",
+              aiDesktopPrompt(url, token, agent.name),
+              "The token is scoped to this agent and expires in 24h. Restart Claude Desktop afterwards.",
             )}
           </>
         )}
