@@ -1,12 +1,13 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import { DEFAULT_TOPIC, HiveError, zListMemoryInput, zReadMemoryInput, zSaveSessionInput, zWriteMemoryInput, type MemoryMeta, type WhoamiOutput, type WriteMemoryOutput } from "@hive/shared";
+import { DEFAULT_TOPIC, HiveError, zListMemoryInput, zReadMemoryInput, zSaveSessionInput, zSearchMemoryInput, zWriteMemoryInput, type MemoryMeta, type WhoamiOutput, type WriteMemoryOutput } from "@hive/shared";
 import type { Request, Response } from "express";
 import { getAddress } from "viem";
 import { privateKeyToAddress } from "viem/accounts";
 import type { GasFunder } from "./funder.js";
 import type { EventBus } from "./events.js";
 import { listMemory, readMemory, writeMemory, type ReadDeps } from "./memory.js";
+import { searchMemory } from "./search.js";
 import { looksLikeSecret } from "./secrets.js";
 import type { SessionStore, AgentSession } from "./sessions.js";
 import type { TokenService } from "./tokens.js";
@@ -106,6 +107,15 @@ function buildServer(deps: McpDeps, session: AgentSession): McpServer {
     }
     return result(out);
   });
+
+  server.registerTool(
+    "hive_search_memory",
+    {
+      description: "Search the memories you may read for what matters to your task, ranked: words, names, ids and addresses match. Returns gist, kind and a short preview, not the full content; read the ones you need with hive_read_memory and slotIds. Replaced memories are left out, and `mine: true` searches your own. Permissions are checked on live chain state at every call.",
+      inputSchema: zSearchMemoryInput.shape,
+    },
+    async (input) => result(await searchMemory(readDeps(), { agentId: session.agentId, ...input })),
+  );
 
   server.registerTool("hive_whoami", { description: "Who you are in Hive and when your session ends.", inputSchema: {} }, async () => {
     const agent = await deps.chain.agent(session.agentId);

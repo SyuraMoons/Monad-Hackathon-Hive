@@ -126,6 +126,23 @@ describe("structured memory over MCP", () => {
     await gpt.close();
   });
 
+  it("hive_search_memory finds by words and by entity, and sees only what the reader may read", async () => {
+    const gpt = await connect("ChatGPT");
+    const hit = (await call(gpt, "hive_search_memory", { query: "where do we host the web app" })).data;
+    expect(hit.mode).toBe("lexical");
+    expect(hit.memories[0]).toMatchObject({ gist: "Web host: Railway", fromName: "Claude" });
+    expect(hit.memories[0]).not.toHaveProperty("content");
+    expect(hit.memories.map((m: any) => m.gist)).not.toContain("Web host: Vercel");
+    const byEntity = (await call(gpt, "hive_search_memory", { query: "railway", limit: 1 })).data;
+    expect(byEntity.memories[0].matched).toContain("entity");
+    expect((await call(gpt, "hive_search_memory", { query: "kubernetes" })).data.memories).toEqual([]);
+    const therapy = await connect("Therapy Bot");
+    expect((await call(therapy, "hive_search_memory", { query: "web host railway" })).data.memories).toEqual([]);
+    expect((await call(gpt, "hive_search_memory", { query: "" })).isError).toBe(true);
+    await gpt.close();
+    await therapy.close();
+  });
+
   it("a revoke empties the next list, whatever the cursor and cache hold", async () => {
     const gpt = await connect("ChatGPT");
     expect((await call(gpt, "hive_list_memory", {})).data.memories.length).toBeGreaterThan(0);
