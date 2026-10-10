@@ -56,6 +56,24 @@ export interface CiphertextStore {
   put(contentHash: Hex, value: NewCiphertext): Promise<void>;
 }
 
+export type EmbedderStatus = "loading" | "ready" | "error";
+
+/** Turns text into unit-length vectors, so cosine similarity is a dot product. Runs in the bridge: plaintext never leaves it (ADR-022). */
+export interface Embedder {
+  /** Names the vectors it makes. A vector of another model is never mixed in. */
+  readonly model: string;
+  readonly dims: number;
+  status(): EmbedderStatus;
+  embedQuery(text: string): Promise<Float32Array>;
+  embedPassages(texts: string[]): Promise<Float32Array[]>;
+}
+
+/** Encrypted embedding vectors (memory_embedding), keyed by contentHash and model. Never holds a vector in the clear. */
+export interface VectorStore {
+  getVectors(contentHashes: readonly Hex[], model: string): Promise<Map<string, StoredCiphertext>>;
+  putVector(contentHash: Hex, model: string, dims: number, value: NewCiphertext): Promise<void>;
+}
+
 export type PutVaultResult = "created" | "replaced" | "forbidden";
 
 /** Mera secret vaults (ciphertext JSON) keyed by passkey credential ID. Write-once per credential: only the first owner may replace it. */

@@ -5,4 +5,7 @@ packages:
 allowBuilds:
   '@scarf/scarf': false
   esbuild: true
+  # The CPU runtime ships its binaries inside the package, so neither script is needed (ADR-022).
+  onnxruntime-node: false
+  protobufjs: false
   unrs-resolver: true

@@ -11,6 +11,10 @@ const zConfig = z.object({
   BRIDGE_FUNDER_PRIVATE_KEY: z.string().regex(/^0x[0-9a-fA-F]{64}$/, "BRIDGE_FUNDER_PRIVATE_KEY must be a 0x-prefixed 32-byte key").optional(),
   SUPABASE_URL: z.string().optional(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
+  HIVE_EMBEDDINGS: z.enum(["on", "off"]).default("off"),
+  HIVE_EMBED_MODEL: z.string().min(1).default("Xenova/multilingual-e5-small"),
+  HIVE_MODEL_CACHE_DIR: z.string().optional(),
+  HIVE_EMBED_MIN_SIM: z.coerce.number().min(0).max(1).default(0.78),
 });
 
 export type Config = {
@@ -25,6 +29,8 @@ export type Config = {
   /** Testnet-only key that tops up agent keys (ADR-007). Unset: no top-up. */
   funderKey: Hex | undefined;
   supabase: { url: string; serviceKey: string } | undefined;
+  /** Search by meaning (ADR-022). Off by default: the model is a large download and needs memory. */
+  embeddings: { enabled: boolean; model: string; cacheDir: string | undefined; minSimilarity: number };
 };
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -38,5 +44,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     webUrl: e.BRIDGE_WEB_URL,
     funderKey: e.BRIDGE_FUNDER_PRIVATE_KEY as Hex | undefined,
     supabase: e.SUPABASE_URL && e.SUPABASE_SERVICE_ROLE_KEY ? { url: e.SUPABASE_URL, serviceKey: e.SUPABASE_SERVICE_ROLE_KEY } : undefined,
+    embeddings: { enabled: e.HIVE_EMBEDDINGS === "on", model: e.HIVE_EMBED_MODEL, cacheDir: e.HIVE_MODEL_CACHE_DIR, minSimilarity: e.HIVE_EMBED_MIN_SIM },
   };
 }
