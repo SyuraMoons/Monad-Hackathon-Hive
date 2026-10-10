@@ -61,6 +61,13 @@ claude.ai ─▶ POST /mcp ─▶ 401 + WWW-Authenticate (resource_metadata)
           ─▶ redirect to claude.ai with a 60 s code ─▶ POST /oauth/token ─▶ agent token (refreshable while the session lives)
 ```
 
+**Find memory without loading it all** (planned, ADR-022)
+```
+Agent ─▶ read_memory(kind=state) ─▶ list_memory(cursor) ─▶ search_memory(query)
+      ─▶ permission filter on live chain state ─▶ rank in the bridge (BM25, then encrypted embeddings)
+      ─▶ previews and gists ─▶ read_memory(slotIds) for the 0–2 that matter
+```
+
 ## Trust model and honest limits
 
 - The bridge holds the per-agent keys of agents the user has authorized. It is a trusted component in the hackathon version.

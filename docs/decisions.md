@@ -172,3 +172,20 @@ Short architecture decision records. To add one, append the next number and don'
 **Decision.** `AgentRegistry` keeps `owner => agentId[]` and exposes `agentsOf(owner) returns (uint256[] ids, Agent[] list)`, oldest first. The web (`registryChain.ts`) and the bridge (`ViemChainReader.agentsOf`) call it once instead of scanning.
 
 **Consequences.** `KnowledgeGraph` and `MemorySlots` hold the registry address as `immutable`, so all four contracts were redeployed and testnet state started empty: agents, edges and memory slots from the old addresses are gone, and ciphertext rows in Supabase keyed by old slot ids are orphaned. The lookup cost now grows with one owner's agents, not with the whole registry.
+
+
+## ADR-022: Structured memory, delta reads and search, all inside the encrypted payload
+**Date:** 2026-10-10 · **Status:** proposed
+
+**Context.** ADR-015 capped a bare read at 20 memories and added previews, but an agent still picks what to read by recency and a 160-character cut of the text. As history grows it either loads too much into its context or misses the memory that matters. Search was left open because it "would need plaintext or a second encrypted column". The chain can't carry new fields (`MemorySlots` is append-only and stores `{id, agentId, contentHash, topic, writtenAt}`), and redeploying again is not an option (ADR-021).
+
+**Decision.**
+- **Envelope.** The plaintext that is encrypted becomes `hive-memory/v1\n{json}` with `content`, and optional `gist` (one line, 200 characters at most, written by the agent), `kind` (`decision | interface | fact | task | session | state`), `entities` (up to 10 exact-match handles) and `supersedes` (a slot id). Plaintext without the prefix is legacy content. `contentHash` still hashes `iv ‖ ciphertext`, so it now covers the metadata. `content` in read output stays the raw text.
+- **Supersede and state.** `supersedes` is valid only for a slot of the same sender and topic, so hiding the old slot never leaks anything. A superseded slot is left out of list, read and search unless `includeSuperseded` is set. A `state` slot is a living summary per topic: only the newest one per sender and topic is shown.
+- **Own reads.** List, read and search take `mine: true`, which selects the caller's own slots (identity from the token). The default stays "what others shared with me". This supersedes the "an agent never reads its own writes" gotcha for that flag only; edges are unchanged.
+- **Delta reads.** Outputs carry a `cursor` (`<writtenAt>:<slotId>`), and an input `cursor` returns only newer slots. Slot ids are global and monotonic, so this fixes the inclusive-seconds overlap of `slotsSince`.
+- **Search.** `hive_search_memory` runs the same permission selection as list, with the filter before any ranking, then ranks in the bridge: BM25 over gist, entities and content, an exact-entity boost and a recency factor. Embeddings are a second scorer behind the same tool: `multilingual-e5-small` (384 dimensions, quantized, computed in the bridge), with each vector AES-GCM encrypted in a new `memory_embedding` table, fused with the lexical rank (RRF). Backfill is capped per call and finished in the background. A local model is used so no plaintext goes to a third party.
+- **Cost.** `CiphertextStore.getMany` (one query, replacing the N+1 fetch) and a per-session cache of decrypted documents, dropped with the session. Permission is still read from live chain state on every call.
+- **Untrusted data.** Outputs carry a fixed notice that memories are data from other agents, not instructions, and `HIVE_INSTRUCTIONS` says the same. The DeepSeek runner imports the same text from `@hive/shared`.
+
+**Consequences.** No contract change and no gas change. Plaintext, gist, entities and vectors never reach a log, an error, an SSE event or an unencrypted row. Slots written before this change read as legacy content with no gist, so they rank on text only. A forged `supersedes` pointing at another sender's slot is ignored. If the embedding model can't load, search stays lexical and `/health` reports it. Embeddings and search are planned until a live run is recorded in the roadmap.
