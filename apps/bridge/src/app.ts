@@ -53,6 +53,8 @@ export function createApp(deps: AppDeps): Express {
   const events = deps.events ?? new EventBus();
 
   app.disable("x-powered-by");
+  // Behind a TLS proxy (Railway), so a derived mcpUrl says https.
+  app.set("trust proxy", 1);
   app.use((req, res, next) => {
     const origin = req.headers.origin;
     if (origin && allowed.has(origin)) {
