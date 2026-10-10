@@ -2,6 +2,17 @@
 
 Running notes on friction with the MCP SDK, tooling and Monad, for the team feedback doc. Newest first.
 
+## 10 Oct 2026
+
+- **Monad charges the declared gas limit, so "enough MON" depends on the limit, not on what a call uses.** One `MemorySlots.write` estimated at 253k gas, our 125% margin declared 317k, and at 102 gwei that is 0.0323 MON. A key with 0.0318 MON was refused. A gas-needed figure in the RPC error, or a documented formula for the minimum balance, would have saved the hunt.
+- **An empty balance comes back as a generic invalid-params error, not as the error viem maps to `InsufficientFundsError`.** The text is "Signer had insufficient balance". Both the web client and the bridge had to match the message to give a useful answer, and the web client's version existed long before the bridge's.
+- **Next.js reads `.env` only from the app folder, so `NEXT_PUBLIC_HIVE_MODE=live` in the root `.env` was ignored and the web app ran in mock mode.** `next dev` defaults to mock, and the only hint was a small "Demo data" badge. A mock-mode banner at startup, or an `apps/web/.env.local` line in `.env.example`, would have caught it earlier.
+- **A contract and its client disagreed about a wildcard, and the contract cannot be patched.** The bridge treats an edge topic `*` as "every topic", the deployed `PropagationEngine` compares exact hashes, so `propagatedTo` stayed empty on the default edge. Fixing it means a redeploy, and because `MemorySlots` holds the engine as `immutable`, three contracts move together and edges and slots reset. A mutable engine pointer, or settling the matching rule before the first deploy, would have made this a one-line change.
+- **`vitest` does not type-check.** A new option declared on the wrong type passed all 142 tests and failed `tsc`. `pnpm build` and the tests are separate steps and both have to run; the AGENTS.md line says so, but it is easy to run only one.
+- **Our own failure log said nothing about the cause.** `bridge: write failed at chain` hid whether the key was out of gas, the RPC was rate limited or the call reverted. Messages can carry addresses, so the log now adds only the error's class name.
+- **The Connect page kept its "no MON for gas" error after the faucet had paid.** The balance in the wallet menu was already 10 MON. Re-checking the balance when the user comes back, instead of waiting for "Try again", would remove the doubt.
+- **Fixed prompts make an MCP run repeatable.** "Call `hive_write_memory` with topic X and content Y and print the raw JSON" gave the same shape every time in Claude Code, which turned a manual check into a script a teammate can follow. We recommend keeping the six prompts of the 10 Oct run in the demo notes.
+
 ## 3 Oct 2026
 
 - **Stacked PRs merged on GitHub leave the local base branch stale, silently.** Six merged PRs and the local `development` still looked empty. A "fetch and fast-forward before you start" line in AGENTS.md now covers it.
