@@ -4,10 +4,11 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { cn } from "@/lib/cn";
 import { StatusDot } from "./StatusDot";
 
-export type InstallTab = "claude" | "desktop" | "gpt" | "deepseek";
+export type InstallTab = "claude" | "ai" | "desktop" | "gpt" | "deepseek";
 
 const BAR_LABEL: Record<InstallTab, string> = {
   claude: "Terminal · Claude Code",
+  ai: "Prompt · paste into your AI",
   desktop: "claude_desktop_config.json",
   gpt: "OpenAI API",
   deepseek: "Terminal · DeepSeek runner",
