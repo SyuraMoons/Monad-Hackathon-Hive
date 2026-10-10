@@ -45,8 +45,10 @@ const newestFirst = (a: ChainSlot, b: ChainSlot) => Number(b.writtenAt - a.writt
  * incoming edges -> slots since `since` from each sender -> permission filter -> cursor and `slotIds` filters -> newest first.
  * `mine` skips the edges and takes the caller's own slots. `slotIds` only narrows the permitted set: an id the
  * reader has no edge for is dropped, never fetched.
+ * With a cursor the window is the OLDEST slots after it, so a backlog bigger than the window drains over several calls;
+ * `truncated` then says newer slots remain outside it.
  */
-async function candidates(deps: ReadDeps, args: Scope): Promise<ChainSlot[]> {
+async function candidates(deps: ReadDeps, args: Scope): Promise<{ slots: ChainSlot[]; truncated: boolean }> {
   const cursor = args.cursor ? args.cursor.split(":").map((n) => BigInt(n)) : undefined;
   const since = BigInt(Math.max(args.since ?? 0, Number(cursor?.[0] ?? 0n)));
   let allowed: ChainSlot[];
@@ -64,7 +66,9 @@ async function candidates(deps: ReadDeps, args: Scope): Promise<ChainSlot[]> {
     const wanted = new Set(args.slotIds);
     allowed = allowed.filter((s) => wanted.has(s.id));
   }
-  return allowed.sort(newestFirst).slice(0, CANDIDATES_MAX);
+  allowed.sort(newestFirst);
+  if (cursor) return { slots: allowed.slice(-CANDIDATES_MAX), truncated: allowed.length > CANDIDATES_MAX };
+  return { slots: allowed.slice(0, CANDIDATES_MAX), truncated: false };
 }
 
 /**
@@ -72,22 +76,26 @@ async function candidates(deps: ReadDeps, args: Scope): Promise<ChainSlot[]> {
  * A slot is hidden when a newer slot of the same sender and topic supersedes it, or when it is an older `state` slot
  * of its sender and topic. Walking newest to oldest means everything that could hide a slot was already seen.
  * Naming slots outright with `slotIds`, or `includeSuperseded`, shows them all.
+ * `incomplete` is set when a batch could not be fetched, so a caller that must not skip anything knows to retry.
  */
-export async function visibleMemories(deps: ReadDeps, args: Scope, stop: number): Promise<Opened[]> {
-  const all = await candidates(deps, args);
+async function walk(deps: ReadDeps, args: Scope, stop: number) {
+  const { slots: all, truncated } = await candidates(deps, args);
   const showAll = args.includeSuperseded === true || args.slotIds !== undefined;
-  const supersededBy = new Map<bigint, ChainSlot>();
+  // "<sender>:<topic>:<slot>" of every slot a memory replaces. The key carries the claimant's own sender and topic, so a
+  // claim on someone else's slot builds a key that never matches: it can neither hide that slot nor block the real claim.
+  const replaced = new Set<string>();
   const stateSeen = new Set<string>();
   const out: Opened[] = [];
+  let incomplete = false;
   for (let i = 0; i < all.length && out.length < stop; i += PAGE) {
     const page = all.slice(i, i + PAGE);
-    const docs = await loadDocs(deps, page);
+    const loaded = await loadDocs(deps, page);
+    if (loaded.failed) incomplete = true;
     for (const slot of page) {
-      const doc = docs.get(slot.contentHash.toLowerCase());
+      const doc = loaded.docs.get(slot.contentHash.toLowerCase());
       if (!doc) continue;
-      const by = supersededBy.get(slot.id);
-      let hidden = by !== undefined && by.agentId === slot.agentId && by.topic === slot.topic;
-      if (doc.supersedes !== undefined && !supersededBy.has(doc.supersedes)) supersededBy.set(doc.supersedes, slot);
+      let hidden = replaced.has(`${slot.agentId}:${slot.topic}:${slot.id}`);
+      if (doc.supersedes !== undefined) replaced.add(`${slot.agentId}:${slot.topic}:${doc.supersedes}`);
       if (doc.kind === "state") {
         const key = `${slot.agentId}:${slot.topic}`;
         if (stateSeen.has(key)) hidden = true;
@@ -98,7 +106,11 @@ export async function visibleMemories(deps: ReadDeps, args: Scope, stop: number)
       if (out.length >= stop) break;
     }
   }
-  return out;
+  return { found: out, truncated, incomplete, newest: all[0] };
+}
+
+export async function visibleMemories(deps: ReadDeps, args: Scope, stop: number): Promise<Opened[]> {
+  return (await walk(deps, args, stop)).found;
 }
 
 /** Sender names, read once per sender. A sender whose lookup fails is left out, with the others kept. */
@@ -136,6 +148,7 @@ export function memoryFields(slot: ChainSlot, name: string, doc: MemoryDoc) {
 /** The newest `limit` visible memories, oldest first like a conversation, plus whether older ones were left out. */
 async function newestPage(deps: ReadDeps, args: Scope) {
   const limit = args.limit ?? MEMORY_PAGE_DEFAULT;
+  if (args.cursor) return forwardPage(deps, args, limit);
   const found = await visibleMemories(deps, args, limit + 1);
   const newest = found.slice(0, limit);
   const names = await senderNames(deps, newest.map((o) => o.slot));
@@ -144,10 +157,33 @@ async function newestPage(deps: ReadDeps, args: Scope) {
 }
 
 /**
+ * With a cursor a call is a forward feed: the OLDEST `limit` visible memories after it, and the cursor of the last one
+ * returned, so more arrivals than fit are delivered over several calls, none skipped, none repeated. `more` means
+ * newer memories remain: call again with the new cursor.
+ * A failure that could drop a memory (a batch that did not load, a sender whose name did not resolve) ends the page
+ * before it, so the cursor never moves past a memory the agent did not get. A row that is gone or will not decrypt is
+ * permanent and is skipped.
+ */
+async function forwardPage(deps: ReadDeps, args: Scope, limit: number) {
+  const { found, truncated, incomplete, newest } = await walk(deps, args, Infinity);
+  const noNames = new Map<bigint, string>();
+  if (incomplete) return { items: [] as Opened[], names: noNames, more: true, cursor: undefined };
+  const oldestFirst = found.reverse();
+  const page = oldestFirst.slice(0, limit);
+  const names = await senderNames(deps, page.map((o) => o.slot));
+  const cut = page.findIndex((o) => !names.has(o.slot.agentId));
+  const items = cut === -1 ? page : page.slice(0, cut);
+  const more = items.length < oldestFirst.length || truncated;
+  // A whole window with nothing visible still has to move the cursor, or the next call would look at it again.
+  const cursor = items.length ? cursorOf(items[items.length - 1]!.slot) : oldestFirst.length === 0 && truncated && newest ? cursorOf(newest) : undefined;
+  return { items, names, more, cursor };
+}
+
+/**
  * The document of each slot, by contentHash: from the session cache, else one batched fetch and a decrypt.
  * A slot that fails or has no row is left out, the others still return.
  */
-async function loadDocs(deps: ReadDeps, slots: readonly ChainSlot[]): Promise<Map<string, MemoryDoc>> {
+async function loadDocs(deps: ReadDeps, slots: readonly ChainSlot[]): Promise<{ docs: Map<string, MemoryDoc>; failed: boolean }> {
   const docs = new Map<string, MemoryDoc>();
   const missing = new Map<string, Hex>();
   for (const { contentHash } of slots) {
@@ -157,13 +193,13 @@ async function loadDocs(deps: ReadDeps, slots: readonly ChainSlot[]): Promise<Ma
     if (hit) docs.set(key, hit);
     else missing.set(key, contentHash);
   }
-  if (missing.size === 0) return docs;
+  if (missing.size === 0) return { docs, failed: false };
   let sealed;
   try {
     sealed = await deps.store.getMany([...missing.values()]);
   } catch (e) {
     deps.onError?.("memory", e);
-    return docs;
+    return { docs, failed: true };
   }
   await Promise.all(
     [...missing].map(async ([key, hash]) => {
@@ -178,7 +214,7 @@ async function loadDocs(deps: ReadDeps, slots: readonly ChainSlot[]): Promise<Ma
       }
     }),
   );
-  return docs;
+  return { docs, failed: false };
 }
 
 /**
