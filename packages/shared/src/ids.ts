@@ -49,7 +49,7 @@ export type TxHash = z.infer<typeof zTxHash>;
 /** Any EVM address, normalised to its checksummed form. */
 export const zAddress = z.string().refine((s) => isAddress(s, { strict: false }), "invalid address").transform((s) => getAddress(s));
 
-export const AGENT_TYPES = ["claude", "gpt", "therapy-bot", "other"] as const;
+export const AGENT_TYPES = ["claude", "gpt", "deepseek", "therapy-bot", "other"] as const;
 export const zAgentType = z.enum(AGENT_TYPES);
 export type AgentType = z.infer<typeof zAgentType>;
 
