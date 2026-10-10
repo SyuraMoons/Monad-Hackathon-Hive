@@ -41,6 +41,7 @@ const app = createApp({
   writer: viemChainWriter(rpc, config.rpcUrl),
   funder: config.funderKey ? viemGasFunder(rpc, config.rpcUrl, config.funderKey) : noGasFunder,
   publicUrl: config.publicUrl,
+  webUrl: config.webUrl,
 });
 
 app.listen(config.port, () => {

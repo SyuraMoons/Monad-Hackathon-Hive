@@ -5,5 +5,6 @@ export * from "./schema/api.js";
 export * from "./schema/events.js";
 export * from "./schema/graph.js";
 export * from "./schema/mcp.js";
+export * from "./schema/oauth.js";
 export * from "./abis.generated.js";
 export * from "./addresses.generated.js";

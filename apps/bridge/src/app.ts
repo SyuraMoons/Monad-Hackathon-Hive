@@ -10,6 +10,7 @@ import { ChallengeStore, verifySignIn, type VerifySignature } from "./auth.js";
 import { EventBus } from "./events.js";
 import { noGasFunder, type GasFunder } from "./funder.js";
 import { mcpHandler } from "./mcp.js";
+import { mountOAuth, wwwAuthenticate } from "./oauth.js";
 import { buildOpenApi } from "./openapi.js";
 import type { SessionStore } from "./sessions.js";
 import type { TokenService, UserClaims } from "./tokens.js";
@@ -33,6 +34,8 @@ export type AppDeps = {
   events?: EventBus;
   /** Public base URL for `mcpUrl`. Default: taken from the request. */
   publicUrl?: string;
+  /** Web app origin. With `publicUrl` it turns on OAuth for claude.ai connectors (ADR-019). */
+  webUrl?: string;
   now?: () => bigint;
   version?: string;
 };
@@ -218,21 +221,22 @@ export function createApp(deps: AppDeps): Express {
     });
   }));
 
-  // Public on purpose: it describes shapes, holds no secrets, and lets a new teammate try the API.
-  const spec = buildOpenApi(deps.version);
-  app.get("/openapi.json", (_req, res) => {
-    res.json(spec);
-  });
-  app.use("/docs", swaggerUi.serve, swaggerUi.setup(spec, { customSiteTitle: "Mindshare Bridge API" }));
+import { mountOAuth, wwwAuthenticate } from "./oauth.js";
+import { buildOpenApi } from "./openapi.js";
+import type { SessionStore } from "./sessions.js";
+import type { TokenService, UserClaims } from "./tokens.js";
+import { UnknownAgentError, type ChainAgent, type ChainReader, type ChainWriter, type CiphertextStore, type VaultStore } from "./types.js";
 
   app.use((_req, _res, next) => next(new HiveError("NOT_FOUND", "No such route.")));
 
   // Error bodies carry a code and a fixed message: never request bodies, keys or memory content.
-  const onError: ErrorRequestHandler = (err, _req, res, _next) => {
+  const onError: ErrorRequestHandler = (err, req, res, _next) => {
     const known = err instanceof HiveError;
     const bad = !known && (err as { type?: string }).type?.startsWith("entity.");
     const e = known ? err : bad ? new HiveError("INVALID_INPUT", "Malformed request body.") : new HiveError("INTERNAL", "Something went wrong.");
     if (!known && !bad) console.error("bridge: unhandled error", (err as Error)?.name);
+    // Claude starts its OAuth sign-in only from a 401 that points at the metadata.
+    if (oauthBase && req.path === "/mcp" && STATUS[e.code] === 401) res.setHeader("WWW-Authenticate", wwwAuthenticate(oauthBase));
     res.status(STATUS[e.code]).json(e.toEnvelope());
   };
   app.use(onError);
