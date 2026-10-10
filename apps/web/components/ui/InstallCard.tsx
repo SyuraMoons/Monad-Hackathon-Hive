@@ -4,12 +4,13 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { cn } from "@/lib/cn";
 import { StatusDot } from "./StatusDot";
 
-export type InstallTab = "claude" | "desktop" | "gpt";
+export type InstallTab = "claude" | "desktop" | "gpt" | "deepseek";
 
 const BAR_LABEL: Record<InstallTab, string> = {
   claude: "Terminal · Claude Code",
   desktop: "claude_desktop_config.json",
   gpt: "OpenAI API",
+  deepseek: "Terminal · DeepSeek runner",
 };
 
 /** Displays `hive_sk_7f3a…` / `eyJh…`: only the first 4 characters of the secret (step 5). */

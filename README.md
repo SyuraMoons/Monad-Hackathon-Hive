@@ -60,6 +60,7 @@ Contracts only: `cd packages/contracts && forge test`
 - [Roadmap](docs/roadmap.md): phases, checkpoints, P0 features, progress
 - [Contributing](docs/contributing.md): branches, commits, PRs
 - [Gotchas](docs/gotchas.md): known pitfalls (passkeys, Monad gas, pnpm)
+- [Deployment](docs/deployment.md): the Vercel and Railway URLs and the env they need
 - [AGENTS.md](AGENTS.md): rules for AI coding assistants working in this repo
 
 ## Team

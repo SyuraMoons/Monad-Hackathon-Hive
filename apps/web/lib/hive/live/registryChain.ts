@@ -1,21 +1,16 @@
 import { AgentRegistryAbi, HiveError, hiveDeployment } from "@hive/shared";
-import { BaseError, ContractFunctionRevertedError } from "viem";
 import { decodeAgentRegisteredId, registerAgent, setAgentWriter } from "../account";
 import { hivePublicClient } from "../clients";
 import type { HiveSigner } from "../signer";
 import type { ChainAgent, RegistryDeps } from "./registry";
 
-const isUnknownAgentRevert = (e: unknown) =>
-  e instanceof BaseError && e.walk((x) => x instanceof ContractFunctionRevertedError && x.data?.errorName === "UnknownAgent") !== null;
-
 /** Reads need no signer. */
-export const chainReader: Pick<RegistryDeps, "readAgent"> = {
-  async readAgent(id): Promise<ChainAgent | null> {
+export const chainReader: Pick<RegistryDeps, "agentsOf"> = {
+  async agentsOf(owner): Promise<ChainAgent[]> {
     try {
-      const a = await hivePublicClient.readContract({ address: hiveDeployment.agentRegistry, abi: AgentRegistryAbi, functionName: "agents", args: [id] });
-      return { id, owner: a.owner, name: a.name, agentType: a.agentType, writer: a.writer, registeredAt: a.registeredAt };
-    } catch (e) {
-      if (isUnknownAgentRevert(e)) return null;
+      const [ids, list] = await hivePublicClient.readContract({ address: hiveDeployment.agentRegistry, abi: AgentRegistryAbi, functionName: "agentsOf", args: [owner] });
+      return list.map((a, i) => ({ id: ids[i]!, owner: a.owner, name: a.name, agentType: a.agentType, writer: a.writer, registeredAt: a.registeredAt }));
+    } catch {
       throw new HiveError("CHAIN_ERROR", "Could not read the agent registry.");
     }
   },

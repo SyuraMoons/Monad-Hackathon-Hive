@@ -1,7 +1,7 @@
 import { HiveError } from "@hive/shared";
 import { BaseError, InsufficientFundsError, zeroAddress, type Address, type Hex } from "viem";
 import { describe, expect, it, vi } from "vitest";
-import { agentsOf, registerAndBind, toAgent, type ChainAgent, type RegistryDeps } from "./registry";
+import { registerAndBind, toAgent, type ChainAgent, type RegistryDeps } from "./registry";
 
 const OWNER: Address = "0x6AC6951B0a53d7a059A121494691A84b5403dF5A";
 const OTHER: Address = "0x00000000000000000000000000000000000000b2";
@@ -12,38 +12,15 @@ const agent = (id: number, over: Partial<ChainAgent> = {}): ChainAgent => ({
   id: BigInt(id), owner: OWNER, name: `agent-${id}`, agentType: "claude", writer: zeroAddress, registeredAt: BigInt(1_700_000_000), ...over,
 });
 
-/** A registry holding `rows` (ids 1..n); anything past them is unknown. */
-function fake(rows: ChainAgent[], over: Partial<RegistryDeps> = {}): RegistryDeps & { readAgent: ReturnType<typeof vi.fn> } {
+/** A registry holding `rows` (ids 1..n); agentsOf filters by owner like AgentRegistry.agentsOf. */
+function fake(rows: ChainAgent[], over: Partial<RegistryDeps> = {}): RegistryDeps {
   return {
-    readAgent: vi.fn(async (id: bigint) => rows.find((r) => r.id === id) ?? null),
+    agentsOf: vi.fn(async (owner: Address) => rows.filter((r) => r.owner.toLowerCase() === owner.toLowerCase())),
     register: vi.fn(async () => ({ agentId: BigInt(rows.length + 1), txHash: HASH })),
     setWriter: vi.fn(async () => HASH),
     ...over,
-  } as RegistryDeps & { readAgent: ReturnType<typeof vi.fn> };
+  } as RegistryDeps;
 }
-
-describe("agentsOf", () => {
-  it("keeps only the owner's agents and stops at the first unknown id", async () => {
-    const deps = fake([agent(1), agent(2, { owner: OTHER }), agent(3)]);
-    expect((await agentsOf(deps, OWNER)).map((a) => a.id)).toEqual([BigInt(1), BigInt(3)]);
-    expect(deps.readAgent).toHaveBeenCalledTimes(8);
-  });
-
-  it("matches the owner whatever the address casing", async () => {
-    const deps = fake([agent(1, { owner: OWNER.toLowerCase() as Address })]);
-    expect(await agentsOf(deps, OWNER)).toHaveLength(1);
-  });
-
-  it("scans on past the first batch of eight", async () => {
-    const deps = fake(Array.from({ length: 10 }, (_, i) => agent(i + 1)));
-    expect(await agentsOf(deps, OWNER)).toHaveLength(10);
-  });
-
-  it("rejects when the registry can't be read", async () => {
-    const deps = fake([], { readAgent: vi.fn().mockRejectedValue(new HiveError("CHAIN_ERROR", "down")) });
-    await expect(agentsOf(deps, OWNER)).rejects.toThrow("down");
-  });
-});
 
 describe("toAgent", () => {
   it("maps the registry row to the shared Agent shape", () => {
@@ -87,6 +64,12 @@ describe("registerAndBind", () => {
     const deps = fake([agent(1, { owner: OTHER })]);
     await registerAndBind(deps, input);
     expect(deps.register).toHaveBeenCalledOnce();
+  });
+
+  it("rejects without registering when the registry can't be read", async () => {
+    const deps = fake([], { agentsOf: vi.fn().mockRejectedValue(new HiveError("CHAIN_ERROR", "Could not read the agent registry.")) });
+    await expect(registerAndBind(deps, input)).rejects.toThrow("Could not read the agent registry.");
+    expect(deps.register).not.toHaveBeenCalled();
   });
 
   it("does not bind a writer when register fails", async () => {

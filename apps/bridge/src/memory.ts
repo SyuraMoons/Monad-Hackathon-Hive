@@ -107,6 +107,8 @@ export type WriteDeps = {
   agentKey: Hex;
   encryptionKey: Hex;
   owner: Hex;
+  /** Tops the agent key up before the write, so a key that spent its gas since authorize still works. Best effort. */
+  ensureGas?: () => Promise<unknown>;
   /** Reports a failure without any memory content. */
   onError?: (stage: string, error: unknown) => void;
 };
@@ -146,6 +148,7 @@ export async function writeMemory(deps: WriteDeps, args: { agentId: bigint; cont
     deps.onError?.("store", e);
     throw new HiveError("STORAGE_ERROR", "Could not store the memory.");
   }
+  await deps.ensureGas?.().catch((e) => deps.onError?.("fund", e));
   try {
     const receipt = await oneAtATime(args.agentId, () => deps.writer.write({ agentKey: deps.agentKey, agentId: args.agentId, contentHash: sealed.contentHash, topic: args.topic }));
     return { slotId: receipt.slotId, contentHash: sealed.contentHash, txHash: zTxHash.parse(receipt.txHash), propagatedTo: receipt.propagatedTo };
