@@ -46,25 +46,22 @@ export type TurnOptions = {
   maxSteps?: number;
 };
 
-/** Runs one user turn: calls tools until the model answers in text, and returns that answer. */
+/**
+ * Runs one user turn: calls tools until the model answers in text, and returns that answer. Assistant messages are kept
+ * as returned, `reasoning_content` included: with tools, DeepSeek's thinking mode wants it back on every later request.
+ */
 export async function runTurn({ complete, hive, tools, messages, maxSteps = 8 }: TurnOptions): Promise<string> {
   const known = new Set(tools.map((t) => t.function.name));
-  const start = messages.length;
-  try {
-    for (let step = 0; step < maxSteps; step++) {
-      const reply = await complete(messages, tools);
-      messages.push(reply);
-      if (!reply.tool_calls?.length) return reply.content ?? "";
+  for (let step = 0; step < maxSteps; step++) {
+    const reply = await complete(messages, tools);
+    messages.push(reply);
+    if (!reply.tool_calls?.length) return reply.content ?? "";
 
-      for (const call of reply.tool_calls) {
-        messages.push({ role: "tool", tool_call_id: call.id, content: await runTool(hive, known, call) });
-      }
+    for (const call of reply.tool_calls) {
+      messages.push({ role: "tool", tool_call_id: call.id, content: await runTool(hive, known, call) });
     }
-    throw new ModelError(`Stopped after ${maxSteps} tool steps without an answer.`);
-  } finally {
-    // Thinking models need their reasoning back inside a turn, not in the next one.
-    for (const m of messages.slice(start)) if (m.role === "assistant") delete m.reasoning_content;
   }
+  throw new ModelError(`Stopped after ${maxSteps} tool steps without an answer.`);
 }
 
 async function runTool(hive: Pick<HiveClient, "callTool">, known: Set<string>, call: ToolCall): Promise<string> {
