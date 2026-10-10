@@ -36,10 +36,13 @@ export type MemoryKind = (typeof MEMORY_KINDS)[number];
 export type MemoryMeta = z.output<typeof zMemoryMeta>;
 export type MemoryDoc = { content: string; gist?: string; kind?: MemoryKind; entities?: string[]; supersedes?: bigint };
 
-/** The text to encrypt. A memory with no metadata is sealed as it is, so it stays readable by older bridges. */
+/**
+ * The text to encrypt. A memory with no metadata is sealed as it is, so it stays readable by older bridges, unless the
+ * content itself starts with the envelope prefix: then it is wrapped, so text an agent wrote can never read back as metadata.
+ */
 export function sealDoc(doc: { content: string; gist?: string; kind?: MemoryKind; entities?: readonly string[]; supersedes?: string | bigint }): string {
   const { content, gist, kind, entities, supersedes } = doc;
-  if (gist === undefined && kind === undefined && !entities?.length && supersedes === undefined) return content;
+  if (gist === undefined && kind === undefined && !entities?.length && supersedes === undefined && !content.startsWith(MEMORY_ENVELOPE_PREFIX)) return content;
   const body: Record<string, unknown> = { content };
   if (gist !== undefined) body.gist = gist;
   if (kind !== undefined) body.kind = kind;
