@@ -90,6 +90,18 @@ describe("writeMemory", () => {
     expect(JSON.stringify(err.toEnvelope())).not.toContain("Nexus");
   });
 
+  it("tops the agent key up before the chain write, and a failed top-up does not block the write", async () => {
+    const { deps, order } = setup();
+    const stages: string[] = [];
+    await writeMemory({ ...deps, ensureGas: async () => { order.push("fund"); }, onError: (s) => stages.push(s) }, { agentId: 1n, topic: "work", content: SECRET });
+    expect(order.indexOf("fund")).toBeGreaterThan(order.indexOf("store"));
+    expect(order.indexOf("fund")).toBeLessThan(order.indexOf("chain"));
+
+    const out = await writeMemory({ ...deps, ensureGas: async () => { throw new Error("rpc down"); }, onError: (s) => stages.push(s) }, { agentId: 1n, topic: "work", content: SECRET });
+    expect(out.slotId).toBe(7n);
+    expect(stages).toEqual(["fund"]);
+  });
+
   it("a store failure is STORAGE_ERROR, never reaches the chain, and never carries the content", async () => {
     const { deps, store, order } = setup();
     store.fail = true;
