@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import {IAgentRegistry} from "./interfaces/IAgentRegistry.sol";
 import {IKnowledgeGraph} from "./interfaces/IKnowledgeGraph.sol";
+import {ALL_TOPICS} from "./Topics.sol";
 
 contract KnowledgeGraph is IKnowledgeGraph {
     IAgentRegistry public immutable registry;
@@ -52,7 +53,7 @@ contract KnowledgeGraph is IKnowledgeGraph {
         uint256[] storage list = _fromList[from];
         for (uint256 i = 0; i < list.length; i++) {
             Edge storage e = _edges[list[i]];
-            if (e.active && e.to == to && e.topic == topicHash && e.expiresAt > block.timestamp) {
+            if (e.active && e.to == to && (e.topic == topicHash || e.topic == ALL_TOPICS) && e.expiresAt > block.timestamp) {
                 return true;
             }
         }
