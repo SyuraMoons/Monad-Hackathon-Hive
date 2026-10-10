@@ -55,6 +55,7 @@ export function GraphCanvas({ layout, place }: { layout: Layout; place(patch: La
   const [sizes, setSizes] = useState<Record<string, { width: number; height: number }>>({});
   const rf = useReactFlow();
   const canvasRef = useRef<HTMLDivElement>(null);
+  const connectStartedAt = useRef<string | null>(null);
   const connectEndedAt = useRef(0);
   const editor = useUi((s) => s.edgeEditor);
   const edgeMenu = useUi((s) => s.edgeMenu);
@@ -200,6 +201,7 @@ export function GraphCanvas({ layout, place }: { layout: Layout; place(patch: La
           if (Date.now() - connectEndedAt.current < 400) return;
           if (agents[n.id]) setUi({ drawerAgentId: agents[n.id].agentId, edgeMenu: null, revokeEdge: null });
         }}
+        onConnectStart={(_, { nodeId }) => { connectStartedAt.current = nodeId; }}
         onConnectEnd={() => { connectEndedAt.current = Date.now(); }}
         onPaneClick={() => {
           setSelected(null);
@@ -210,7 +212,11 @@ export function GraphCanvas({ layout, place }: { layout: Layout; place(patch: La
           if (useGraph.getState().edges[edge.id]?.state === "signed") setUi({ edgeMenu: { key: edge.id, at: anchor(e.clientX, e.clientY, 240, 130) }, revokeEdge: null });
         }}
         onConnect={({ source, target }) => {
-          if (source && target && source !== target) setUi({ edgeEditor: { from: BigInt(source), to: BigInt(target) } });
+          if (!source || !target || source === target) return;
+          // Dragging from a left (target) handle makes React Flow swap the pair; the edge goes from the node the drag started on.
+          const startedOn = connectStartedAt.current;
+          const [from, to] = startedOn === target ? [target, source] : [source, target];
+          setUi({ edgeEditor: { from: BigInt(from), to: BigInt(to) } });
         }}
         isValidConnection={({ source, target }) => source !== target}
         connectionLineStyle={{ stroke: "var(--color-ink-3)", strokeWidth: 1.5, strokeDasharray: "4 4" }}
