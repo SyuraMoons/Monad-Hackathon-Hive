@@ -118,7 +118,7 @@ export function InstallCard({ tab, command, token, note, pending, error, onRetry
     <div className={cn("flex w-full flex-col gap-[18px] rounded-modal bg-ink px-6 pt-[18px] pb-5", className)}>
       <div className="flex items-center justify-between gap-4 text-[14px]">
         <p className="min-w-0 font-mono whitespace-pre-wrap text-clay">{BAR_LABEL[tab].replace(" · ", "  ·  ")}</p>
-        <CopyButton label="Copy command" copied={main.copied} disabled={!ready} onClick={() => main.copy(command, mainRef.current)} />
+        <CopyButton label={tab === "ai" ? "Copy prompt" : "Copy command"} copied={main.copied} disabled={!ready} onClick={() => main.copy(command, mainRef.current)} />
       </div>
 
       {pending ? (
