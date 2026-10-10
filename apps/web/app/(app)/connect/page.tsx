@@ -129,7 +129,7 @@ export default function ConnectPage() {
           Works with
           <Image src="/agents/claude.png" alt="Claude" width={18} height={18} />
           <Image src="/agents/gpt.png" alt="GPT" width={18} height={18} />
-          <image src="/agents/deepseek.png" alt="DeepSeek" width={18} height={18} />
+          <Image src="/agents/deepseek.png" alt="DeepSeek" width={18} height={18} />
         </p>
         <h1 className="font-display text-[clamp(48px,4.45vw,64px)] leading-none tracking-[-0.018em] text-ink">
           Connect your
