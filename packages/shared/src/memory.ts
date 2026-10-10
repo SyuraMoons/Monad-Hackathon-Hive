@@ -33,11 +33,11 @@ export const zMemoryMeta = z.object({
 export const zMemoryDoc = zMemoryMeta.extend({ content: zMemoryContent });
 
 export type MemoryKind = (typeof MEMORY_KINDS)[number];
-export type MemoryMeta = z.input<typeof zMemoryMeta>;
+export type MemoryMeta = z.output<typeof zMemoryMeta>;
 export type MemoryDoc = { content: string; gist?: string; kind?: MemoryKind; entities?: string[]; supersedes?: bigint };
 
 /** The text to encrypt. A memory with no metadata is sealed as it is, so it stays readable by older bridges. */
-export function sealDoc(doc: { content: string } & MemoryMeta): string {
+export function sealDoc(doc: { content: string; gist?: string; kind?: MemoryKind; entities?: readonly string[]; supersedes?: string | bigint }): string {
   const { content, gist, kind, entities, supersedes } = doc;
   if (gist === undefined && kind === undefined && !entities?.length && supersedes === undefined) return content;
   const body: Record<string, unknown> = { content };
