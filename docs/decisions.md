@@ -155,7 +155,7 @@ Short architecture decision records. To add one, append the next number and don'
 
 
 
-## ADR-020: AgentRegistry lists an owner's agents in one call
+## ADR-021: AgentRegistry lists an owner's agents in one call
 **Date:** 2026-10-10 · **Status:** proposed
 
 **Context.** The registry had no per-owner index, so the web and the bridge found an owner's agents by reading `agents(id)` from 1 until an unknown id. That is every agent anyone registered, and `/connect` ran it three times. The public Monad RPC allows 15 requests per second per IP and `eth_getLogs` over about 100 blocks, so the scan failed under load ("Could not read the agent registry.") and logs could not replace it.
