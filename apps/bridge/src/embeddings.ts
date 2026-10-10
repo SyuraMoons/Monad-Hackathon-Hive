@@ -13,7 +13,10 @@ export type EmbeddingDeps = {
   vectors: VectorStore;
   owner: Hex;
   keyId: string;
-  /** Cosine similarity under which a vector match is ignored. Depends on the model. */
+  /**
+   * Cosine similarity under which a vector match is ignored. e5 scores are compressed: measured on multilingual-e5-small,
+   * right matches 0.80-0.875 and wrong ones 0.72-0.81. The floor only cuts the clearly unrelated; ranking does the rest.
+   */
   minSimilarity: number;
 };
 

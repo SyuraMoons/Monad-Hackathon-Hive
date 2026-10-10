@@ -14,7 +14,7 @@ const zConfig = z.object({
   HIVE_EMBEDDINGS: z.enum(["on", "off"]).default("off"),
   HIVE_EMBED_MODEL: z.string().min(1).default("Xenova/multilingual-e5-small"),
   HIVE_MODEL_CACHE_DIR: z.string().optional(),
-  HIVE_EMBED_MIN_SIM: z.coerce.number().min(0).max(1).default(0.8),
+  HIVE_EMBED_MIN_SIM: z.coerce.number().min(0).max(1).default(0.78),
 });
 
 export type Config = {
