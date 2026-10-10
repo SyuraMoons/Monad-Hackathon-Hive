@@ -42,6 +42,35 @@ contract AgentRegistryTest is Test {
         registry.register("Claude", "assistant", bytes("pk"));
     }
 
+    function test_AgentsOf_ListsOnlyTheOwnersAgentsInOrder() public {
+        vm.prank(alice);
+        registry.register("Claude", "claude", bytes("pk1"));
+        vm.prank(bob);
+        registry.register("GPT", "gpt", bytes("pk2"));
+        vm.prank(alice);
+        registry.register("Claude 2", "claude", bytes("pk3"));
+        vm.prank(alice);
+        registry.setAgentWriter(3, writer1);
+
+        (uint256[] memory ids, IAgentRegistry.Agent[] memory list) = registry.agentsOf(alice);
+        assertEq(ids.length, 2);
+        assertEq(ids[0], 1);
+        assertEq(ids[1], 3);
+        assertEq(list[0].name, "Claude");
+        assertEq(list[1].name, "Claude 2");
+        assertEq(list[1].writer, writer1);
+
+        (ids, list) = registry.agentsOf(bob);
+        assertEq(ids.length, 1);
+        assertEq(list[0].owner, bob);
+    }
+
+    function test_AgentsOf_EmptyForUnknownOwner() public view {
+        (uint256[] memory ids, IAgentRegistry.Agent[] memory list) = registry.agentsOf(alice);
+        assertEq(ids.length, 0);
+        assertEq(list.length, 0);
+    }
+
     function test_UnknownAgent_Reverts() public {
         vm.expectRevert(abi.encodeWithSelector(IAgentRegistry.UnknownAgent.selector, 999));
         registry.agents(999);
