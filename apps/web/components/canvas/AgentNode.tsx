@@ -46,7 +46,7 @@ function AgentNodeImpl({ id, data, selected }: NodeProps<AgentFlowNode>) {
         </span>
         <span className="flex min-w-0 flex-col gap-0.5">
           <span className={cn("truncate font-display text-[19px] leading-tight", isolated ? "text-ink-3" : "text-ink")}>{name}</span>
-          {label && <span className="truncate text-[12px] leading-tight text-ink-3">{agent.name}</span>}
+          {label && <span className="truncate text-[14px] leading-tight text-ink-3">{agent.name}</span>}
           <span className="font-mono text-[14px] text-ink-3">{agentLabel(agent.agentId, agent.agentKey)}</span>
         </span>
         <StatusDot status={status} label={`${name}: ${statusText}`} className="absolute top-[11px] right-[13px]" />

@@ -87,7 +87,7 @@ export function NewAgentForm({ type, stacked, onBusyChange, onCreated, onCancel 
         Cancel
       </button>
       </div>
-      <p className="w-full text-[13px] leading-[1.45] text-ink-3" aria-live="polite">
+      <p className="w-full text-[14px] leading-[1.45] text-ink-3" aria-live="polite">
         {step ? `${STEP_TEXT[step]} You can reload: an unfinished agent is finished later with one click.` : "Registering is two transactions. Your account pays a little gas."}
       </p>
       {error && <p role="alert" className="w-full text-[14px] leading-[1.45] text-status-revoked">{error}</p>}

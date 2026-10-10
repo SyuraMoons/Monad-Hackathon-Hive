@@ -93,7 +93,7 @@ export function WalletMenu({ address }: { address: string }) {
       {phrase ? (
         <div className="flex flex-col gap-3 px-[18px] py-4 text-[14px]">
           <p className="font-mono text-ink-3">RECOVERY PHRASE</p>
-          <ol className="grid grid-cols-3 gap-x-3 gap-y-1.5 font-mono text-[13px] text-ink">
+          <ol className="grid grid-cols-3 gap-x-3 gap-y-1.5 font-mono text-[14px] text-ink">
             {phrase.map((w, i) => (
               <li key={i} className="flex gap-1.5">
                 <span className="w-5 text-right text-ink-3">{i + 1}</span>

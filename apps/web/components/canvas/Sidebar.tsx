@@ -155,7 +155,7 @@ export function Sidebar({ layout, place, unplace }: { layout: Layout; place(patc
                 {icon ? <Image src={icon} alt="" width={18} height={18} className="shrink-0" /> : <span aria-hidden="true" className="size-[18px] shrink-0 rounded-full border border-dashed border-clay" />}
                 <span className="flex min-w-0 flex-1 flex-col">
                   <span className="truncate text-[15px] font-medium text-ink">{label}</span>
-                  {labels[id] && <span className="truncate text-[12px] leading-tight text-ink-3">{a.name}</span>}
+                  {labels[id] && <span className="truncate text-[14px] leading-tight text-ink-3">{a.name}</span>}
                 </span>
                 <span aria-hidden="true" className={cn("absolute top-1/2 right-9 -translate-y-1/2 font-mono text-[14px]", placed ? "text-status-active" : "text-ink-3")}>{placed ? "✓" : "⠿"}</span>
               </button>
