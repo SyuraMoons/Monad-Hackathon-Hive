@@ -9,15 +9,15 @@ import { cn } from "@/lib/cn";
 import { explorerAddress, explorerTx } from "@/lib/explorer";
 import { longDate, shortHash } from "@/lib/format";
 import { pageOf } from "@/lib/pagination";
-import { gptSnippet } from "@/lib/hive/commands";
+import { deepseekRunner, gptSnippet } from "@/lib/hive/commands";
 import type { MemoryHistoryRow } from "@/lib/hive/types";
 import { useFeed, type FeedRow } from "@/lib/stores/feed";
 import { displayName, useGraph, type AgentNode, type EdgeView } from "@/lib/stores/graph";
 import { useSession } from "@/lib/stores/session";
 import { useUi } from "@/lib/stores/ui";
 import { topicColor, topicLabel } from "@/lib/topics";
+import { agentTypeIcon } from "@/lib/hive/agentTypes";
 
-const ICONS: Partial<Record<string, string>> = { claude: "/agents/claude.png", gpt: "/agents/gpt.png" };
 const eyebrow = "font-mono text-[14px] tracking-[0.08em] whitespace-pre text-ink-3";
 const section = "flex flex-col gap-2.5 border-t border-line px-6 py-[18px]";
 const HISTORY_PAGE_SIZE = 5;
@@ -67,10 +67,10 @@ function ConnectionSection({ agent }: { agent: AgentNode }) {
     }
   }
 
-  async function copyGpt() {
+  async function copyCommand(command: (url: string, token: string) => string) {
     if (!authorization) return;
     try {
-      await navigator.clipboard.writeText(gptSnippet(authorization.mcpUrl, authorization.agentToken));
+      await navigator.clipboard.writeText(command(authorization.mcpUrl, authorization.agentToken));
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
@@ -100,8 +100,13 @@ function ConnectionSection({ agent }: { agent: AgentNode }) {
           </button>
         )}
         {authorization && agent.agentType === "gpt" && (
-          <button type="button" className={button} onClick={() => void copyGpt()}>
+          <button type="button" className={button} onClick={() => void copyCommand(gptSnippet)}>
             {copied ? "Copied" : "Copy GPT config"}
+          </button>
+        )}
+        {authorization && agent.agentType === "deepseek" && (
+          <button type="button" className={button} onClick={() => void copyCommand(deepseekRunner)}>
+            {copied ? "Copied" : "Copy DeepSeek command"}
           </button>
         )}
         {agent.agentType === "claude" && !unfinished && (
@@ -179,7 +184,7 @@ export function NodeDrawer({ agentId }: { agentId: string }) {
   const incoming = live.filter((e) => e.to === agent.agentId);
   const writes = historyEntries(past, rows, agent.agentId);
   const history = pageOf(writes, historyPage, HISTORY_PAGE_SIZE);
-  const icon = ICONS[agent.agentType];
+  const icon = agentTypeIcon(agent.agentType);
 
   function revoke(e: EdgeView, ev: MouseEvent<HTMLButtonElement>) {
     // anchor the confirm card to the left of the drawer, level with the row
