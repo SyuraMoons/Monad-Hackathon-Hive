@@ -10,6 +10,8 @@ import {
   zAuthorizeResponse,
   zAuthVerifyBody,
   zGraphSnapshot,
+  zSearchMemoryInput,
+  zSearchMemoryOutput,
   zHealthResponse,
   zHiveEvent,
   zMemoryResponse,
@@ -117,6 +119,28 @@ describe("mcp", () => {
     expect(zReadMemoryInput.safeParse({ slotIds: [] }).success).toBe(false);
     expect(zListMemoryInput.safeParse({ topic: "work", limit: 20 }).success).toBe(true);
     expect(zListMemoryOutput.safeParse({ memories: [{ slotId: "1", fromAgentId: "1", fromName: "Claude", topic: "work", writtenAt: 1, bytes: 3, preview: "abc" }], more: true }).success).toBe(true);
+  });
+
+  it("validates the structured write fields", () => {
+    expect(zWriteMemoryInput.safeParse({ topic: "work", content: "x", gist: "g", kind: "fact", entities: ["hive"], supersedes: "3" }).success).toBe(true);
+    expect(zWriteMemoryInput.safeParse({ topic: "work", content: "x", kind: "nope" }).success).toBe(false);
+    expect(zSaveSessionInput.safeParse({ summary: "x", kind: "session", gist: "g" }).success).toBe(true);
+  });
+
+  it("validates delta, own-read and kind filters", () => {
+    expect(zReadMemoryInput.safeParse({ cursor: "1700000000:12", mine: true, kind: "state", includeSuperseded: true }).success).toBe(true);
+    expect(zReadMemoryInput.safeParse({ cursor: "12" }).success).toBe(false);
+    expect(zListMemoryInput.safeParse({ cursor: "1:0" }).success).toBe(true);
+    expect(zListMemoryInput.safeParse({ cursor: "1:01" }).success).toBe(false);
+  });
+
+  it("validates hive_search_memory", () => {
+    expect(zSearchMemoryInput.safeParse({ query: "deploy url" }).success).toBe(true);
+    expect(zSearchMemoryInput.safeParse({ query: "  " }).success).toBe(false);
+    expect(zSearchMemoryInput.safeParse({ query: "x".repeat(501) }).success).toBe(false);
+    expect(zSearchMemoryInput.safeParse({ query: "x", limit: 21 }).success).toBe(false);
+    expect(zSearchMemoryInput.safeParse({ query: "x", agentId: "2" }).success).toBe(true); // stripped, identity comes from the token
+    expect(zSearchMemoryOutput.safeParse({ memories: [{ slotId: "1", fromAgentId: "1", fromName: "Claude", topic: "work", writtenAt: 1, bytes: 3, preview: "abc", score: 1.2, matched: ["text"] }], mode: "lexical" }).success).toBe(true);
   });
 
   it("validates hive_whoami and refuses an agentId argument", () => {
