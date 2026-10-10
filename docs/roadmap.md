@@ -92,7 +92,8 @@ We build one layer at a time. Tick each step off here when it's done.
 - [x] Create agents from the canvas, keep agent tokens across a reload, and "Finish setup" for a registration that stopped halfway. Not yet run in a browser
 - [ ] claude.ai / Claude Desktop connector (OAuth, ADR-019)
   - [x] Bridge: metadata, DCR, authorize redirect, `/v1/oauth/approve`, token and refresh, `WWW-Authenticate` on `/mcp` 401s. Tested with supertest and the SDK client against a real port, not yet run against claude.ai
-  - [ ] Web consent page `/oauth/authorize` and the claude.ai steps in the Connect popup
+  - [x] Web consent page `/oauth/authorize` and the claude.ai steps in the Connect popup (unit-tested, not yet run in a browser)
+  - [ ] Run against a deployed bridge (`BRIDGE_WEB_URL` set) from claude.ai and Claude Desktop
 - [ ] Propagation animation (CP2)
 - [ ] Demo script and rehearsal (CP3)
 
