@@ -64,6 +64,8 @@ type Job = { hash: Hex; doc: MemoryDoc };
 async function embedBatch(e: EmbeddingDeps, key: Hex, docs: DocCache | undefined, jobs: Job[], onError?: Report): Promise<Float32Array[]> {
   if (jobs.length === 0) return [];
   const vectors = await e.embedder.embedPassages(jobs.map((j) => embeddingText(j.doc)));
+  // A session that ended while the model ran must not store anything more under its key.
+  if (docs?.isClosed) return vectors;
   await Promise.all(
     jobs.map(async (job, i) => {
       const v = vectors[i]!;
@@ -78,10 +80,12 @@ async function embedBatch(e: EmbeddingDeps, key: Hex, docs: DocCache | undefined
   return vectors;
 }
 
-// Memories still to embed, per session cache. The entry goes away with the session, and the loop ends when the queue is empty.
+// Memories still to embed, per session cache. The entry goes away with the session, and the loop ends when the queue is
+// empty or the session is closed: a closed session's key and plaintext are not kept alive by background work.
 const queues = new WeakMap<DocCache, { pending: Map<string, Job>; running: boolean }>();
 
 function enqueue(e: EmbeddingDeps, key: Hex, docs: DocCache, jobs: Job[], onError?: Report): void {
+  if (docs.isClosed) return;
   let q = queues.get(docs);
   if (!q) queues.set(docs, (q = { pending: new Map(), running: false }));
   for (const j of jobs) q.pending.set(j.hash.toLowerCase(), j);
@@ -90,7 +94,7 @@ function enqueue(e: EmbeddingDeps, key: Hex, docs: DocCache, jobs: Job[], onErro
   const queue = q;
   void (async () => {
     try {
-      while (queue.pending.size > 0) {
+      while (queue.pending.size > 0 && !docs.isClosed) {
         const batch = [...queue.pending.values()].slice(0, BACKFILL_BATCH);
         for (const j of batch) queue.pending.delete(j.hash.toLowerCase());
         await embedBatch(e, key, docs, batch.filter((j) => !docs.getVector(j.hash, e.embedder.model)), onError);
@@ -99,6 +103,7 @@ function enqueue(e: EmbeddingDeps, key: Hex, docs: DocCache, jobs: Job[], onErro
       queue.pending.clear();
       onError?.("embed", err);
     } finally {
+      if (docs.isClosed) queue.pending.clear();
       queue.running = false;
     }
   })();
