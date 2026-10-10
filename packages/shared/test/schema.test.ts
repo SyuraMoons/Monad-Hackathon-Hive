@@ -43,6 +43,7 @@ describe("api", () => {
     expect(zAuthVerifyBody.safeParse({ owner: OWNER, nonce: "n", signature: "0xabcd" }).success).toBe(true);
     const agents = zAgentsResponse.parse([{ agentId: "1", name: "Claude", agentType: "claude", connected: true, lastCallAt: 1790000000, tokenExpiresAt: null }]);
     expect(agents[0].agentId).toBe(1n);
+    expect(zAgentsResponse.parse([{ agentId: "2", name: "DeepSeek", agentType: "deepseek", connected: false, lastCallAt: null, tokenExpiresAt: null }])[0].agentType).toBe("deepseek");
     expect(zAuthorizeBody.safeParse({ agentPrivateKey: KEY, encryptionKey: KEY }).success).toBe(true);
     expect(zAuthorizeResponse.safeParse({ agentToken: "t", expiresAt: 1, mcpUrl: "http://localhost:4000/mcp" }).success).toBe(true);
     expect(zMemoryResponse.safeParse({ ciphertext: "AAEC", iv: "AAEC", keyId: "k1" }).success).toBe(true);
