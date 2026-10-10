@@ -61,7 +61,17 @@ claude.ai ─▶ POST /mcp ─▶ 401 + WWW-Authenticate (resource_metadata)
           ─▶ redirect to claude.ai with a 60 s code ─▶ POST /oauth/token ─▶ agent token (refreshable while the session lives)
 ```
 
+**Find memory without loading it all** (built, ADR-022; not yet run on testnet or Railway)
+```
+Agent ─▶ read_memory(kind=state) ─▶ list_memory(cursor) ─▶ search_memory(query)
+      ─▶ permission filter on live chain state ─▶ rank in the bridge (BM25, then encrypted embeddings)
+      ─▶ previews and gists ─▶ read_memory(slotIds) for the 0–2 that matter
+```
+
 ## Trust model and honest limits
 
 - The bridge holds the per-agent keys of agents the user has authorized. It is a trusted component in the hackathon version.
-- The mock agents are deterministic scripts, which keeps the demo predictable. Real Claude Desktop and ChatGPT integration via MCP is a stretch goal.
+- While an agent's session lives, the bridge also keeps that agent's decrypted memories (and, with embeddings on, their vectors) in process memory so a repeat read costs no fetch, up to 2000 per session. They are never written to disk. They are dropped when the session ends (sign-out, disconnect, expiry or authorizing the agent again), and background embedding stops with it. Permission is still read from the chain on every call.
+- Topic names and agent names are public. `MemorySlots` stores each memory's topic as text and `AgentRegistry` stores agent names and types, so anyone can read them on a block explorer, forever. Only memory content is encrypted (ADR-023).
+- An authorized read hands plaintext to the reading agent, and so to its model provider (Anthropic, OpenAI or DeepSeek), which may keep it under its own terms. Encryption protects memory at rest and between agents without an edge, not from the model that reads it.
+- Claude Code connects over MCP and was run against testnet on 10 Oct. The claude.ai and Claude Desktop connector (ADR-019) is built but not yet run against claude.ai, the DeepSeek runner is planned until a live run (ADR-020), and ChatGPT is not yet tested. The web app's mock mode uses fixed demo data.

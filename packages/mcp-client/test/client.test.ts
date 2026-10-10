@@ -94,7 +94,7 @@ describe("HiveClient", () => {
 
   it("lists the bridge's tools with an object input schema", async () => {
     const tools = await client(token["Claude"]!).listTools();
-    expect(tools.map((t) => t.name).sort()).toEqual(["hive_list_memory", "hive_read_memory", "hive_save_session", "hive_whoami", "hive_write_memory"]);
+    expect(tools.map((t) => t.name).sort()).toEqual(["hive_list_memory", "hive_read_memory", "hive_save_session", "hive_search_memory", "hive_whoami", "hive_write_memory"]);
     for (const t of tools) expect(t.inputSchema.type).toBe("object");
   });
 

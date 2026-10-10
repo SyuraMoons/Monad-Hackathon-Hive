@@ -1,4 +1,5 @@
 import { HiveClient, HiveError } from "@hive/mcp-client";
+import { HIVE_INSTRUCTIONS } from "@hive/shared";
 import { createInterface } from "node:readline/promises";
 import { chatCompletions, ModelError, runTurn, toFunctionTools, type ChatMessage } from "./runner.js";
 
@@ -12,12 +13,13 @@ try {
   // No repo .env: the process env is enough.
 }
 
+// The Hive part is the bridge's own instructions, so this runner follows the same loop as every other client.
 const SYSTEM = [
   "You are a DeepSeek agent connected to Hive, a shared memory between the user's AI agents.",
-  "Use hive_list_memory to see what other agents shared with you, then hive_read_memory with the slotIds you need.",
-  "Save something with hive_write_memory only when the user asks you to remember or share it; use hive_save_session when they ask you to save this conversation.",
+  HIVE_INSTRUCTIONS,
+  "Save something with hive_write_memory only when the user asks you to remember or share it.",
   "If a tool returns nothing, no edge lets you read it. Say so; never guess what another agent knows.",
-].join(" ");
+].join("\n");
 
 function env(name: string): string {
   const value = process.env[name];

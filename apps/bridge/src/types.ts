@@ -35,6 +35,8 @@ export class UnknownAgentError extends Error {
 export interface ChainReader {
   edgesTo(agentId: bigint): Promise<ChainEdge[]>;
   slotsSince(agentId: bigint, since: bigint): Promise<ChainSlot[]>;
+  /** One slot by id, or undefined when it does not exist. Any rejection is a chain/RPC failure. */
+  slot(slotId: bigint): Promise<ChainSlot | undefined>;
   /** Rejects with `UnknownAgentError` for an unregistered id. Any other rejection is a chain/RPC failure. */
   agent(agentId: bigint): Promise<ChainAgent>;
   /** Every agent the owner registered, oldest first. */
@@ -49,7 +51,27 @@ export type NewCiphertext = StoredCiphertext & { owner: Hex; keyId: string };
 /** Offchain ciphertext, keyed by contentHash = keccak256(iv ‖ ciphertext). Never holds plaintext. */
 export interface CiphertextStore {
   get(contentHash: Hex): Promise<StoredCiphertext | undefined>;
+  /** One round trip for many hashes. Keys of the result are lowercase hashes; a hash with no row is left out. */
+  getMany(contentHashes: readonly Hex[]): Promise<Map<string, StoredCiphertext>>;
   put(contentHash: Hex, value: NewCiphertext): Promise<void>;
+}
+
+export type EmbedderStatus = "loading" | "ready" | "error";
+
+/** Turns text into unit-length vectors, so cosine similarity is a dot product. Runs in the bridge: plaintext never leaves it (ADR-022). */
+export interface Embedder {
+  /** Names the vectors it makes. A vector of another model is never mixed in. */
+  readonly model: string;
+  readonly dims: number;
+  status(): EmbedderStatus;
+  embedQuery(text: string): Promise<Float32Array>;
+  embedPassages(texts: string[]): Promise<Float32Array[]>;
+}
+
+/** Encrypted embedding vectors (memory_embedding), keyed by contentHash and model. Never holds a vector in the clear. */
+export interface VectorStore {
+  getVectors(contentHashes: readonly Hex[], model: string): Promise<Map<string, StoredCiphertext>>;
+  putVector(contentHash: Hex, model: string, dims: number, value: NewCiphertext): Promise<void>;
 }
 
 export type PutVaultResult = "created" | "replaced" | "forbidden";

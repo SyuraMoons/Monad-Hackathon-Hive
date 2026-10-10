@@ -8,6 +8,8 @@ export const zHealthResponse = z.object({
   chainId: z.number().int(),
   rpcReachable: z.boolean(),
   supabaseReachable: z.boolean(),
+  /** State of the search embedding model (ADR-022). Absent on a bridge that predates it. */
+  embeddings: z.enum(["off", "loading", "ready", "error"]).optional(),
   activeSessions: z.number().int().nonnegative(),
   version: z.string(),
 });

@@ -12,6 +12,7 @@
   "dependencies": {
     "@hive/crypto": "workspace:*",
     "@hive/shared": "workspace:*",
+    "@huggingface/transformers": "^4.3.1",
     "@modelcontextprotocol/sdk": "^1.31.0",
     "@supabase/supabase-js": "^2.117.2",
     "express": "^5.2.1",

@@ -69,6 +69,15 @@ Not checked:
 
 This is the first run with a real passkey-derived owner: agents and the edge were signed by it, not by the dev signer.
 
+### 11 Oct 2026 — memory search, measured on fixtures and the real model (not a live run)
+Two local measurements for ADR-022. Neither touched testnet or Railway.
+
+**Context size.** `apps/bridge/test/context-size.test.ts` seeds 100 memories (4 topics, each decision rewritten five times, one state per topic, about 1.3 KB each) and counts the bytes of the JSON each call returns. A bare `hive_read_memory` (newest 20) returned 27,216 bytes. The new loop (read the topic `state`, list from a cursor, search, read one slot) returned 4,549 bytes, 17%. The bare read also only covers the newest 20, so it can miss the memory the task needs; the new loop reaches it. Bytes stand in for tokens.
+
+**Real model.** `multilingual-e5-small` (quantized, 384 dimensions) loaded in `apps/bridge/test/embedder.e2e.test.ts` (`HIVE_EMBED_E2E=1`, first run about 90 s including the download, then about 1.5 s). On 5 queries over 5 memories in English and Indonesian the right memory ranked first every time. Similarity was 0.799 to 0.875 for the right memory and 0.724 to 0.795 for the others, a thin margin. Through `searchMemory`, "when is the team meeting" found the Indonesian memory "Jadwal rapat tim" by meaning alone, with no shared words, and "which database do we use" matched on text and meaning. The floor default was lowered from 0.8 to 0.78 because 0.8 would have dropped a right match.
+
+Not checked: a live write and search from two agents, the `memory_embedding` table on Supabase (the live test is gated by `HIVE_VECTOR_TABLE=1`), model load time and memory on Railway, and the result on real memories instead of fixtures.
+
 ## P0 features (required)
 
 | # | Feature | Owner | Status |
@@ -112,6 +121,14 @@ We build one layer at a time. Tick each step off here when it's done.
 - [x] Session restore: the web app keeps the 24h user token across a reload and asks for the passkey again only when keys are needed (ADR-011). Unit-tested for storage and token handling, not yet tried in a browser
 - [x] Canvas Reconnect and Disconnect: the agent drawer re-authorizes an agent after a bridge restart (an unexpired token works again) or ends its bridge session. Not yet tried in a browser
 - [x] Several named agents per type: Connect lists a type's agents and registers a new one by name (ADR-012). Not yet tried in a browser
+- [ ] Structured memory, delta reads and `hive_search_memory` (ADR-022). Built and tested; not yet run against testnet or Railway, so this stays open
+  - [x] Shared envelope, schema and crypto helpers
+  - [x] Bridge: batch fetch and session cache
+  - [x] Bridge: gist, kind, entities, supersede, state, own reads, cursor
+  - [x] Bridge: lexical search
+  - [x] Bridge: encrypted embeddings (off by default; the `memory_embedding` migration is written but not applied to the shared Supabase project)
+  - [x] Shared agent instructions and context-size measurement (a seeded fixture, see _Verified runs_)
+  - [ ] Live run: two Claude Code terminals on the deployed bridge, `HIVE_EMBEDDINGS=on`
 - [x] Memory history in the agent drawer: past writes read from `MemorySlots.slotsSince` (topic, time and content hash, no content). Not yet tried in a browser
 - [x] Remove an agent from the canvas: hidden in this browser, bridge session ended, refused while it has edges (ADR-012). The registry has no delete. Not yet tried in a browser
 - [x] One terminal per agent: `claude --mcp-config` command on Connect and in the drawer, so several agents share one folder. Not yet tried against a real Claude Code

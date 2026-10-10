@@ -14,7 +14,7 @@ import { mountOAuth, wwwAuthenticate } from "./oauth.js";
 import { buildOpenApi } from "./openapi.js";
 import type { SessionStore } from "./sessions.js";
 import type { TokenService, UserClaims } from "./tokens.js";
-import { UnknownAgentError, type ChainAgent, type ChainReader, type ChainWriter, type CiphertextStore, type VaultStore } from "./types.js";
+import { UnknownAgentError, type ChainAgent, type ChainReader, type ChainWriter, type CiphertextStore, type Embedder, type VaultStore, type VectorStore } from "./types.js";
 
 export type AppDeps = {
   corsOrigins: string[];
@@ -30,6 +30,8 @@ export type AppDeps = {
   vaults: VaultStore;
   /** Tops up an agent key's gas on authorize (ADR-007). Default: no top-up. */
   funder?: GasFunder;
+  /** Search by meaning (ADR-022). Both unset: search ranks on words only and /health says `off`. */
+  embeddings?: { embedder: Embedder; vectors: VectorStore; minSimilarity: number };
   /** Feeds GET /v1/events. Default: a fresh in-memory bus. */
   events?: EventBus;
   /** Public base URL for `mcpUrl`. Default: taken from the request. */
@@ -85,7 +87,7 @@ export function createApp(deps: AppDeps): Express {
   app.get("/health", wrap(async (_req, res) => {
     const settle = (p: () => Promise<boolean>) => p().catch(() => false);
     const [rpcReachable, supabaseReachable] = await Promise.all([settle(deps.probes.rpc), settle(deps.probes.supabase)]);
-    const body: HealthResponse = { ok: true, chainId: monadTestnet.id, rpcReachable, supabaseReachable, activeSessions: deps.sessions.count(), version: deps.version ?? "0.0.0" };
+    const body: HealthResponse = { ok: true, chainId: monadTestnet.id, rpcReachable, supabaseReachable, activeSessions: deps.sessions.count(), embeddings: deps.embeddings?.embedder.status() ?? "off", version: deps.version ?? "0.0.0" };
     res.json(body);
   }));
 
@@ -105,7 +107,7 @@ export function createApp(deps: AppDeps): Express {
     res.json(body);
   }));
 
-  app.post("/mcp", wrap(mcpHandler({ tokens: deps.tokens, sessions: deps.sessions, chain: deps.chain, store: deps.store, writer: deps.writer, funder: deps.funder, events, now: deps.now ?? (() => BigInt(Math.floor(Date.now() / 1000))) })));
+  app.post("/mcp", wrap(mcpHandler({ tokens: deps.tokens, sessions: deps.sessions, chain: deps.chain, store: deps.store, writer: deps.writer, funder: deps.funder, embeddings: deps.embeddings, events, now: deps.now ?? (() => BigInt(Math.floor(Date.now() / 1000))) })));
   // Stateless transport: no SSE stream to open and no session to end. SDK clients expect 405 here, not 404.
   app.all("/mcp", (_req, res) => {
     res.setHeader("Allow", "POST");

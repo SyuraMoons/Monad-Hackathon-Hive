@@ -68,10 +68,10 @@ beforeAll(async () => {
 afterAll(() => new Promise<void>((r) => server.close(() => r())));
 
 describe("MCP over Streamable HTTP (official SDK client)", () => {
-  it("lists the five Hive tools", async () => {
+  it("lists the six Hive tools", async () => {
     const client = await connect(agentToken["ChatGPT"]);
     const tools = (await client.listTools()).tools.map((t) => t.name).sort();
-    expect(tools).toEqual(["hive_list_memory", "hive_read_memory", "hive_save_session", "hive_whoami", "hive_write_memory"]);
+    expect(tools).toEqual(["hive_list_memory", "hive_read_memory", "hive_save_session", "hive_search_memory", "hive_whoami", "hive_write_memory"]);
     await client.close();
   });
 
@@ -81,6 +81,7 @@ describe("MCP over Streamable HTTP (official SDK client)", () => {
     expect(HIVE_INSTRUCTIONS).toContain("hive_save_session");
     expect(HIVE_INSTRUCTIONS).toContain("hive_list_memory");
     expect(HIVE_INSTRUCTIONS).toContain("slotIds");
+    expect(HIVE_INSTRUCTIONS).toContain("hive_search_memory");
     await client.close();
   });
 
