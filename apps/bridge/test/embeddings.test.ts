@@ -198,6 +198,41 @@ describe("backfill", () => {
   });
 });
 
+describe("a session that ends", () => {
+  const stored = async () => (await vectors.getVectors(chain.slots.map((s) => s.contentHash), embedder.model)).size;
+
+  it("stops the background backfill and stores nothing more under its key", async () => {
+    for (let i = 0; i < 40; i++) await put(CLAUDE, "work", { content: `Note ${i} about hosting.` });
+    // The 20 of the search itself run at once; the first background batch is held at a gate while the session ends.
+    const run = embedder.embedPassages.bind(embedder);
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    let calls = 0;
+    embedder.embedPassages = async (texts) => (++calls > 1 ? (await gate, run(texts)) : run(texts));
+    const out = await search("hosting", { limit: 20 });
+    expect(out.pending).toBe(20);
+    expect(calls).toBe(2);
+    deps.docs!.close();
+    release();
+    await vi.waitFor(() => expect(backfillPending(deps.docs)).toBe(0));
+    await new Promise((r) => setTimeout(r, 20));
+    expect(calls).toBe(2); // the second background batch never started
+    expect(await stored()).toBe(20); // and the batch that was running stored nothing
+  });
+
+  it("drops the cache, and a closed cache takes nothing new", async () => {
+    await put(CLAUDE, "work", { content: "Deploy the app." });
+    await search("deploy");
+    expect(deps.docs!.size).toBe(1);
+    deps.docs!.close();
+    expect(deps.docs!.size).toBe(0);
+    deps.docs!.set("0x" + "ab".repeat(32), { content: "late" });
+    deps.docs!.setVector("0x" + "ab".repeat(32), "fake-e5", new Float32Array(64));
+    expect(deps.docs!.size).toBe(0);
+    expect(deps.docs!.getVector("0x" + "ab".repeat(32), "fake-e5")).toBeUndefined();
+  });
+});
+
 describe("permissions come first", () => {
   it("never embeds or ranks a memory the reader may not read", async () => {
     await put(CLAUDE, "work", { content: "The launch code is 4471, deploy it." });

@@ -7,7 +7,19 @@ import type { Hex, MemoryDoc } from "@hive/shared";
 export class DocCache {
   private rows = new Map<string, MemoryDoc>();
   private vectors = new Map<string, Float32Array>();
+  private closed = false;
   constructor(private max = 2000) {}
+
+  /** The session ended: drop every decrypted memory and vector, and stop adding to them. Background work checks `isClosed`. */
+  close(): void {
+    this.closed = true;
+    this.rows.clear();
+    this.vectors.clear();
+  }
+
+  get isClosed(): boolean {
+    return this.closed;
+  }
 
   /** A vector of one model for one memory. The model is part of the key: vectors of two models never mix. */
   getVector(contentHash: string, model: string): Float32Array | undefined {
@@ -15,6 +27,7 @@ export class DocCache {
   }
 
   setVector(contentHash: string, model: string, vector: Float32Array): void {
+    if (this.closed) return;
     const key = `${model}:${contentHash.toLowerCase()}`;
     this.vectors.delete(key);
     this.vectors.set(key, vector);
@@ -32,6 +45,7 @@ export class DocCache {
   }
 
   set(contentHash: string, doc: MemoryDoc): void {
+    if (this.closed) return;
     const key = contentHash.toLowerCase();
     this.rows.delete(key);
     this.rows.set(key, doc);
@@ -66,6 +80,13 @@ export class SessionStore {
     const prev = this.get(session.agentId);
     const keep = prev && prev.owner.toLowerCase() === session.owner.toLowerCase() ? prev.lastCallAt : null;
     this.rows.set(session.agentId.toString(), { ...session, lastCallAt: keep, docs: new DocCache() });
+    prev?.docs.close();
+  }
+
+  /** Every way a session ends goes through here, so its cache is closed and no background job keeps its key. */
+  private drop(agentId: string): void {
+    this.rows.get(agentId)?.docs.close();
+    this.rows.delete(agentId);
   }
 
   /** Live sessions only: an expired one is deleted on lookup. */
@@ -73,7 +94,7 @@ export class SessionStore {
     const row = this.rows.get(agentId.toString());
     if (!row) return undefined;
     if (row.expiresAt <= this.now()) {
-      this.rows.delete(agentId.toString());
+      this.drop(agentId.toString());
       return undefined;
     }
     return row;
@@ -85,11 +106,11 @@ export class SessionStore {
   }
 
   delete(agentId: bigint): void {
-    this.rows.delete(agentId.toString());
+    this.drop(agentId.toString());
   }
 
   deleteByOwner(owner: string): void {
-    for (const [id, row] of this.rows) if (row.owner.toLowerCase() === owner.toLowerCase()) this.rows.delete(id);
+    for (const [id, row] of this.rows) if (row.owner.toLowerCase() === owner.toLowerCase()) this.drop(id);
   }
 
   listByOwner(owner: string): AgentSession[] {

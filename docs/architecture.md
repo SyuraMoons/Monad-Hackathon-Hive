@@ -71,4 +71,5 @@ Agent ─▶ read_memory(kind=state) ─▶ list_memory(cursor) ─▶ search_me
 ## Trust model and honest limits
 
 - The bridge holds the per-agent keys of agents the user has authorized. It is a trusted component in the hackathon version.
+- While an agent's session lives, the bridge also keeps that agent's decrypted memories (and, with embeddings on, their vectors) in process memory so a repeat read costs no fetch, up to 2000 per session. They are never written to disk. They are dropped when the session ends (sign-out, disconnect, expiry or authorizing the agent again), and background embedding stops with it. Permission is still read from the chain on every call.
 - The mock agents are deterministic scripts, which keeps the demo predictable. Real Claude Desktop and ChatGPT integration via MCP is a stretch goal.
