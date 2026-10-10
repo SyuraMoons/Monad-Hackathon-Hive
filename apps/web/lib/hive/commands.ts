@@ -14,6 +14,25 @@ export const claudeTerminalCommand = (url: string, token: string, name: string) 
   return `claude -n hive-${nameSlug(name)} --mcp-config ${shellQuote(JSON.stringify(config))}`;
 };
 
+/**
+ * Claude Desktop reaches the bridge through `mcp-remote` (a local stdio proxy). The token sits in `env` because Desktop
+ * mangles a space inside `args`, so the header value is `Authorization:${HIVE_AUTH}` with no space after the colon.
+ */
+export const claudeDesktopConfig = (url: string, token: string, name: string) =>
+  JSON.stringify(
+    {
+      mcpServers: {
+        [`hive-${nameSlug(name)}`]: {
+          command: "npx",
+          args: ["-y", "mcp-remote", url, "--header", "Authorization:${HIVE_AUTH}"],
+          env: { HIVE_AUTH: `Bearer ${token}` },
+        },
+      },
+    },
+    null,
+    2,
+  );
+
 // OpenAI Responses API with a remote MCP tool (rules O7 option b, design D11). The model comes from the env, never hardcoded.
 export const gptSnippet = (url: string, token: string) =>
   [

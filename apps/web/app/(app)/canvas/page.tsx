@@ -2,6 +2,7 @@
 
 import { ReactFlowProvider } from "@xyflow/react";
 import { Toaster } from "@/components/app/Toaster";
+import { ConnectAgentModal } from "@/components/canvas/ConnectAgentModal";
 import { GraphCanvas } from "@/components/canvas/GraphCanvas";
 import { LiveFeed } from "@/components/canvas/LiveFeed";
 import { NodeDrawer } from "@/components/canvas/NodeDrawer";
@@ -17,6 +18,7 @@ function Canvas({ owner }: { owner: string }) {
   const { layout, place, unplace } = useLayout(owner);
   const error = useGraph((s) => (s.status === "error" ? s.error : undefined));
   const drawer = useUi((s) => s.drawerAgentId);
+  const connect = useUi((s) => s.connectAgent);
 
   return (
     <ReactFlowProvider>
@@ -37,6 +39,7 @@ function Canvas({ owner }: { owner: string }) {
           {drawer !== null && <NodeDrawer key={drawer.toString()} agentId={drawer.toString()} />}
         </div>
       </div>
+      {connect !== null && <ConnectAgentModal key={connect.toString()} agentId={connect.toString()} />}
     </ReactFlowProvider>
   );
 }

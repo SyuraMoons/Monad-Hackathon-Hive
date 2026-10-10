@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { claudeCommand, claudeTerminalCommand, nameSlug, gptRunner, gptSnippet } from "./commands";
+import { claudeCommand, claudeDesktopConfig, claudeTerminalCommand, nameSlug, gptRunner, gptSnippet } from "./commands";
 
 describe("connect commands", () => {
   it("puts the url and token in the Claude Code command", () => {
@@ -30,5 +30,16 @@ describe("connect commands", () => {
   it("keeps the model out of the GPT snippet and the token in the runner", () => {
     expect(gptSnippet("u", "tok")).toContain("process.env.OPENAI_MODEL");
     expect(gptRunner("tok")).toBe("HIVE_TOKEN_GPT=tok pnpm --filter @hive/agents gpt --chat");
+  });
+
+  it("builds a Claude Desktop config that keeps the token in env, not in args", () => {
+    const text = claudeDesktopConfig("https://bridge.example/mcp", "tok", "Claude · FE");
+    const json = JSON.parse(text);
+    expect(Object.keys(json.mcpServers)).toEqual(["hive-claude-fe"]);
+    const server = json.mcpServers["hive-claude-fe"];
+    expect(server.command).toBe("npx");
+    expect(server.args).toEqual(["-y", "mcp-remote", "https://bridge.example/mcp", "--header", "Authorization:${HIVE_AUTH}"]);
+    expect(server.env).toEqual({ HIVE_AUTH: "Bearer tok" });
+    expect(JSON.stringify(server.args)).not.toContain("tok");
   });
 });

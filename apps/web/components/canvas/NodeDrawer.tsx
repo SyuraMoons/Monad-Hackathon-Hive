@@ -9,7 +9,7 @@ import { cn } from "@/lib/cn";
 import { explorerAddress, explorerTx } from "@/lib/explorer";
 import { longDate, shortHash } from "@/lib/format";
 import { pageOf } from "@/lib/pagination";
-import { claudeCommand, claudeTerminalCommand, gptSnippet } from "@/lib/hive/commands";
+import { gptSnippet } from "@/lib/hive/commands";
 import type { MemoryHistoryRow } from "@/lib/hive/types";
 import { useFeed, type FeedRow } from "@/lib/stores/feed";
 import { displayName, useGraph, type AgentNode, type EdgeView } from "@/lib/stores/graph";
@@ -51,7 +51,7 @@ function ConnectionSection({ agent }: { agent: AgentNode }) {
   const disconnectAgent = useSession((s) => s.disconnectAgent);
   const [busy, setBusy] = useState<"reconnect" | "disconnect">();
   const [error, setError] = useState<string>();
-  const [copied, setCopied] = useState<"terminal" | "folder" | "gpt">();
+  const [copied, setCopied] = useState(false);
   const live = agent.tokenExpiresAt !== null && agent.tokenExpiresAt > Math.floor(Date.now() / 1000);
   const unfinished = agent.agentKey === zeroAddress;
 
@@ -67,18 +67,12 @@ function ConnectionSection({ agent }: { agent: AgentNode }) {
     }
   }
 
-  async function copy(kind: "terminal" | "folder" | "gpt") {
+  async function copyGpt() {
     if (!authorization) return;
     try {
-      await navigator.clipboard.writeText(
-        kind === "terminal"
-          ? claudeTerminalCommand(authorization.mcpUrl, authorization.agentToken, agent.name)
-          : kind === "folder"
-            ? claudeCommand(authorization.mcpUrl, authorization.agentToken)
-            : gptSnippet(authorization.mcpUrl, authorization.agentToken),
-      );
-      setCopied(kind);
-      setTimeout(() => setCopied(undefined), 1500);
+      await navigator.clipboard.writeText(gptSnippet(authorization.mcpUrl, authorization.agentToken));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
     } catch {
       setError("Could not copy. Open Connect to select the command.");
     }
@@ -106,19 +100,14 @@ function ConnectionSection({ agent }: { agent: AgentNode }) {
           </button>
         )}
         {authorization && agent.agentType === "gpt" && (
-          <button type="button" className={button} onClick={() => void copy("gpt")}>
-            {copied === "gpt" ? "Copied" : "Copy GPT config"}
+          <button type="button" className={button} onClick={() => void copyGpt()}>
+            {copied ? "Copied" : "Copy GPT config"}
           </button>
         )}
-        {authorization && agent.agentType === "claude" && (
-          <>
-            <button type="button" className={button} onClick={() => void copy("terminal")}>
-              {copied === "terminal" ? "Copied" : "Copy terminal command"}
-            </button>
-            <button type="button" className={button} onClick={() => void copy("folder")}>
-              {copied === "folder" ? "Copied" : "Copy folder command"}
-            </button>
-          </>
+        {agent.agentType === "claude" && !unfinished && (
+          <button type="button" className={button} onClick={() => useUi.getState().set({ connectAgent: agent.agentId })}>
+            Connect to Claude…
+          </button>
         )}
       </div>
       {error && <p role="alert" className="text-[14px] leading-[1.45] text-status-revoked">{error}</p>}

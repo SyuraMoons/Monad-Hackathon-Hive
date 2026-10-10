@@ -4,10 +4,11 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { cn } from "@/lib/cn";
 import { StatusDot } from "./StatusDot";
 
-export type InstallTab = "claude" | "gpt";
+export type InstallTab = "claude" | "desktop" | "gpt";
 
 const BAR_LABEL: Record<InstallTab, string> = {
   claude: "Terminal · Claude Code",
+  desktop: "claude_desktop_config.json",
   gpt: "OpenAI API",
 };
 
