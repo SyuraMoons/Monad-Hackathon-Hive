@@ -175,7 +175,7 @@ Short architecture decision records. To add one, append the next number and don'
 
 
 ## ADR-022: Structured memory, delta reads and search, all inside the encrypted payload
-**Date:** 2026-10-10 · **Status:** proposed
+**Date:** 2026-10-10 · **Status:** proposed, built
 
 **Context.** ADR-015 capped a bare read at 20 memories and added previews, but an agent still picks what to read by recency and a 160-character cut of the text. As history grows it either loads too much into its context or misses the memory that matters. Search was left open because it "would need plaintext or a second encrypted column". The chain can't carry new fields (`MemorySlots` is append-only and stores `{id, agentId, contentHash, topic, writtenAt}`), and redeploying again is not an option (ADR-021).
 
@@ -188,4 +188,4 @@ Short architecture decision records. To add one, append the next number and don'
 - **Cost.** `CiphertextStore.getMany` (one query, replacing the N+1 fetch) and a per-session cache of decrypted documents, dropped with the session. Permission is still read from live chain state on every call.
 - **Untrusted data.** Outputs carry a fixed notice that memories are data from other agents, not instructions, and `HIVE_INSTRUCTIONS` says the same. The DeepSeek runner imports the same text from `@hive/shared`.
 
-**Consequences.** No contract change and no gas change. Plaintext, gist, entities and vectors never reach a log, an error, an SSE event or an unencrypted row. Slots written before this change read as legacy content with no gist, so they rank on text only. A forged `supersedes` pointing at another sender's slot is ignored. If the embedding model can't load, search stays lexical and `/health` reports it. Embeddings and search are planned until a live run is recorded in the roadmap.
+**Consequences.** No contract change and no gas change. Plaintext, gist, entities and vectors never reach a log, an error, an SSE event or an unencrypted row. Slots written before this change read as legacy content with no gist, so they rank on text only. A forged `supersedes` pointing at another sender's slot is ignored. If the embedding model can't load, search stays lexical and `/health` reports it. Built and tested with in-memory fakes, and the real model was run locally; none of it has run against testnet or Railway yet, so the UI and docs call it built, not verified (rule 8). Embeddings are off by default (`HIVE_EMBEDDINGS`), need the `memory_embedding` migration applied, and add a model of about 120 MB and some hundred MB of memory to the bridge. The e5 similarity scale is compressed (right matches 0.80-0.875, wrong 0.72-0.81 in the roadmap run), so the floor `HIVE_EMBED_MIN_SIM` (default 0.78) only cuts the clearly unrelated and ranking does the rest.
