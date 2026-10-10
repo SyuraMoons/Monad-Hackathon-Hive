@@ -104,6 +104,46 @@ contract PropagationEngineTest is Test {
         assertEq(count, 2);
     }
 
+    function _propagateCount(Vm.Log[] memory logs) internal pure returns (uint256 count) {
+        bytes32 propTopic = keccak256("Propagate(uint256,uint256,bytes32,string,uint256)");
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics[0] == propTopic) count++;
+        }
+    }
+
+    function test_AllTopicsEdgePropagatesAnyTopic() public {
+        vm.prank(alice);
+        graph.addEdge(claude, cursor, "*", _future(3600));
+
+        vm.recordLogs();
+        vm.prank(writer);
+        slots.write(claude, HASH, "work");
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        assertEq(_propagateCount(logs), 1);
+
+        vm.recordLogs();
+        vm.prank(writer);
+        slots.write(claude, HASH, "personal");
+        assertEq(_propagateCount(vm.getRecordedLogs()), 1);
+    }
+
+    function test_AllTopicsEdgeSkipsExpiredRevokedAndOtherSenders() public {
+        vm.startPrank(alice);
+        graph.addEdge(claude, therapy, "*", _future(10));
+        uint256 revoked = graph.addEdge(claude, cursor, "*", _future(3600));
+        graph.removeEdge(revoked);
+        vm.stopPrank();
+        vm.prank(bob);
+        graph.addEdge(cursor, claude, "*", _future(3600));
+
+        vm.warp(vm.getBlockTimestamp() + 11);
+
+        vm.recordLogs();
+        vm.prank(writer);
+        slots.write(claude, HASH, "work");
+        assertEq(_propagateCount(vm.getRecordedLogs()), 0);
+    }
+
     function test_NoPropagationForIsolatedAgent() public {
         vm.recordLogs();
         vm.prank(therapyWriter);

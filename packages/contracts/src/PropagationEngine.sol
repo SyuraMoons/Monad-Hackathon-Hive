@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IKnowledgeGraph} from "./interfaces/IKnowledgeGraph.sol";
 import {IPropagationEngine} from "./interfaces/IPropagationEngine.sol";
+import {ALL_TOPICS} from "./Topics.sol";
 
 contract PropagationEngine is IPropagationEngine, Ownable {
     IKnowledgeGraph public immutable knowledgeGraph;
@@ -26,7 +27,7 @@ contract PropagationEngine is IPropagationEngine, Ownable {
 
         for (uint256 i = 0; i < edges.length; i++) {
             IKnowledgeGraph.Edge memory edge = edges[i];
-            if (edge.active && edge.topic == topicHash && edge.expiresAt > block.timestamp) {
+            if (edge.active && (edge.topic == topicHash || edge.topic == ALL_TOPICS) && edge.expiresAt > block.timestamp) {
                 emit Propagate(agentId, edge.to, contentHash, topic, block.timestamp);
             }
         }
