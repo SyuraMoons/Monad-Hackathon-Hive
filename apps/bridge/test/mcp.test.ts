@@ -81,6 +81,7 @@ describe("MCP over Streamable HTTP (official SDK client)", () => {
     expect(HIVE_INSTRUCTIONS).toContain("hive_save_session");
     expect(HIVE_INSTRUCTIONS).toContain("hive_list_memory");
     expect(HIVE_INSTRUCTIONS).toContain("slotIds");
+    expect(HIVE_INSTRUCTIONS).toContain("hive_search_memory");
     await client.close();
   });
 

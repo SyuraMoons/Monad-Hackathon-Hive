@@ -1,6 +1,7 @@
 export * from "./chain.js";
 export * from "./errors.js";
 export * from "./ids.js";
+export * from "./instructions.js";
 export * from "./memory.js";
 export * from "./schema/api.js";
 export * from "./schema/events.js";
