@@ -1,7 +1,8 @@
 import { decrypt, encrypt } from "@hive/crypto";
-import { HiveError, MEMORY_PAGE_DEFAULT, PREVIEW_CHARS, zTxHash, type Hex, type ListMemoryOutput, type ReadMemoryOutput, type WriteMemoryOutput } from "@hive/shared";
+import { HiveError, MEMORY_PAGE_DEFAULT, PREVIEW_CHARS, openDoc, zTxHash, type Hex, type ListMemoryOutput, type MemoryDoc, type ReadMemoryOutput, type WriteMemoryOutput } from "@hive/shared";
 import { concatBytes, hexToBytes, keccak256, stringToBytes } from "viem";
 import { permittedSlots } from "./permissions.js";
+import type { DocCache } from "./sessions.js";
 import type { ChainReader, ChainSlot, ChainWriter, CiphertextStore } from "./types.js";
 
 export type ReadDeps = {
@@ -10,6 +11,8 @@ export type ReadDeps = {
   /** The owner's delegated encryption key for this agent's session. */
   encryptionKey: Hex;
   now: () => bigint;
+  /** The session's decrypted memories. Optional: without it every call fetches and decrypts again. */
+  docs?: DocCache;
   /** Reports a failure without any memory content. */
   onError?: (stage: string, error: unknown) => void;
 };
@@ -39,21 +42,59 @@ async function selectSlots(deps: ReadDeps, args: ReadArgs): Promise<Selection> {
 
 type ReadArgs = { agentId: bigint; since?: number; topic?: string; slotIds?: bigint[]; limit?: number };
 
-/** Decrypts each selected slot and hands the plaintext to `shape`. A slot that fails is skipped, the others still return. */
-async function openSlots<T>(deps: ReadDeps, slots: ChainSlot[], shape: (slot: ChainSlot, name: string, content: string) => T): Promise<T[]> {
-  const names = new Map<bigint, string>();
-  const out: T[] = [];
-  for (const slot of slots) {
-    try {
-      const sealed = await deps.store.get(slot.contentHash);
-      if (!sealed) continue;
-      if (!names.has(slot.agentId)) names.set(slot.agentId, (await deps.chain.agent(slot.agentId)).name);
-      out.push(shape(slot, names.get(slot.agentId)!, await decrypt(sealed, deps.encryptionKey)));
-    } catch (e) {
-      deps.onError?.("memory", e);
-    }
+/**
+ * The document of each slot, by contentHash: from the session cache, else one batched fetch and a decrypt.
+ * A slot that fails or has no row is left out, the others still return.
+ */
+async function loadDocs(deps: ReadDeps, slots: readonly ChainSlot[]): Promise<Map<string, MemoryDoc>> {
+  const docs = new Map<string, MemoryDoc>();
+  const missing = new Map<string, Hex>();
+  for (const { contentHash } of slots) {
+    const key = contentHash.toLowerCase();
+    if (docs.has(key) || missing.has(key)) continue;
+    const hit = deps.docs?.get(key);
+    if (hit) docs.set(key, hit);
+    else missing.set(key, contentHash);
   }
-  return out;
+  if (missing.size === 0) return docs;
+  let sealed;
+  try {
+    sealed = await deps.store.getMany([...missing.values()]);
+  } catch (e) {
+    deps.onError?.("memory", e);
+    return docs;
+  }
+  await Promise.all(
+    [...missing].map(async ([key, hash]) => {
+      const row = sealed.get(key);
+      if (!row) return;
+      try {
+        const doc = openDoc(await decrypt(row, deps.encryptionKey));
+        docs.set(key, doc);
+        deps.docs?.set(hash, doc);
+      } catch (e) {
+        deps.onError?.("memory", e);
+      }
+    }),
+  );
+  return docs;
+}
+
+/** Opens each selected slot and hands its document to `shape`. Sender names are read once per sender. */
+async function openSlots<T>(deps: ReadDeps, slots: ChainSlot[], shape: (slot: ChainSlot, name: string, doc: MemoryDoc) => T): Promise<T[]> {
+  const docs = await loadDocs(deps, slots);
+  const readable = slots.filter((s) => docs.has(s.contentHash.toLowerCase()));
+  const names = new Map<bigint, string>();
+  await Promise.all(
+    [...new Set(readable.map((s) => s.agentId))].map(async (id) => {
+      try {
+        names.set(id, (await deps.chain.agent(id)).name);
+      } catch (e) {
+        deps.onError?.("memory", e);
+      }
+    }),
+  );
+  return readable.filter((s) => names.has(s.agentId)).map((s) => shape(s, names.get(s.agentId)!, docs.get(s.contentHash.toLowerCase())!));
 }
 
 const topicOf = (slot: ChainSlot) => slot.topic as ReadMemoryOutput["memories"][number]["topic"];
@@ -65,7 +106,7 @@ const topicOf = (slot: ChainSlot) => slot.topic as ReadMemoryOutput["memories"][
 export async function readMemory(deps: ReadDeps, args: ReadArgs): Promise<ReadMemoryOutput> {
   try {
     const { slots, more } = await selectSlots(deps, args);
-    const memories = await openSlots(deps, slots, (slot, name, content) => ({
+    const memories = await openSlots(deps, slots, (slot, name, { content }) => ({
       slotId: slot.id,
       fromAgentId: slot.agentId,
       fromName: name,
@@ -84,7 +125,7 @@ export async function readMemory(deps: ReadDeps, args: ReadArgs): Promise<ReadMe
 export async function listMemory(deps: ReadDeps, args: Omit<ReadArgs, "slotIds">): Promise<ListMemoryOutput> {
   try {
     const { slots, more } = await selectSlots(deps, args);
-    const memories = await openSlots(deps, slots, (slot, name, content) => ({
+    const memories = await openSlots(deps, slots, (slot, name, { content }) => ({
       slotId: slot.id,
       fromAgentId: slot.agentId,
       fromName: name,
