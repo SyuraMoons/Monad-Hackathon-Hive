@@ -49,6 +49,8 @@ export type NewCiphertext = StoredCiphertext & { owner: Hex; keyId: string };
 /** Offchain ciphertext, keyed by contentHash = keccak256(iv ‖ ciphertext). Never holds plaintext. */
 export interface CiphertextStore {
   get(contentHash: Hex): Promise<StoredCiphertext | undefined>;
+  /** One round trip for many hashes. Keys of the result are lowercase hashes; a hash with no row is left out. */
+  getMany(contentHashes: readonly Hex[]): Promise<Map<string, StoredCiphertext>>;
   put(contentHash: Hex, value: NewCiphertext): Promise<void>;
 }
 
