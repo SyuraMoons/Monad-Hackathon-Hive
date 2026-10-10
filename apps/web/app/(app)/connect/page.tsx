@@ -21,7 +21,7 @@ type Tab = "claude" | "gpt" | "deepseek";
 const AGENTS: Record<Tab, { name: string; type: AgentType; icon?: string }> = {
   claude: { name: "Claude", type: "claude", icon: "/agents/claude.png" },
   gpt: { name: "GPT", type: "gpt", icon: "/agents/gpt.png" },
-  deepseek: { name: "DeepSeek", type: "deepseek" },
+  deepseek: { name: "DeepSeek", type: "deepseek", icon: "/agents/deepseek.png" },
 };
 
 // rules O5 / design D4: hive_whoami replaces hive_register_agent (the browser registers agents).
@@ -129,6 +129,7 @@ export default function ConnectPage() {
           Works with
           <Image src="/agents/claude.png" alt="Claude" width={18} height={18} />
           <Image src="/agents/gpt.png" alt="GPT" width={18} height={18} />
+          <image src="/agents/deepseek.png" alt="DeepSeek" width={18} height={18} />
         </p>
         <h1 className="font-display text-[clamp(48px,4.45vw,64px)] leading-none tracking-[-0.018em] text-ink">
           Connect your

@@ -3,8 +3,8 @@
 // Source of truth: packages/contracts/deployments/monad-testnet.json
 export const hiveDeployment = {
   chainId: 10143,
-  agentRegistry: "0x949Deac6ec66387778CEDe6643b875127FBb340F",
-  knowledgeGraph: "0x3d1cB1E65F90Fde55497d1eE9159c19e5C79Bde1",
-  memorySlots: "0x45179F9abAC535924d49C2C8Fe2B72cDb69AeDcd",
-  propagationEngine: "0x4B6890C4424B1f1d972b4B8Ec2167f5CD6A11479",
+  agentRegistry: "0xe3e023998b5da3709a8aA42897bf55b08827E0b2",
+  knowledgeGraph: "0x36A2504760013C8Bacc1C7b441F651bFF103Fd08",
+  memorySlots: "0xA03b94ab71B91803BDD79f32C6d694E8A7954F63",
+  propagationEngine: "0xe918274a6E1D6A99145bF33947B5d23A1f340F32",
 } as const;
