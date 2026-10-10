@@ -25,6 +25,8 @@ type UiState = {
   hideAgent: { agentId: string; at: Anchor } | null;
   /** The "New agent" modal on the canvas. */
   newAgent: boolean;
+  /** The "Connect to Claude" modal, for this agent. */
+  connectAgent: AgentId | null;
   zones: boolean;
   walletMenu: boolean;
   toasts: ToastItem[];
@@ -47,6 +49,7 @@ export const useUi = create<UiState>()((set, get) => ({
   agentMenu: null,
   hideAgent: null,
   newAgent: false,
+  connectAgent: null,
   zones: false,
   walletMenu: false,
   toasts: [],
