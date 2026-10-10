@@ -1,7 +1,7 @@
 import { createDecipheriv, createCipheriv, randomBytes } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { keccak256, concatBytes } from "viem";
-import { contentHash, CryptoError, decrypt, encrypt, fromBase64, toBase64 } from "../src/index.js";
+import { contentHash, CryptoError, decrypt, decryptBytes, encrypt, encryptBytes, fromBase64, toBase64 } from "../src/index.js";
 
 const KEY = ("0x" + "11".repeat(32)) as `0x${string}`;
 const OTHER_KEY = ("0x" + "22".repeat(32)) as `0x${string}`;
@@ -78,5 +78,17 @@ describe("base64", () => {
   it("round-trips bytes", () => {
     const bytes = randomBytes(40);
     expect(Buffer.from(fromBase64(toBase64(bytes)))).toEqual(bytes);
+  });
+});
+
+describe("encryptBytes / decryptBytes", () => {
+  it("round-trips binary data and shares the text layout", async () => {
+    const data = new Uint8Array(Array.from({ length: 384 * 4 }, (_, i) => i % 251));
+    const sealed = await encryptBytes(data, KEY);
+    expect(sealed.iv.length).toBe(12);
+    expect(sealed.ciphertext.length).toBe(data.length + 16);
+    expect(await decryptBytes(sealed, KEY)).toEqual(data);
+    expect(sealed.contentHash).toBe(contentHash(sealed.iv, sealed.ciphertext));
+    await expect(decryptBytes(sealed, OTHER_KEY)).rejects.toBeInstanceOf(CryptoError);
   });
 });
