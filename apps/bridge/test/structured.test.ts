@@ -1,7 +1,7 @@
 import { decrypt, encrypt } from "@hive/crypto";
 import { HiveError, MEMORY_ENVELOPE_PREFIX, MEMORY_NOTICE, sealDoc, type Hex } from "@hive/shared";
 import { beforeEach, describe, expect, it } from "vitest";
-import { listMemory, readMemory, writeMemory, type ReadDeps, type WriteDeps } from "../src/memory.js";
+import { CANDIDATES_MAX, listMemory, readMemory, writeMemory, type ReadDeps, type WriteDeps } from "../src/memory.js";
 import { topicHash } from "../src/permissions.js";
 import { DocCache } from "../src/sessions.js";
 import { InMemoryChain, InMemoryCiphertextStore } from "../src/stubs.js";
@@ -193,6 +193,89 @@ describe("cursor", () => {
     expect(first.memories.map((m) => m.preview)).toEqual(["b"]);
     await put(CLAUDE, "work", "c", at);
     expect((await listMemory(deps, { agentId: CHATGPT, cursor: first.cursor })).memories.map((m) => m.preview)).toEqual(["c"]);
+  });
+
+  it("delivers a backlog bigger than the page over several calls, none skipped, none repeated", async () => {
+    await put(CLAUDE, "work", "seen");
+    const first = await listMemory(deps, { agentId: CHATGPT });
+    for (let i = 0; i < 30; i++) await put(CLAUDE, "work", `new ${i}`);
+    const one = await listMemory(deps, { agentId: CHATGPT, cursor: first.cursor, limit: 20 });
+    expect(one.memories.map((m) => m.preview)).toEqual(Array.from({ length: 20 }, (_, i) => `new ${i}`));
+    expect(one.more).toBe(true);
+    const two = await listMemory(deps, { agentId: CHATGPT, cursor: one.cursor, limit: 20 });
+    expect(two.memories.map((m) => m.preview)).toEqual(Array.from({ length: 10 }, (_, i) => `new ${i + 20}`));
+    expect(two.more).toBe(false);
+    expect((await listMemory(deps, { agentId: CHATGPT, cursor: two.cursor, limit: 20 })).memories).toEqual([]);
+  });
+
+  it("drains a backlog bigger than the candidate window", async () => {
+    await put(CLAUDE, "work", "seen");
+    const first = await listMemory(deps, { agentId: CHATGPT });
+    const total = CANDIDATES_MAX + 20;
+    for (let i = 0; i < total; i++) await put(CLAUDE, "work", `n${i}`);
+    const got: string[] = [];
+    let cursor = first.cursor;
+    for (let calls = 0; calls < 40; calls++) {
+      const out = await listMemory(deps, { agentId: CHATGPT, cursor, limit: 50 });
+      got.push(...out.memories.map((m) => m.preview));
+      cursor = out.cursor ?? cursor;
+      if (!out.more) break;
+    }
+    expect(got).toEqual(Array.from({ length: total }, (_, i) => `n${i}`));
+  });
+
+  it("moves the cursor past a whole window of hidden slots instead of looking at it again", async () => {
+    const old = await put(CLAUDE, "work", "seen");
+    const first = await listMemory(deps, { agentId: CHATGPT });
+    // 500 state slots of one sender and topic: only the newest is visible, so the oldest 500 after the cursor show nothing
+    // when the newest one falls outside the window.
+    for (let i = 0; i < CANDIDATES_MAX; i++) await put(CLAUDE, "work", { content: `s${i}`, kind: "state" });
+    await put(CLAUDE, "work", { content: "newest state", kind: "state" });
+    void old;
+    const a = await listMemory(deps, { agentId: CHATGPT, cursor: first.cursor });
+    expect(a.memories.map((m) => m.preview)).toEqual(["s499"]);
+    expect(a.more).toBe(true);
+    const b = await listMemory(deps, { agentId: CHATGPT, cursor: a.cursor });
+    expect(b.memories.map((m) => m.preview)).toEqual(["newest state"]);
+    expect(b.more).toBe(false);
+  });
+
+  it("does not advance the cursor when the batch fetch fails, and delivers everything on retry", async () => {
+    await put(CLAUDE, "work", "seen");
+    const first = await listMemory(deps, { agentId: CHATGPT });
+    await put(CLAUDE, "work", "n1");
+    await put(CLAUDE, "work", "n2");
+    const real = store.getMany.bind(store);
+    store.getMany = async () => {
+      throw new Error("db down");
+    };
+    const failed = await listMemory(deps, { agentId: CHATGPT, cursor: first.cursor });
+    expect(failed.memories).toEqual([]);
+    expect(failed.cursor).toBeUndefined();
+    expect(failed.more).toBe(true);
+    expect(errors).toEqual(["memory"]);
+    store.getMany = real;
+    expect((await listMemory(deps, { agentId: CHATGPT, cursor: first.cursor })).memories.map((m) => m.preview)).toEqual(["n1", "n2"]);
+  });
+
+  it("ends the page before a sender whose name did not resolve, so the cursor does not skip it", async () => {
+    chain.edges.push({ id: 2n, from: THERAPY, to: CHATGPT, topicHash: topicHash("*"), expiresAt: NOW + 1000n, active: true });
+    await put(CLAUDE, "work", "seen");
+    const first = await listMemory(deps, { agentId: CHATGPT });
+    await put(CLAUDE, "work", "from claude");
+    await put(THERAPY, "work", "from therapy");
+    await put(CLAUDE, "work", "claude again");
+    const agent = chain.agent.bind(chain);
+    chain.agent = async (id) => {
+      if (id === THERAPY) throw new Error("rpc hiccup");
+      return agent(id);
+    };
+    const one = await listMemory(deps, { agentId: CHATGPT, cursor: first.cursor });
+    expect(one.memories.map((m) => m.preview)).toEqual(["from claude"]);
+    expect(one.more).toBe(true);
+    chain.agent = agent;
+    const two = await listMemory(deps, { agentId: CHATGPT, cursor: one.cursor });
+    expect(two.memories.map((m) => m.preview)).toEqual(["from therapy", "claude again"]);
   });
 
   it("gives no cursor when nothing came back", async () => {
