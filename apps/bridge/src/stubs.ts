@@ -13,6 +13,9 @@ export class InMemoryChain implements ChainReader {
   async slotsSince(agentId: bigint, since: bigint) {
     return this.slots.filter((s) => s.agentId === agentId && s.writtenAt >= since);
   }
+  async slot(slotId: bigint) {
+    return this.slots.find((s) => s.id === slotId);
+  }
   async agent(agentId: bigint) {
     const a = this.agents.get(agentId);
     if (!a) throw new UnknownAgentError(agentId);

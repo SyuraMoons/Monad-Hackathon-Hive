@@ -30,3 +30,15 @@ export function permittedSlots(args: { reader: bigint; edges: readonly ChainEdge
     return [];
   }
 }
+
+/**
+ * The reader's own slots (`mine`, ADR-022). Identity is the token's agent id, so no edge is involved: nobody else's slot
+ * can pass. A `*` topic is dropped like in `permittedSlots`. Any error returns nothing.
+ */
+export function ownSlots(args: { reader: bigint; slots: readonly ChainSlot[]; topic?: string }): ChainSlot[] {
+  try {
+    return args.slots.filter((s) => s.agentId === args.reader && zTopic.safeParse(s.topic).success && (args.topic === undefined || s.topic === args.topic));
+  } catch {
+    return [];
+  }
+}
