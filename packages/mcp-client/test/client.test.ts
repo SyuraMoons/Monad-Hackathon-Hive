@@ -92,6 +92,27 @@ describe("HiveClient", () => {
     expect(err.code).toBe("SESSION_EXPIRED");
   });
 
+  it("lists the bridge's tools with an object input schema", async () => {
+    const tools = await client(token["Claude"]!).listTools();
+    expect(tools.map((t) => t.name).sort()).toEqual(["hive_list_memory", "hive_read_memory", "hive_save_session", "hive_whoami", "hive_write_memory"]);
+    for (const t of tools) expect(t.inputSchema.type).toBe("object");
+  });
+
+  it("callTool returns the tool's text, and a tool failure as isError", async () => {
+    const ok = await client(token["ChatGPT"]!).callTool("hive_whoami", {});
+    expect(ok.isError).toBe(false);
+    expect(JSON.parse(ok.text)).toMatchObject({ agentId: "2", name: "ChatGPT" });
+
+    const bad = await client(token["Claude"]!).callTool("hive_write_memory", { topic: "work", content: "" });
+    expect(bad.isError).toBe(true);
+    expect(bad.text).not.toBe("");
+  });
+
+  it("callTool fails fast on an expired token", async () => {
+    const expired = await new SignJWT({}).setProtectedHeader({ alg: "HS256" }).setExpirationTime(nowS() - 10).sign(new TextEncoder().encode(SECRET));
+    await expect(client(expired).callTool("hive_whoami", {})).rejects.toMatchObject({ code: "SESSION_EXPIRED" });
+  });
+
   it("surfaces a tool error instead of returning empty", async () => {
     const err = await client(token["Claude"]!).writeMemory({ topic: "work", content: "" }).catch((e) => e);
     expect(err).toBeInstanceOf(Error);
