@@ -53,7 +53,7 @@ Short list, details in [docs/decisions.md](docs/decisions.md) and [docs/gotchas.
 
 - **Gas:** testnet, the Mera EOA pays and is faucet-funded (ADR-006). Don't write "sponsored" in UI or docs.
 - **Writes:** the agent key sends `MemorySlots.write`; the bridge funds that key (ADR-007).
-- **Name:** the product is Mindshare, the code still says Hive until one scripted rename PR (ADR-008). Never rename the HKDF string `hive/encrypt`.
+- **Name:** the product is Mindshare, the code still says Hive until one scripted rename PR (ADR-008). Never rename the HKDF string `hive/encrypt`, nor the memory namespace's `hive/prf/memory/v1` and `hive/memory-key/v1` (ADR-029).
 - **Demo agents:** Claude, ChatGPT and DeepSeek (several named agents of each type are allowed, ADR-012). DeepSeek connects through a local runner in `apps/agents` and is planned until a live run is recorded (ADR-020).
 - **Before you start:** `git fetch && git merge --ff-only origin/development`. Stacked PR merges leave local `development` stale.
 

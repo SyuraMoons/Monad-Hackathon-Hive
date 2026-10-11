@@ -122,7 +122,7 @@ function persistTokens() {
 async function authorizeWithKeys(keys: HiveKeys, agent: { agentId: AgentId; agentKey: string; name: string }) {
   const n = findAgentIndex(keys, agent.agentKey);
   if (n === null) throw new Error(`${agent.name} was registered with a different passkey, so this one can't authorize it.`);
-  const res = await (await getHiveClient()).agents.authorize(agent.agentId, { agentPrivateKey: keys.agentPrivateKey(n), encryptionKey: bytesToHex(keys.encryptionKey) });
+  const res = await (await getHiveClient()).agents.authorize(agent.agentId, { agentPrivateKey: keys.agentPrivateKey(n), encryptionKey: bytesToHex(keys.encryptionKey), legacyEncryptionKey: bytesToHex(keys.legacyEncryptionKey) });
   const { authorizations } = useSession.getState();
   useSession.setState({ authorizations: { ...authorizations, [agent.agentId.toString()]: { agentToken: res.agentToken, mcpUrl: res.mcpUrl, expiresAt: res.expiresAt } } });
   persistTokens();
@@ -179,6 +179,7 @@ export const useSession = create<SessionState>()((set, get) => ({
 
       keys = await passkey.deriveKeys(secret);
       secret.prfOutput.fill(0);
+      secret.memoryPrfOutput.fill(0);
       set({ progress: { owner: true, encryption: true, scope: false } });
 
       // auth.challenge → sign → auth.verify (rules §6, Login 3)
@@ -190,7 +191,7 @@ export const useSession = create<SessionState>()((set, get) => ({
         const k = keys;
         (client as MockHiveClient).adoptDemoAgents(session.owner, (n) => privateKeyToAddress(k.agentPrivateKey(n)));
       } else {
-        (client as LiveHiveClient).useSigner({ account: keys.owner, end: () => {} }, keys.encryptionKey);
+        (client as LiveHiveClient).useSigner({ account: keys.owner, end: () => {} }, [keys.encryptionKey, keys.legacyEncryptionKey]);
       }
       const agents = await client.agents.list().catch(() => []);
       if (ac.signal.aborted) throw new PasskeyError("CANCELLED", "Cancelled");
@@ -261,6 +262,7 @@ export const useSession = create<SessionState>()((set, get) => ({
         derived = await passkey.deriveKeys(secret);
       } finally {
         secret.prfOutput.fill(0);
+        secret.memoryPrfOutput.fill(0);
       }
       if (derived.ownerAddress.toLowerCase() !== owner.toLowerCase() || get().owner !== owner) {
         derived.end();
@@ -268,7 +270,7 @@ export const useSession = create<SessionState>()((set, get) => ({
       }
       set({ keys: derived });
       const client = await getHiveClient();
-      if (client.mode === "live") (client as LiveHiveClient).useSigner({ account: derived.owner, end: () => {} }, derived.encryptionKey);
+      if (client.mode === "live") (client as LiveHiveClient).useSigner({ account: derived.owner, end: () => {} }, [derived.encryptionKey, derived.legacyEncryptionKey]);
       void useFeed.getState().retryLocked();
       return derived;
     })().finally(() => {
@@ -376,13 +378,14 @@ export const useSession = create<SessionState>()((set, get) => ({
     try {
       const { deriveKeysFromPhrase, recoveryPhraseFromPrf } = await import("@/lib/passkey/keys");
       const phrase = recoveryPhraseFromPrf(secret.prfOutput);
-      const check = await deriveKeysFromPhrase(phrase);
+      const check = await deriveKeysFromPhrase(phrase, secret.memoryPrfOutput);
       const same = check.ownerAddress === owner;
       check.end();
       if (!same) throw new Error("That passkey belongs to a different Hive account.");
       return phrase;
     } finally {
       secret.prfOutput.fill(0);
+      secret.memoryPrfOutput.fill(0);
     }
   },
 

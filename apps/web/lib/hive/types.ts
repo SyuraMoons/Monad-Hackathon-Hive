@@ -71,7 +71,7 @@ export interface HiveClient {
   agents: {
     list(): Promise<AgentStatus[]>;
     /** POST /v1/agents/:id/authorize. The bridge checks address(agentPrivateKey) == agents(id).agentKey. */
-    authorize(agentId: AgentId, body: { agentPrivateKey: Hex; encryptionKey: Hex }): Promise<AuthorizeResponse>;
+    authorize(agentId: AgentId, body: { agentPrivateKey: Hex; encryptionKey: Hex; legacyEncryptionKey?: Hex }): Promise<AuthorizeResponse>;
     disconnect(agentId: AgentId): Promise<void>;
   };
   oauth: {
