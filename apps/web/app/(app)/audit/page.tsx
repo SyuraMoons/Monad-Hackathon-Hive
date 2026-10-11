@@ -46,7 +46,8 @@ const sameDay = (unix: number) => new Date(unix * 1000).toDateString() === new D
 /** `27 Oct` inside a row (design.md §9). */
 const shortDate = (unix: number) => longDate(unix).split(" ").slice(0, 2).join(" ");
 
-const keyOf = (e: AuditEvent) => `${e.kind}-${e.txHash}-${"slotId" in e ? e.slotId : ""}-${"to" in e ? e.to : ""}`;
+/** A write and its deliveries share a content hash; the card on the right is about that memory. */
+const hashOf = (e: AuditEvent) => (e.kind === "memory.written" || e.kind === "memory.propagated" ? e.contentHash : null);
 
 function useAuditEvents(owner: string | undefined) {
   const [events, setEvents] = useState<AuditEvent[] | null>(null);
@@ -123,7 +124,8 @@ export default function AuditPage() {
   }
 
   function select(e: AuditEvent) {
-    if (e.kind === "memory.written") setSelected(e.contentHash);
+    const hash = hashOf(e);
+    if (hash) setSelected(hash);
   }
 
   return (
@@ -161,16 +163,17 @@ export default function AuditPage() {
                 </tr>
               </thead>
               <tbody>
-                {rows.map((e) => {
-                  const selectable = e.kind === "memory.written";
-                  const isSel = selectable && e.contentHash === selected;
+                {rows.map((e, i) => {
+                  const hash = hashOf(e);
+                  const selectable = hash !== null;
+                  const isSel = selectable && hash === selected;
                   return (
                     <tr
-                      key={keyOf(e)}
+                      key={`${page}-${i}`}
                       tabIndex={selectable ? 0 : undefined}
                       aria-selected={selectable ? isSel : undefined}
                       onClick={() => select(e)}
-                      onKeyDown={(k: KeyboardEvent) => { if (k.key === "Enter" || k.key === " ") { k.preventDefault(); select(e); } }}
+                      onKeyDown={(k: KeyboardEvent) => { if (!selectable) return; if (k.key === "Enter" || k.key === " ") { k.preventDefault(); select(e); } }}
                       className={cn(
                         "border-t border-line",
                         selectable && "cursor-pointer hover:bg-paper-2 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink",

@@ -10,6 +10,7 @@ import { useFeed } from "@/lib/stores/feed";
 import { useGraph } from "@/lib/stores/graph";
 
 const ENVIO_URL = process.env.NEXT_PUBLIC_ENVIO_URL;
+const LONG_QUOTE = 240;
 
 function TxLink({ hash }: { hash: string }) {
   return (
@@ -41,12 +42,14 @@ export function ProvenanceCard({ contentHash, events }: { contentHash: ContentHa
   const rows = useFeed((s) => s.rows);
   const [prov, setProv] = useState<Provenance | null | undefined>(undefined);
   const [quote, setQuote] = useState<string | null | undefined>(undefined);
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
     if (!contentHash) return;
     let alive = true;
     setProv(undefined);
     setQuote(undefined);
+    setOpen(false);
     void getHiveClient().then(async (c) => {
       const [p, q] = await Promise.all([c.graph.provenance(contentHash).catch(() => null), c.memory.preview(contentHash).catch(() => null)]);
       if (alive) { setProv(p); setQuote(q ? q.content : null); }
@@ -64,6 +67,8 @@ export function ProvenanceCard({ contentHash, events }: { contentHash: ContentHa
     );
   }
 
+  // A saved session is pages long; the card is about where it went, so it opens folded.
+  const long = typeof quote === "string" && quote.length > LONG_QUOTE;
   const slot = prov?.slot;
   const writer = slot?.agentId;
   const targets = new Set((prov?.propagations ?? []).map((p) => p.to.toString()));
@@ -80,9 +85,14 @@ export function ProvenanceCard({ contentHash, events }: { contentHash: ContentHa
   return (
     <aside aria-live="polite" className="flex flex-col gap-4 rounded-menu border border-ink bg-paper-2 px-6 py-[22px]">
       <p className="font-mono text-[14px] tracking-[0.1em] text-ink-3">WHERE DID THIS FACT GO?</p>
-      <blockquote className="font-display text-[22px] leading-[1.3] text-ink">
+      <blockquote className={cn("font-display leading-[1.3] break-words whitespace-pre-wrap text-ink", long ? "text-[17px]" : "text-[22px]", long && !open && "line-clamp-5")}>
         {quote === undefined ? <span className="text-ink-3">Decrypting on this device…</span> : quote === null ? <span className="text-ink-3">Couldn’t decrypt this memory here.</span> : `“${quote}”`}
       </blockquote>
+      {long && (
+        <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className="-mt-2 inline-flex min-h-9 cursor-pointer items-center self-start text-[14px] font-medium text-ink underline underline-offset-2 hover:text-ink-2">
+          {open ? "Show less" : "Show the whole memory"}
+        </button>
+      )}
       <p className="font-mono text-[14px] whitespace-pre-wrap text-ink-3">hash {shortHash(contentHash)}  ·  decrypted on your device</p>
 
       {prov === undefined ? (
@@ -98,7 +108,7 @@ export function ProvenanceCard({ contentHash, events }: { contentHash: ContentHa
               const read = readAt(p.to);
               const last = i === prov.propagations.length - 1;
               return (
-                <li key={`${p.to}`} className="list-none">
+                <li key={i} className="list-none">
                   <ol>
                     <Step
                       dot="bg-amber-strong"
