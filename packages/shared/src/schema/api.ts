@@ -38,7 +38,11 @@ export const zAgentsResponse = z.array(zAgentStatus);
 
 const zPrivateKey = z.string().regex(/^0x[0-9a-fA-F]{64}$/, "expected a 32-byte private key");
 
-export const zAuthorizeBody = z.object({ agentPrivateKey: zPrivateKey, encryptionKey: zPrivateKey });
+/**
+ * `encryptionKey` seals new memories. `legacyEncryptionKey` is the key memories were sealed with before ADR-029:
+ * the bridge only ever decrypts with it, and a client that has none leaves it out.
+ */
+export const zAuthorizeBody = z.object({ agentPrivateKey: zPrivateKey, encryptionKey: zPrivateKey, legacyEncryptionKey: zPrivateKey.optional() });
 export const zAuthorizeResponse = z.object({ agentToken: z.string().min(1), expiresAt: zUnixSeconds, mcpUrl: z.url() });
 
 export const zMemoryResponse = z.object({ ciphertext: zBase64, iv: zBase64, keyId: z.string().min(1) });
