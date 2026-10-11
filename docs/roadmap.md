@@ -88,7 +88,7 @@ Not checked: a live write and search from two agents, the `memory_embedding` tab
 | P0.4 | Passkey auth via Mera | P2 | 🚧 real passkey ceremony and key derivation (ADR-005); `/smoke` can sign with the passkey (#79), but that path is untested |
 | P0.5 | Encrypted storage (Supabase) | P2 | ✅ ciphertext-only table, bridge store (#66, #69) |
 | P0.6 | MCP bridge server | P2 | 🚧 MCP read/write, authorize, gas top-up, chain reader (#71–#77); SSE `/v1/events` built (`agent.connected`, `memory.written`, `memory.read`, `agent.disconnected`); `GET /v1/memory/:contentHash` (the owner's own ciphertext read) is built; `session.expiring` is planned |
-| P0.7 | Visual canvas (React Flow) | P3 | 🚧 canvas, audit and connect screens on the mock client. In live mode the live client reads agents and registers them from `/connect` (unit-tested, not yet run against testnet) and reads the bridge's event stream (unit-tested, not yet run in the browser); edges are read and signed on-chain (not yet run on testnet); audit and memory preview are still stubs |
+| P0.7 | Visual canvas (React Flow) | P3 | 🚧 canvas, audit and connect screens on the mock client. In live mode the live client reads agents and registers them from `/connect` (unit-tested, not yet run against testnet) and reads the bridge's event stream (unit-tested, not yet run in the browser); edges are read and signed on-chain (not yet run on testnet); audit is still a stub; the agent drawer reads memory text through `GET /v1/memory/:contentHash` and decrypts it on this device (unit-tested, not yet run in a browser, ADR-024) |
 | P0.8 | Live propagation animation | P3 | ⏳ |
 | P0.9 | 2 mock chatbots | P4 | ⏳ placeholder only |
 | P0.10 | Envio indexer (audit trail) | P2 | ⏳ |
@@ -129,7 +129,7 @@ We build one layer at a time. Tick each step off here when it's done.
   - [x] Bridge: encrypted embeddings (off by default; the `memory_embedding` migration is written but not applied to the shared Supabase project)
   - [x] Shared agent instructions and context-size measurement (a seeded fixture, see _Verified runs_)
   - [ ] Live run: two Claude Code terminals on the deployed bridge, `HIVE_EMBEDDINGS=on`
-- [x] Memory history in the agent drawer: past writes read from `MemorySlots.slotsSince` (topic, time and content hash, no content). Not yet tried in a browser
+- [x] Memory history in the agent drawer: past writes read from `MemorySlots.slotsSince` (topic, time and content hash). The text of each memory is fetched as ciphertext from the bridge and decrypted in the browser (summary first, full text on click; locked until the passkey is touched after a reload, ADR-024). Not yet tried in a browser
 - [x] Remove an agent from the canvas: hidden in this browser, bridge session ended, refused while it has edges (ADR-012). The registry has no delete. Not yet tried in a browser
 - [x] One terminal per agent: `claude --mcp-config` command on Connect and in the drawer, so several agents share one folder. Not yet tried against a real Claude Code
 - [x] Create agents from the canvas, keep agent tokens across a reload, and "Finish setup" for a registration that stopped halfway. Not yet run in a browser
