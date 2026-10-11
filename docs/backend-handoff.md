@@ -58,6 +58,7 @@ Port `4000`. JSON everywhere, validated with the shared zod schemas. Allow the w
 | `GET /health` | → `zHealthResponse` | Web polls it every 15 s for the "Monad · connected" dot |
 | `POST /v1/auth/challenge` | `zAuthChallengeBody` → `zAuthChallengeResponse` | Nonce, 5 min expiry |
 | `POST /v1/auth/verify` | `zAuthVerifyBody` → `zAuthVerifyResponse` | Rebuild the text with `authMessage(owner, nonce)`, check with viem `verifyMessage` (handles ERC-1271/6492). HS256 JWT, 24 h, `{ sub: owner, typ: "user" }` |
+| `GET /agents/:id/card.json` | → `zAgentCard` | **Built.** Public, no token. The file an agent's ERC-8004 URI points to (ADR-028): name, type, owner, MCP endpoint and Hive agent id, read from `AgentRegistry` only. `registrations` is planned and empty |
 | `GET /v1/agents` | → `zAgentsResponse` | The owner's agents with `connected`, `lastCallAt`, `tokenExpiresAt` |
 | `POST /v1/agents/:id/authorize` | `zAuthorizeBody` → `zAuthorizeResponse` | Both keys are `0x` + 64 hex. Reject unless `agents(id).owner == token owner` and `address(agentPrivateKey) == agents(id).agentKey`. Keys live in memory only |
 | `DELETE /v1/agents/:id/session` | → `204` | One agent. The owner's "disconnect" |
