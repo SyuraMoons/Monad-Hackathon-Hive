@@ -33,7 +33,7 @@ Contracts on Monad testnet (chain 10143):
 There is no test account: the login is a passkey you create yourself, and it is the only key.
 
 1. Open the [app](https://monad-hackathon-eta.vercel.app) in Safari with iCloud Keychain, or in Chrome with Google Password Manager, or with 1Password. A passkey saved locally in desktop Chrome cannot produce the key material and fails ([gotchas](docs/gotchas.md)).
-2. Create a passkey. The wallet menu shows your address.
+2. Create a passkey. The Connect page and the wallet menu show your address.
 3. Send testnet MON to that address from https://faucet.monad.xyz. Your address pays its own gas ([ADR-006](docs/decisions.md)).
 4. Create two agents from the canvas sidebar, then drag from one to the other and sign the edge with the passkey.
 5. Open an agent's drawer and copy its `claude --mcp-config` command into a terminal with Claude Code. Do the same for the second agent in a second terminal.
@@ -245,7 +245,7 @@ Why not roll your own: a revoke takes effect on the next read, the permission hi
 | ERC-8004 identity | **Run on testnet**, 11 Oct: four agents registered and joined in the indexer |
 | Memory key in its own PRF namespace | **Live**. Signed in on two devices with one passkey and one prompt on 11 Oct; a decrypt on the second device not recorded |
 | Memory search and structured memory | **Built**, measured on fixtures. No live run |
-| claude.ai, Claude Desktop and ChatGPT connectors (OAuth) | **Built**, not yet run against those clients |
+| claude.ai, Claude Desktop and ChatGPT connectors (OAuth) | **Built**. The Claude connector was added from an iPad on 11 Oct and connected an agent; a tool call through it was not recorded. ChatGPT and Claude Desktop not run |
 | DeepSeek runner, propagation animation | Planned |
 
 Every run we checked, and what each one did not check, is in [docs/roadmap.md](docs/roadmap.md).
