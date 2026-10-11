@@ -245,7 +245,7 @@ Why not roll your own: a revoke takes effect on the next read, the permission hi
 | Envio indexer | **Live** on Envio Cloud, synced to head on 11 Oct |
 | ERC-8004 identity | **Run on testnet**, 11 Oct: four agents registered and joined in the indexer |
 | Memory key in its own PRF namespace | **Live**. Signed in on two devices with one passkey and one prompt on 11 Oct; a decrypt on the second device not recorded |
-| Memory search and structured memory | **Built**, measured on fixtures. The live bridge reports its embedding model as ready (health check, 11 Oct); no search run is recorded |
+| Memory search and structured memory | **Built**, measured on fixtures. On 11 Oct an agent searched agent 10's memories on the hosted bridge and its answer named slots 6 and 8, which are that agent's slots onchain. The tool calls themselves were not captured, so whether ranking used embeddings is not known |
 | claude.ai, Claude Desktop and ChatGPT connectors (OAuth) | **Run**, 11 Oct, as reported by the team: the Claude connector added from an iPad, Claude Desktop, Codex CLI, and a save from chatgpt.com that a Claude agent read ([slot 10](https://testnet.monadscan.com/tx/0x27163bf07c4c69a314022de73e3d72d46979005052165df4d9e3b435962bbbfd)). The chain shows the write and its propagation, not which client made it |
 | DeepSeek runner, propagation animation | Planned |
 
