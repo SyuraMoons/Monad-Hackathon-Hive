@@ -27,6 +27,12 @@ export class SupabaseCiphertextStore implements CiphertextStore {
     return data ? { ciphertext: fromBytea(data.ciphertext), iv: fromBytea(data.iv) } : undefined;
   }
 
+  async getOwned(contentHash: Hex) {
+    const { data, error } = await this.db.from(TABLE).select("owner, key_id, ciphertext, iv").eq("content_hash", contentHash.toLowerCase()).maybeSingle();
+    if (error) throw new Error(`supabase getOwned failed: ${error.message}`);
+    return data ? { ciphertext: fromBytea(data.ciphertext), iv: fromBytea(data.iv), owner: data.owner as Hex, keyId: data.key_id as string } : undefined;
+  }
+
   async getMany(contentHashes: readonly Hex[]) {
     const hashes = [...new Set(contentHashes.map((h) => h.toLowerCase()))];
     const out = new Map<string, StoredCiphertext>();

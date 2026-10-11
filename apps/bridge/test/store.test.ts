@@ -39,6 +39,9 @@ describe.skipIf(!url || !serviceKey)("SupabaseCiphertextStore (live)", () => {
     const got = await store.get(sealed.contentHash);
     expect(got).toEqual({ ciphertext: sealed.ciphertext, iv: sealed.iv });
     expect(await decrypt(got!, KEY)).toBe(plaintext);
+
+    const owned = await store.getOwned(sealed.contentHash);
+    expect(owned).toEqual({ ciphertext: sealed.ciphertext, iv: sealed.iv, owner: OWNER.toLowerCase(), keyId: "hive/encrypt" });
   });
 
   it("writing the same content twice is a no-op", async () => {

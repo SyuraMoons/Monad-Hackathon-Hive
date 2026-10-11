@@ -48,9 +48,14 @@ export type StoredCiphertext = { ciphertext: Uint8Array; iv: Uint8Array };
 /** What a write stores: the ciphertext plus whose it is and which key sealed it (memory_content.owner, key_id). */
 export type NewCiphertext = StoredCiphertext & { owner: Hex; keyId: string };
 
+/** A stored row with the owner and key id it was written with. */
+export type OwnedCiphertext = NewCiphertext;
+
 /** Offchain ciphertext, keyed by contentHash = keccak256(iv ‖ ciphertext). Never holds plaintext. */
 export interface CiphertextStore {
   get(contentHash: Hex): Promise<StoredCiphertext | undefined>;
+  /** Like `get`, plus whose row it is. For the owner's own read (GET /v1/memory/:contentHash), which must check the owner. */
+  getOwned(contentHash: Hex): Promise<OwnedCiphertext | undefined>;
   /** One round trip for many hashes. Keys of the result are lowercase hashes; a hash with no row is left out. */
   getMany(contentHashes: readonly Hex[]): Promise<Map<string, StoredCiphertext>>;
   put(contentHash: Hex, value: NewCiphertext): Promise<void>;

@@ -1,6 +1,6 @@
 import {
   ERROR_CODES, MCP_TOOLS, zAgentsResponse, zAuthChallengeBody, zAuthChallengeResponse, zAuthVerifyBody, zAuthVerifyResponse, zAuthorizeBody,
-  zAuthorizeResponse, zErrorEnvelope, zHealthResponse, zHiveEvent, zPutVaultBody, zVaultResponse,
+  zAuthorizeResponse, zErrorEnvelope, zHealthResponse, zHiveEvent, zMemoryResponse, zPutVaultBody, zVaultResponse,
 } from "@hive/shared";
 import { z } from "zod";
 
@@ -27,6 +27,7 @@ const pick = (...codes: (keyof typeof ERRORS)[]) => Object.fromEntries(codes.map
 
 const userAuth = [{ userToken: [] }];
 const agentIdParam = { name: "id", in: "path", required: true, description: "Agent id: a uint256 as a decimal string.", schema: { type: "string", pattern: "^(0|[1-9]\\d*)$" } };
+const contentHashParam = { name: "contentHash", in: "path", required: true, description: "keccak256(iv ‖ ciphertext) of the memory, as 32-byte hex.", schema: { type: "string", pattern: "^0x[0-9a-fA-F]{64}$" } };
 const credentialIdParam = { name: "credentialId", in: "path", required: true, description: "Mera passkey credential id (base64url).", schema: { type: "string", pattern: "^[A-Za-z0-9_-]{1,255}$" } };
 
 const mcpToolList = Object.keys(MCP_TOOLS).map((n) => `\`${n}\``).join(", ");
@@ -42,6 +43,7 @@ export function buildOpenApi(version = "0.0.0"): Json {
     AgentsResponse: schemaOf(zAgentsResponse),
     AuthorizeBody: schemaOf(zAuthorizeBody),
     AuthorizeResponse: schemaOf(zAuthorizeResponse),
+    MemoryResponse: schemaOf(zMemoryResponse),
     VaultResponse: schemaOf(zVaultResponse),
     PutVaultBody: schemaOf(zPutVaultBody),
     HiveEvent: schemaOf(zHiveEvent),
@@ -71,6 +73,7 @@ export function buildOpenApi(version = "0.0.0"): Json {
       { name: "System", description: "Liveness." },
       { name: "Auth", description: "Sign in with a wallet signature, get a user token." },
       { name: "Agents", description: "Owner-only. Authorize an agent, list agents, end a session." },
+      { name: "Memory", description: "Owner-only read of your own encrypted memories. Ciphertext only: decrypt on your device." },
       { name: "Vault", description: "The Mera secret vault, stored as ciphertext." },
       { name: "Events", description: "Server-sent events for the canvas." },
       { name: "MCP", description: "The endpoint AI clients call, with an agent token." },
@@ -120,6 +123,14 @@ export function buildOpenApi(version = "0.0.0"): Json {
           description: "Removes the agent's keys from memory and stops its token working. Idempotent.",
           security: userAuth, parameters: [agentIdParam],
           responses: { 204: { description: "Session ended (or there was none)." }, ...pick(400, 401, 403) },
+        },
+      },
+      "/v1/memory/{contentHash}": {
+        get: {
+          tags: ["Memory"], operationId: "getMemory", summary: "Fetch one of your own memories as ciphertext",
+          description: "Returns base64 `ciphertext` (GCM tag appended), `iv` and the `keyId` that sealed it. The bridge never decrypts it for you: use the encryption key you hold. A memory that belongs to another owner is a 404, the same as one that does not exist. Not cached.",
+          security: userAuth, parameters: [contentHashParam],
+          responses: { 200: { description: "The sealed memory.", content: json("MemoryResponse") }, ...pick(400, 401, 404, 502) },
         },
       },
       "/v1/vaults/{credentialId}": {
