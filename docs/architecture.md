@@ -11,7 +11,7 @@
 | 3 | Agent bridge: MCP tools for agents plus an event stream for the canvas | Node + MCP SDK | `apps/bridge` | 🚧 (MCP write, read and revoke run on testnet with two Claude Code agents, 10 Oct ✅; deployed on Railway ✅; search and the OAuth connectors built, no live run) |
 | 4 | Memory storage: encrypted memory content | Supabase | `supabase/` | ✅ (ciphertext-only `memory_content`, written and read by the bridge) |
 | 5 | Permission graph: agents, edges, propagation events | Solidity on Monad testnet (10143) | `packages/contracts` | ✅ |
-| 5b | Audit trail: indexed onchain events | Envio HyperIndex | `packages/indexer` | 🚧 (handlers and tests ✅; synced locally against testnet 11 Oct; not on Envio Cloud; the web reads it in live mode, queries confirmed against the local indexer) |
+| 5b | Audit trail: indexed onchain events | Envio HyperIndex | `packages/indexer` | 🚧 (handlers and tests ✅; on Envio Cloud and synced to head 11 Oct ✅, without the ERC-8004 entities yet; the web reads it in live mode, `/audit` on the deployed site not yet seen in a browser) |
 
 ## What goes where
 

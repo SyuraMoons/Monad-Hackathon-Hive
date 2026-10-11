@@ -91,6 +91,15 @@ The same day `envio dev` ran the indexer with Postgres and Hasura in Docker and 
 
 Not checked: Envio Cloud, an `EdgeRemoved` on real data (none exists yet), and the `/audit` page in a browser.
 
+### 11 Oct 2026 — the indexer on Envio Cloud, queried over GraphQL
+`https://indexer.dev.hyperindex.xyz/19a4398/v1/graphql`, with no key. `chain_metadata` reported chain 10143, HyperSync on, and `latest_processed_block` 70060319 equal to its `block_height`; `cast block-number` on the public RPC gave 70060324 a few seconds later.
+
+- 11 agents, 12 edges (all active), 7 memory slots, 10 propagations, 40 audit rows, 0 policy violations.
+- `OwnerStats` for two owners: `0xb62a…2a6f` (5 agents, 8 edges added, 3 memories, 6 propagations) and `0xf45a…0214` (6 agents, 4 edges added, 4 memories, 4 propagations), both with 0 violations.
+- A query for `Erc8004Identity` and `Agent.erc8004Id` was refused ("field not found"), so the deployed version was built before the ERC-8004 handlers (#163). The canvas ignores a failed identity read, so it still loads.
+
+Not checked: the `/audit` page in a browser on the deployed site, an `EdgeRemoved` on real data (none exists yet), and which commit Envio Cloud built.
+
 ## P0 features (required)
 
 | # | Feature | Owner | Status |
@@ -104,7 +113,7 @@ Not checked: Envio Cloud, an `EdgeRemoved` on real data (none exists yet), and t
 | P0.7 | Visual canvas (React Flow) | P3 | 🚧 canvas, audit and connect screens on the mock client. In live mode the live client reads agents and registers them from `/connect` (unit-tested, not yet run against testnet) and reads the bridge's event stream (unit-tested, not yet run in the browser); edges are read and signed on-chain (not yet run on testnet); audit and provenance read the Envio indexer (unit-tested, and the queries were run against a local synced indexer on 11 Oct; not yet seen in a browser); the agent drawer reads memory text through `GET /v1/memory/:contentHash` and decrypts it on this device (unit-tested, not yet run in a browser, ADR-024) |
 | P0.8 | Live propagation animation | P3 | ⏳ |
 | P0.9 | 2 mock chatbots | P4 | ⏳ placeholder only |
-| P0.10 | Envio indexer (audit trail) | P2 | 🚧 `packages/indexer`: schema, handlers and derived stats (policy check, per-edge counts), tested with simulated events. Synced locally against testnet on 11 Oct (see _Verified runs_); not deployed to Envio Cloud. The web reads it in live mode (queries confirmed against the local indexer) |
+| P0.10 | Envio indexer (audit trail) | P2 | 🚧 `packages/indexer`: schema, handlers and derived stats (policy check, per-edge counts), tested with simulated events. Synced locally against testnet and deployed to Envio Cloud on 11 Oct (see _Verified runs_). The web reads it in live mode (queries confirmed against the local indexer; `/audit` on the deployed site not yet seen in a browser) |
 | P0.11 | Demo script + rehearsal | P4 | ⏳ |
 
 P1 nice-to-haves, only after all P0 items are done: Claude Desktop MCP integration, colored isolation zones, provenance view, time-travel replay, ChatGPT integration.
@@ -128,7 +137,7 @@ We build one layer at a time. Tick each step off here when it's done.
   - [x] Config for the four contracts from block 69814735, schema, handlers, derived stats and the policy check. Unit-tested with Envio's test indexer and simulated events
   - [x] Handlers replayed over the real testnet history with the test indexer, 11 Oct (see _Verified runs_)
   - [x] Full local run with Postgres and Hasura (`envio dev`), 11 Oct: synced to head, 7 agents, 4 edges, 2 slots, 2 propagations, 0 violations, and the GraphQL API answers without a secret
-  - [ ] Deploy to Envio Cloud (public GraphQL URL)
+  - [x] Deploy to Envio Cloud (public GraphQL URL): `https://indexer.dev.hyperindex.xyz/19a4398/v1/graphql`, queried on 11 Oct (see _Verified runs_). The deployed version does not have the ERC-8004 entities yet
   - [x] Web: `graph.auditEvents` and `graph.provenance` read the indexer in live mode (`NEXT_PUBLIC_ENVIO_URL`). Unit-tested, and run against the local indexer on 11 Oct: all 10 rows of one owner passed the shared schemas, provenance and stats matched. Not yet seen in a browser
   - [x] Web: stats strip on `/audit` (counters and the "deliveries without an active edge" check from `OwnerStats`). Unit-tested for wording and queries, and the stats query was run against the local indexer; not yet seen in a browser
 - [x] Bridge: MCP tools `write_memory` / `read_memory`, plus SSE `/events`
