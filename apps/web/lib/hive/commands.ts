@@ -106,3 +106,15 @@ export const gptSnippet = (url: string, token: string) =>
 // DeepSeek has no remote-MCP tool, so a local runner calls the bridge for it (ADR-020). Key and model come from .env.
 export const deepseekRunner = (url: string, token: string) =>
   [`HIVE_MCP_URL=${url} \\`, `HIVE_TOKEN_DEEPSEEK=${token} \\`, `pnpm --filter @hive/agents deepseek --chat`].join("\n");
+
+/**
+ * Claude Code pointed at DeepSeek's Anthropic-compatible endpoint: no repo to clone, and Hive rides along as an MCP config.
+ * The key and model stay in the user's shell, so the paste carries neither.
+ */
+export const deepseekClaudeCommand = (url: string, token: string, name: string) =>
+  [
+    `ANTHROPIC_BASE_URL=https://api.deepseek.com/anthropic \\`,
+    `ANTHROPIC_AUTH_TOKEN=$DEEPSEEK_API_KEY \\`,
+    `ANTHROPIC_MODEL=$DEEPSEEK_MODEL \\`,
+    claudeTerminalCommand(url, token, name),
+  ].join("\n");

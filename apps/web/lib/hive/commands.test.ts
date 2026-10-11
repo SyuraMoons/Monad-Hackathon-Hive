@@ -1,11 +1,21 @@
 import { describe, expect, it } from "vitest";
-import { aiConnectPrompt, aiDesktopPrompt, claudeCommand, claudeDesktopConfig, claudeTerminalCommand, connectorUrl, deepseekRunner, isLocalUrl, nameSlug, gptSnippet, codexCommand, codexConfig, mcpClientConfig, mcpHttpDetails } from "./commands";
+import { aiConnectPrompt, aiDesktopPrompt, claudeCommand, claudeDesktopConfig, claudeTerminalCommand, connectorUrl, deepseekClaudeCommand, deepseekRunner, isLocalUrl, nameSlug, gptSnippet, codexCommand, codexConfig, mcpClientConfig, mcpHttpDetails } from "./commands";
 
 describe("connect commands", () => {
   it("passes the url and token to the DeepSeek runner and nothing else", () => {
     expect(deepseekRunner("http://localhost:4000/mcp", "tok")).toBe(
       "HIVE_MCP_URL=http://localhost:4000/mcp \\\nHIVE_TOKEN_DEEPSEEK=tok \\\npnpm --filter @hive/agents deepseek --chat",
     );
+  });
+
+  it("runs Claude Code on DeepSeek with the key and model left in the shell", () => {
+    const cmd = deepseekClaudeCommand("http://localhost:4000/mcp", "tok", "DeepSeek · FE");
+    expect(cmd.split("\n").slice(0, 3)).toEqual([
+      "ANTHROPIC_BASE_URL=https://api.deepseek.com/anthropic \\",
+      "ANTHROPIC_AUTH_TOKEN=$DEEPSEEK_API_KEY \\",
+      "ANTHROPIC_MODEL=$DEEPSEEK_MODEL \\",
+    ]);
+    expect(cmd.endsWith(claudeTerminalCommand("http://localhost:4000/mcp", "tok", "DeepSeek · FE"))).toBe(true);
   });
 
   it("puts the url and token in the Claude Code command", () => {

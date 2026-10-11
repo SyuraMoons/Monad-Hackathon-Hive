@@ -1,9 +1,10 @@
 "use client";
 
-import { deepseekRunner, mcpClientConfig, mcpHttpDetails } from "@/lib/hive/commands";
+import { deepseekClaudeCommand, deepseekRunner, mcpClientConfig, mcpHttpDetails } from "@/lib/hive/commands";
 import { Fine, Prose, Steps, type GuideBodyProps } from "./parts";
 
 export const DEEPSEEK_TABS = [
+  { key: "claude", label: "Claude Code CLI" },
   { key: "runner", label: "Hive runner" },
   { key: "mcp", label: "MCP app" },
 ];
@@ -16,7 +17,19 @@ export function DeepSeekGuide({ name, url, token, tab, card }: GuideBodyProps) {
         <strong className="font-medium text-ink">Planned: not yet run against testnet.</strong> DeepSeek has no hosted connector, so it reaches Hive through a program on your computer.
       </Prose>
 
-      {tab === "runner" ? (
+      {tab === "claude" ? (
+        <>
+          <Steps>
+            <li>Install Claude Code. In your terminal, set <code className="font-mono">DEEPSEEK_API_KEY</code> and <code className="font-mono">DEEPSEEK_MODEL</code> (a model name from DeepSeek’s docs).</li>
+            <li>Paste this in that terminal. It starts Claude Code running on DeepSeek, with Hive connected as <strong className="font-medium text-ink">{name}</strong>.</li>
+          </Steps>
+          {card(
+            "claude",
+            deepseekClaudeCommand(url, token, name),
+            "Nothing is saved: the config lives in this one terminal, so a local bridge works. Memories this agent reads are sent to DeepSeek’s API. The token is scoped to this agent and expires in 24h.",
+          )}
+        </>
+      ) : tab === "runner" ? (
         <>
           <Steps>
             <li>Clone the Hive repo and run <code className="font-mono">corepack enable pnpm</code> then <code className="font-mono">pnpm install</code>. Node 22+ is required.</li>
