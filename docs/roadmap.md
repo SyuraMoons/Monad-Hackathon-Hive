@@ -109,6 +109,8 @@ Not checked: the `/audit` page in a browser on the deployed site, an `EdgeRemove
 - Checked on chain with `cast`: `tokenURI(2144)` on the ERC-8004 registry is `https://hivebridge-production.up.railway.app/agents/4/card.json`, `ownerOf(2144)` equals `AgentRegistry.ownerOf(4)`, and the register transaction `0xf2d6b9f0…30fd` has status success. The card at that URL answered with agent 4's name, type, owner and MCP endpoint.
 - The same owner has two mutual all-topics edges (3 and 4 between agents 4 and 5, 11 and 12 between agents 10 and 11) and four memory slots, each with one `Propagate` joined to its slot and edge: slots 1 and 2 (agent 4 → 5), slot 6 (agent 10 → 11), slot 7 (agent 11, type `gpt`, → 10).
 
+- A later save by agent 10, `0x38aa2957…6f92` (block 70066203, status success, sent by the agent's writer key `0x6518…5917`): `MemoryWritten` for slot 8 on topic `general` and one `Propagate` to agent 11. The Envio Cloud indexer returned slot 8 with `propagatedCount` 1 and the propagation joined to edge 12 when queried right after.
+
 Not checked: who ran this and from which web app (the URIs show the bridge was the hosted one), which client the `gpt` agent used, a read by the receiving agents, `/audit` and the drawer in a browser, and a revoke by this owner.
 
 ## P0 features (required)
