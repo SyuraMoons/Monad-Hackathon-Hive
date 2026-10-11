@@ -161,6 +161,7 @@ We build one layer at a time. Tick each step off here when it's done.
   - [x] One guide per type, shared by the Connect page and the canvas: Claude (Code, Desktop, claude.ai), ChatGPT (connector, Codex CLI, OpenAI API) and DeepSeek (Claude Code CLI, Hive runner, MCP app). The consent page lists GPT agents for ChatGPT. Unit-tested for commands and requester naming, not yet tried in a browser
   - [ ] Add the connector in a real ChatGPT against a deployed bridge, and check the menu names in the guide
   - [ ] DeepSeek guide stays planned until the runner has a live run (ADR-020)
+  - [ ] Codex CLI sign-in through OAuth instead of a saved token (planned: needs bridge discovery routes the local bridge does not serve yet)
 - [ ] Propagation animation (CP2)
 - [ ] Demo script and rehearsal (CP3)
 

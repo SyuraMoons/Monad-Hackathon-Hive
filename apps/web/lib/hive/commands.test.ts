@@ -50,15 +50,24 @@ describe("connect commands", () => {
     expect(snippet).toContain('authorization: "tok"');
   });
 
-  it("connects Codex with one paste that sets the token variable and registers the server", () => {
+  it("connects Codex with one paste that replaces the old entry and appends a static header", () => {
     expect(codexCommand("https://b.example/mcp", "tok", "GPT · FE")).toBe(
-      "export HIVE_TOKEN_GPT_FE=tok\ncodex mcp add hive-gpt-fe --url https://b.example/mcp \\\n  --bearer-token-env-var HIVE_TOKEN_GPT_FE",
+      [
+        "codex mcp remove hive-gpt-fe >/dev/null 2>&1",
+        "cat >> ~/.codex/config.toml <<'EOF'",
+        "",
+        "[mcp_servers.hive-gpt-fe]",
+        'url = "https://b.example/mcp"',
+        'http_headers = { Authorization = "Bearer tok" }',
+        "EOF",
+      ].join("\n"),
     );
   });
 
-  it("keeps the token out of the config.toml fallback", () => {
-    const toml = codexConfig("https://b.example/mcp", "GPT · FE");
-    expect(toml).toBe('[mcp_servers.hive-gpt-fe]\nurl = "https://b.example/mcp"\nbearer_token_env_var = "HIVE_TOKEN_GPT_FE"');
+  it("gives the Codex config block with no token variable, for editing the file by hand", () => {
+    const toml = codexConfig("https://b.example/mcp", "tok", "GPT · FE");
+    expect(toml).toBe('[mcp_servers.hive-gpt-fe]\nurl = "https://b.example/mcp"\nhttp_headers = { Authorization = "Bearer tok" }');
+    expect(toml).not.toContain("bearer_token_env_var");
   });
 
   it("gives a generic MCP app the stdio config and the plain HTTP details", () => {

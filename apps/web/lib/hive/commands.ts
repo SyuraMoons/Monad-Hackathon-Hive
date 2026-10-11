@@ -33,18 +33,27 @@ export const mcpClientConfig = claudeDesktopConfig;
 /** For a client that speaks HTTP MCP directly: what to enter in its server form. */
 export const mcpHttpDetails = (url: string, token: string) => [`url:    ${url}`, `header: Authorization: Bearer ${token}`].join("\n");
 
-const tokenVar = (name: string) => `HIVE_TOKEN_${nameSlug(name).toUpperCase().replace(/-/g, "_")}`;
-
 /**
- * Codex takes the name of a token variable, never the token itself, so the paste is two lines: set the variable, then
- * register the server. `codex mcp add` replaces an entry of the same name, so the same paste also reconnects.
+ * The block `codex mcp add` cannot write: Codex has no flag for a static header, and `mcp add` erases one on an existing entry.
+ * A static header (not a token variable) works from any terminal, because the shared Codex background server never sees a
+ * shell's `export`.
  */
-export const codexCommand = (url: string, token: string, name: string) =>
-  [`export ${tokenVar(name)}=${token}`, `codex mcp add hive-${nameSlug(name)} --url ${url} \\`, `  --bearer-token-env-var ${tokenVar(name)}`].join("\n");
+export const codexConfig = (url: string, token: string, name: string) =>
+  [
+    `[mcp_servers.hive-${nameSlug(name)}]`,
+    `url = ${JSON.stringify(url)}`,
+    `http_headers = { Authorization = ${JSON.stringify(`Bearer ${token}`)} }`,
+  ].join("\n");
 
-/** What `codex mcp add` writes to ~/.codex/config.toml, for a Codex too old to have `--url`. */
-export const codexConfig = (url: string, name: string) =>
-  [`[mcp_servers.hive-${nameSlug(name)}]`, `url = ${JSON.stringify(url)}`, `bearer_token_env_var = "${tokenVar(name)}"`].join("\n");
+/** One paste: drop any old entry of the same name, then append the block, so the same paste also reconnects. */
+export const codexCommand = (url: string, token: string, name: string) =>
+  [
+    `codex mcp remove hive-${nameSlug(name)} >/dev/null 2>&1`,
+    `cat >> ~/.codex/config.toml <<'EOF'`,
+    ``,
+    codexConfig(url, token, name),
+    `EOF`,
+  ].join("\n");
 
 /**
  * One prompt to paste into an AI that has shell or file access (Claude Code, Cursor, Codex, Gemini CLI, ...). It carries the
