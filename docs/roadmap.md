@@ -102,6 +102,17 @@ Not checked: Envio Cloud, an `EdgeRemoved` on real data (none exists yet), and t
 
 Not checked: the `/audit` page in a browser on the deployed site, an `EdgeRemoved` on real data (none exists yet), and which commit Envio Cloud built.
 
+### 11 Oct 2026 — ERC-8004 identities on testnet, seen through the second Envio Cloud deployment
+`https://indexer.dev.hyperindex.xyz/5a8ecda/v1/graphql`, synced to head (`latest_processed_block` 70064202 equal to `block_height`; the public RPC gave 70064208). Same counts as the first deployment, plus 45 `Erc8004Identity` rows.
+
+- Four identities are joined to agents of owner `0xf45a…0214`: 2144 → agent 4, 2145 → agent 5, 2146 → agent 10, 2147 → agent 11. `Agent.erc8004Id` is set on those four and on no other agent.
+- Checked on chain with `cast`: `tokenURI(2144)` on the ERC-8004 registry is `https://hivebridge-production.up.railway.app/agents/4/card.json`, `ownerOf(2144)` equals `AgentRegistry.ownerOf(4)`, and the register transaction `0xf2d6b9f0…30fd` has status success. The card at that URL answered with agent 4's name, type, owner and MCP endpoint.
+- The same owner has two mutual all-topics edges (3 and 4 between agents 4 and 5, 11 and 12 between agents 10 and 11) and four memory slots, each with one `Propagate` joined to its slot and edge: slots 1 and 2 (agent 4 → 5), slot 6 (agent 10 → 11), slot 7 (agent 11, type `gpt`, → 10).
+
+- A later save by agent 10, `0x38aa2957…6f92` (block 70066203, status success, sent by the agent's writer key `0x6518…5917`): `MemoryWritten` for slot 8 on topic `general` and one `Propagate` to agent 11. The Envio Cloud indexer returned slot 8 with `propagatedCount` 1 and the propagation joined to edge 12 when queried right after.
+
+Not checked: who ran this and from which web app (the URIs show the bridge was the hosted one), which client the `gpt` agent used, a read by the receiving agents, `/audit` and the drawer in a browser, and a revoke by this owner.
+
 ## P0 features (required)
 
 | # | Feature | Owner | Status |
@@ -139,7 +150,7 @@ We build one layer at a time. Tick each step off here when it's done.
   - [x] Config for the four contracts from block 69814735, schema, handlers, derived stats and the policy check. Unit-tested with Envio's test indexer and simulated events
   - [x] Handlers replayed over the real testnet history with the test indexer, 11 Oct (see _Verified runs_)
   - [x] Full local run with Postgres and Hasura (`envio dev`), 11 Oct: synced to head, 7 agents, 4 edges, 2 slots, 2 propagations, 0 violations, and the GraphQL API answers without a secret
-  - [x] Deploy to Envio Cloud (public GraphQL URL): `https://indexer.dev.hyperindex.xyz/19a4398/v1/graphql`, queried on 11 Oct (see _Verified runs_). The deployed version does not have the ERC-8004 entities yet
+  - [x] Deploy to Envio Cloud (public GraphQL URL): `https://indexer.dev.hyperindex.xyz/5a8ecda/v1/graphql`, queried on 11 Oct (see _Verified runs_). An earlier deployment, `19a4398`, lacked the ERC-8004 entities and is superseded
   - [x] Web: `graph.auditEvents` and `graph.provenance` read the indexer in live mode (`NEXT_PUBLIC_ENVIO_URL`). Unit-tested, and run against the local indexer on 11 Oct: all 10 rows of one owner passed the shared schemas, provenance and stats matched. Not yet seen in a browser
   - [x] Web: stats strip on `/audit` (counters and the "deliveries without an active edge" check from `OwnerStats`). Unit-tested for wording and queries, and the stats query was run against the local indexer; not yet seen in a browser
 - [x] Bridge: MCP tools `write_memory` / `read_memory`, plus SSE `/events`
@@ -180,7 +191,7 @@ We build one layer at a time. Tick each step off here when it's done.
   - [x] Web: `createAgent` sends the third transaction when the bridge URL is `https`, and the agent drawer shows the identity or an "Add ERC-8004 identity" button. The id is remembered in this browser only until the indexer answers it. Unit-tested, and the calldata was simulated against the deployed registry with `cast call` (id returned, about 311k gas). No transaction sent yet, not yet seen in a browser. Agents registered from `/connect` get it from the drawer button
   - [x] Indexer: a fifth contract, `Registered` and `MetadataSet`, joined to `Agent.erc8004Id` after the owner check. Tested with simulated events, and replayed over real testnet history on 11 Oct: 35 identities of other projects, none joined yet. Not deployed to Envio Cloud
   - [x] Web: the graph load also asks the indexer for the owner's joined identities, so the drawer shows one added from another browser. Unit-tested, and the query was run against the local indexer on 11 Oct (35 identities indexed, none joined, so it returned an empty list). Not yet seen in a browser
-  - [ ] Live run: one agent created from the deployed web app, its card fetched from the URI onchain, and the join seen in the indexer
+  - [x] Live run, 11 Oct: four identities registered through the hosted bridge, the URI read back from the registry, the card fetched from it, and the join seen in the indexer on Envio Cloud (see _Verified runs_). Not checked: that the web app used was the Vercel site, and the drawer in a browser
 - [ ] Propagation animation (CP2)
 - [ ] Demo script and rehearsal (CP3)
 
