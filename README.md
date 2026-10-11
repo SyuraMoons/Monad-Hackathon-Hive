@@ -30,7 +30,7 @@ Memory **content** never goes onchain. Only the permission graph (who may share 
 | --- | --- | --- |
 | `apps/web` | Canvas UI | Next.js 15, Tailwind |
 | `apps/bridge` | MCP bridge and HTTP API (`:4000/health`) | Node, TypeScript |
-| `apps/agents` | Mock chatbots for the demo | Node, TypeScript |
+| `apps/agents` | DeepSeek runner (planned until a live run) | Node, TypeScript |
 | `packages/contracts` | Agent registry and permission graph | Foundry (Solidity) |
 | `packages/shared` | Chain config, ABIs, shared types (`@hive/shared`) | viem |
 
