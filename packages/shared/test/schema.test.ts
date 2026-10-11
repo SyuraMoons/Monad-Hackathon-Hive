@@ -4,6 +4,7 @@ import {
   authMessage,
   zAgentsResponse,
   zAuditEvent,
+  zOwnerStats,
   zProvenance,
   zAuthChallengeBody,
   zAuthorizeBody,
@@ -166,6 +167,15 @@ describe("graph", () => {
     const slot = { slotId: "1", agentId: "1", contentHash: HASH, topic: "work", propagatedCount: 1, txHash: TX, writtenAt: 1 };
     expect(zProvenance.safeParse({ slot, propagations: [{ slotId: "1", from: "1", to: "2", contentHash: HASH, topic: "work", txHash: TX, at: 1 }] }).success).toBe(true);
     expect(zProvenance.safeParse({ slot: { ...slot, propagatedCount: -1 }, propagations: [] }).success).toBe(false);
+  });
+});
+
+describe("owner stats", () => {
+  const stats = { agents: 2, edgesAdded: 3, edgesRevoked: 1, memories: 4, propagations: 5, violations: 0 };
+  it("accepts counters and rejects negatives or missing fields", () => {
+    expect(zOwnerStats.safeParse(stats).success).toBe(true);
+    expect(zOwnerStats.safeParse({ ...stats, violations: -1 }).success).toBe(false);
+    expect(zOwnerStats.safeParse({ ...stats, agents: undefined }).success).toBe(false);
   });
 });
 

@@ -1,6 +1,6 @@
 import { HiveError, zContentHash } from "@hive/shared";
 import { describe, expect, it, vi } from "vitest";
-import { auditEvents, provenance, type AuditDeps } from "./audit";
+import { auditEvents, ownerStats, provenance, type AuditDeps } from "./audit";
 import { envioAudit } from "./auditEnvio";
 
 const tx = (n: number) => `0x${n.toString(16).padStart(2, "0").repeat(32)}`;
@@ -74,6 +74,24 @@ describe("provenance", () => {
 
   it("is null when the indexed row doesn't match the shared schema", async () => {
     expect(await provenance(deps({ MemorySlot: [{ ...slot, txHash: "nope" }], Propagation: [] }), zContentHash.parse(hash))).toBeNull();
+  });
+});
+
+describe("ownerStats", () => {
+  const row = { agents: 2, edgesAdded: 3, edgesRevoked: 1, memories: 4, propagations: 5, violations: 0 };
+
+  it("asks for the lowercased owner and returns the counters", async () => {
+    const d = deps({ OwnerStats: [row] });
+    expect(await ownerStats(d, "0xABC")).toEqual(row);
+    expect(d.query).toHaveBeenCalledWith(expect.stringContaining("OwnerStats"), { owner: "0xabc" });
+  });
+
+  it("reads as zeros for an owner the indexer has not seen", async () => {
+    expect(await ownerStats(deps({ OwnerStats: [] }), "0x1")).toEqual({ agents: 0, edgesAdded: 0, edgesRevoked: 0, memories: 0, propagations: 0, violations: 0 });
+  });
+
+  it("rejects stats that don't match the shared schema", async () => {
+    await expect(ownerStats(deps({ OwnerStats: [{ ...row, violations: -1 }] }), "0x1")).rejects.toMatchObject({ code: "INTERNAL" });
   });
 });
 

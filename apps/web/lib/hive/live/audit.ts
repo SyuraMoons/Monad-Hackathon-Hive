@@ -1,4 +1,4 @@
-import { zAgentType, zAuditEvent, zProvenance, type AuditEvent, type ContentHash, type Provenance } from "@hive/shared";
+import { HiveError, zAgentType, zAuditEvent, zOwnerStats, zProvenance, type AuditEvent, type ContentHash, type OwnerStats, type Provenance } from "@hive/shared";
 
 // The audit page and the provenance card, read from the Envio indexer (packages/indexer). The GraphQL call is
 // injected (AuditDeps), so this file has no network in it. The index is for display only: it never decides access.
@@ -65,4 +65,19 @@ export async function provenance(deps: AuditDeps, contentHash: ContentHash): Pro
     propagations: data.Propagation.map((p) => ({ slotId: p.slotId ?? slot.id, from: p.fromAgent, to: p.toAgent, contentHash: p.contentHash, topic: p.topic, txHash: p.txHash, at: p.at })),
   });
   return parsed.success ? parsed.data : null;
+}
+
+const STATS_QUERY = `query OwnerStats($owner: String!) {
+  OwnerStats(where: { id: { _eq: $owner } }, limit: 1) { agents edgesAdded edgesRevoked memories propagations violations }
+}`;
+
+const NO_STATS: OwnerStats = { agents: 0, edgesAdded: 0, edgesRevoked: 0, memories: 0, propagations: 0, violations: 0 };
+
+/** Counters for the Audit strip. An owner the indexer has not seen yet has none, which reads as zeros. */
+export async function ownerStats(deps: AuditDeps, owner: string): Promise<OwnerStats> {
+  const { OwnerStats: rows } = await deps.query<{ OwnerStats: unknown[] }>(STATS_QUERY, { owner: owner.toLowerCase() });
+  if (!rows.length) return NO_STATS;
+  const parsed = zOwnerStats.safeParse(rows[0]);
+  if (!parsed.success) throw new HiveError("INTERNAL", "The audit indexer sent unexpected stats.");
+  return parsed.data;
 }
