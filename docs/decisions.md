@@ -216,3 +216,17 @@ Short architecture decision records. To add one, append the next number and don'
 - This is not an agent read, so it is not checked against the permission graph: the owner reads what they own, with their own key. Rule 3 is about what an agent may read and is unchanged.
 
 **Consequences.** No contract or gas change. The drawer shows only what the agent itself wrote, not what other agents shared into it (that needs a permission-aware path and is not planned). Built and unit-tested, not yet run in a browser or against testnet (rule 8).
+
+## ADR-025: Envio indexes history for the audit page; it never decides access
+**Date:** 2026-10-11 · **Status:** proposed
+
+**Context.** The audit page and the provenance card need the event history, but the public RPC allows `eth_getLogs` over about 100 blocks (see gotchas), and three events lack what the page shows: `EdgeRemoved` has no from, to or topic, `Propagate` has no slot id, and `MemoryWritten` has no propagated count.
+
+**Decision.**
+- `packages/indexer` (Envio HyperIndex 3, chain 10143) indexes `AgentRegistered`, `AgentWriterSet`, `EdgeAdded`, `EdgeRemoved`, `MemoryWritten` and `Propagate` from the AgentRegistry deploy block. Addresses and ABIs are copied from `@hive/shared` by `pnpm --filter @hive/indexer sync`, and a test fails if they drift.
+- Handlers fill the gaps by joining: `EdgeRemoved` reads the stored `Edge`; `Propagate` is joined to its slot by tx hash, sender and content hash (`MemorySlots.write` emits `MemoryWritten` before it calls the engine); the propagated count is the number of `Propagate` logs.
+- Derived entities: `Edge.propagationCount` and `lifetimeSeconds`, `AgentStats`, `TopicStats`, `OwnerStats`, and `PolicyViolation`, a `Propagate` that no active, unexpired edge in the indexed state explains. It is expected to stay empty.
+- Everything indexed is already public onchain (names, topic text, content hashes). No plaintext reaches the indexer.
+- The indexer is for history and display only. Permission checks still read live chain state (rule 3), so a lagging or wrong index can never widen what an agent reads.
+
+**Consequences.** HyperSync needs an API token. A topic name appears only if the edge or slot was written after the start block. Tested with simulated events; not yet synced against testnet or deployed, so docs and UI call it built, not verified (rule 8).

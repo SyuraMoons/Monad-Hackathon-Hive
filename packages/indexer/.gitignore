@@ -1,0 +1,6 @@
+.envio/
+generated/
+build/
+*.log
+envio-env.d.ts
+.env
