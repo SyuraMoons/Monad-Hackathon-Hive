@@ -4,6 +4,7 @@ import type {
   AgentStatus,
   AgentType,
   AuditEvent,
+  OwnerStats,
   AuthorizeResponse,
   ContentHash,
   EdgeId,
@@ -80,6 +81,8 @@ export interface HiveClient {
     load(owner: Address): Promise<{ agents: ChainAgent[]; edges: EdgeRow[] }>;
     auditEvents(owner: Address): Promise<AuditEvent[]>;
     provenance(contentHash: ContentHash): Promise<Provenance | null>;
+    /** Counters for the Audit strip. All zero for an owner the indexer has not seen. */
+    ownerStats(owner: Address): Promise<OwnerStats>;
   };
   events: {
     /** Bridge SSE. Returns an unsubscribe function. */

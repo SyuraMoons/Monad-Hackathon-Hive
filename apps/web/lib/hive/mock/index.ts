@@ -11,6 +11,7 @@ import {
   zGraphSnapshot,
   zHealthResponse,
   zHiveEvent,
+  zOwnerStats,
   zProvenance,
   zSlotId,
   zTopic,
@@ -222,6 +223,18 @@ export function createMockClient(): MockHiveClient {
         return zProvenance.parse({
           slot: { slotId: s.slotId, agentId: s.agentId, contentHash: s.contentHash, topic: s.topic, propagatedCount: s.propagatedTo.length, txHash: s.txHash, writtenAt: s.writtenAt },
           propagations: s.propagatedTo.map((to) => ({ slotId: s.slotId, from: s.agentId, to, contentHash: s.contentHash, topic: s.topic, txHash: s.txHash, at: s.writtenAt })),
+        });
+      },
+      async ownerStats() {
+        await latency();
+        // The mock only delivers along active edges, so there is never a delivery to flag.
+        return zOwnerStats.parse({
+          agents: graph.agents.length,
+          edgesAdded: graph.edges.length,
+          edgesRevoked: graph.edges.filter((e) => e.removedTx).length,
+          memories: slots.length,
+          propagations: slots.reduce((n, s) => n + s.propagatedTo.length, 0),
+          violations: 0,
         });
       },
     },
