@@ -1,43 +1,23 @@
 "use client";
 
-import type { ContentHash } from "@hive/shared";
 import Image from "next/image";
-import { useEffect, useRef, useState, type MouseEvent } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from "react";
 import { zeroAddress } from "viem";
 import { removeAgent } from "@/lib/agentActions";
 import { cn } from "@/lib/cn";
 import { explorerAddress, explorerTx } from "@/lib/explorer";
 import { longDate, shortHash } from "@/lib/format";
-import { pageOf } from "@/lib/pagination";
 import { deepseekRunner, gptSnippet } from "@/lib/hive/commands";
-import type { MemoryView } from "@/lib/hive/memoryView";
-import type { MemoryHistoryRow } from "@/lib/hive/types";
-import { useFeed, type FeedRow } from "@/lib/stores/feed";
+import { historyEntries } from "@/lib/hive/memoryHistory";
+import { useFeed } from "@/lib/stores/feed";
 import { displayName, useGraph, type AgentNode, type EdgeView } from "@/lib/stores/graph";
 import { useSession } from "@/lib/stores/session";
 import { useUi } from "@/lib/stores/ui";
 import { topicColor, topicLabel } from "@/lib/topics";
 import { agentTypeIcon } from "@/lib/hive/agentTypes";
+import { AllHistory, MemoryDetail, MemoryList, button, eyebrow, section } from "./MemoryHistory";
 
-const eyebrow = "font-mono text-[14px] tracking-[0.08em] whitespace-pre text-ink-3";
-const section = "flex flex-col gap-2.5 border-t border-line px-6 py-[18px]";
 const HISTORY_PAGE_SIZE = 5;
-
-type Preview = MemoryView | "error" | "locked" | "loading";
-const SUMMARY_CHARS = 160;
-const summaryOf = (view: MemoryView) => view.gist ?? (view.content.length > SUMMARY_CHARS ? `${view.content.slice(0, SUMMARY_CHARS).trimEnd()}…` : view.content);
-
-type Entry = { slotId: bigint; topic: string; contentHash: ContentHash; at: number; propagatedTo?: bigint[] };
-
-/** Chain history and this session's live writes, one row per slot, newest first. Live rows know who the write reached. */
-function historyEntries(past: MemoryHistoryRow[] | "loading" | "error" | undefined, rows: FeedRow[], agentId: bigint): Entry[] {
-  const bySlot = new Map<string, Entry>();
-  if (Array.isArray(past)) for (const h of past) bySlot.set(h.slotId.toString(), { slotId: h.slotId, topic: h.topic, contentHash: h.contentHash, at: h.writtenAt });
-  for (const r of rows) {
-    if (r.kind === "written" && r.agentId === agentId) bySlot.set(r.slotId.toString(), { slotId: r.slotId, topic: r.topic, contentHash: r.contentHash, at: r.at, propagatedTo: r.propagatedTo });
-  }
-  return [...bySlot.values()].sort((a, b) => b.at - a.at || (b.slotId > a.slotId ? 1 : -1));
-}
 
 function scopeKey(expiresAt: number | null): string {
   if (!expiresAt) return "not issued · connect this agent first";
@@ -45,8 +25,6 @@ function scopeKey(expiresAt: number | null): string {
   if (s <= 0) return "expired · reconnect to renew";
   return s >= 3600 ? `expires in ${Math.floor(s / 3600)}h` : `expires in ${Math.max(1, Math.floor(s / 60))}m`;
 }
-
-const button = "min-h-9 cursor-pointer rounded-chip border border-ink px-3.5 text-[14px] font-medium text-ink hover:bg-paper-2 disabled:cursor-default disabled:opacity-50";
 
 // Reconnect after a bridge restart or an expired token; Disconnect ends the bridge session. Both act on the signed-in owner's agent.
 function ConnectionSection({ agent }: { agent: AgentNode }) {
@@ -158,41 +136,6 @@ function RemoveSection({ agent }: { agent: AgentNode }) {
   );
 }
 
-// One past write. The text is decrypted on this device; the agent's own summary (gist) leads and the full text opens on click.
-function HistoryItem({ entry, preview, reached }: { entry: Entry; preview: Preview | undefined; reached: string }) {
-  const [open, setOpen] = useState(false);
-  const view = typeof preview === "object" ? preview : null;
-  const summary = view ? summaryOf(view) : null;
-  const text = "text-[15px] leading-[1.45] break-words whitespace-pre-wrap text-ink";
-  const hash = <span className="font-mono text-[14px] text-ink-3">content {shortHash(entry.contentHash)}  ·  encrypted</span>;
-
-  return (
-    <li className="flex flex-col gap-1">
-      {view ? (
-        view.content !== summary ? (
-          <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className={cn(text, "cursor-pointer text-left")}>
-            {open ? view.content : summary}
-            <span className="ml-2 font-mono text-[14px] text-ink-3 underline underline-offset-2">{open ? "less" : "more"}</span>
-          </button>
-        ) : (
-          <p className={text}>{view.content}</p>
-        )
-      ) : preview === "error" ? (
-        <p className="text-[14px] leading-[1.45] text-ink-3">Couldn’t read this memory here.  {hash}</p>
-      ) : preview === undefined || preview === "loading" ? (
-        <p className="text-[15px] leading-[1.45] text-ink-3">Decrypting on this device…</p>
-      ) : (
-        <p className="text-[15px] leading-[1.45] break-words text-ink">{hash}</p>
-      )}
-      <p className="flex items-center gap-2 font-mono text-[14px] whitespace-pre text-ink-2">
-        <span aria-hidden="true" className="h-[3px] w-3.5" style={{ background: topicColor(entry.topic) }} />
-        {entry.topic}  ·  {view?.kind ? `${view.kind}  ·  ` : ""}{longDate(entry.at).replace(/ \d{4}$/, "")}
-        {reached}
-      </p>
-    </li>
-  );
-}
-
 // Figma Canvas 5 Node drawer (61:710): covers the feed panel, closes on ✕, Esc or a canvas click.
 export function NodeDrawer({ agentId }: { agentId: string }) {
   const agent = useGraph((s) => s.agents[agentId]);
@@ -200,24 +143,17 @@ export function NodeDrawer({ agentId }: { agentId: string }) {
   const labels = useGraph((s) => s.labels);
   const edges = useGraph((s) => s.edges);
   const rows = useFeed((s) => s.rows);
-  const previews = useFeed((s) => s.previews);
   const past = useFeed((s) => s.history[agentId]);
   const loadHistory = useFeed((s) => s.loadHistory);
-  const loadPreview = useFeed((s) => s.loadPreview);
-  const unlock = useSession((s) => s.unlock);
+  const view = useUi((s) => s.drawerView);
   const setUi = useUi((s) => s.set);
   const closeRef = useRef<HTMLButtonElement>(null);
   const [historyPage, setHistoryPage] = useState(0);
-  const [unlocking, setUnlocking] = useState(false);
-  const [unlockError, setUnlockError] = useState<string>();
+  const [allPage, setAllPage] = useState(0);
   const writes = historyEntries(past, rows, BigInt(agentId));
-  const history = pageOf(writes, historyPage, HISTORY_PAGE_SIZE);
-  const pageKey = history.items.map((w) => w.contentHash).join();
 
-  // Decrypt the rows on this page, on this device. A locked one waits for the passkey (retryLocked).
-  useEffect(() => {
-    for (const hash of pageKey ? (pageKey.split(",") as ContentHash[]) : []) void loadPreview(hash);
-  }, [pageKey, loadPreview]);
+  // Another agent, or a closed drawer, starts again on the agent view. Before paint, so the next drawer never shows this one's view.
+  useLayoutEffect(() => () => useUi.getState().set({ drawerView: "agent" }), []);
 
   useEffect(() => {
     void loadHistory(BigInt(agentId));
@@ -234,21 +170,10 @@ export function NodeDrawer({ agentId }: { agentId: string }) {
   const live = Object.values(edges).filter((e) => e.state === "signed" || e.state === "revoking" || e.state === "pending");
   const outgoing = live.filter((e) => e.from === agent.agentId);
   const incoming = live.filter((e) => e.to === agent.agentId);
-  const locked = history.items.some((w) => previews[w.contentHash] === "locked");
   const icon = agentTypeIcon(agent.agentType);
-
-  async function unlockMemories() {
-    setUnlocking(true);
-    setUnlockError(undefined);
-    try {
-      await unlock();
-      useFeed.getState().retryLocked();
-    } catch (e) {
-      setUnlockError(e instanceof Error ? e.message : "Could not unlock. Try again.");
-    } finally {
-      setUnlocking(false);
-    }
-  }
+  const shownName = displayName(agent, labels);
+  const opened = typeof view === "object" ? writes.find((w) => w.slotId.toString() === view.slotId) : undefined;
+  const covered = view === "history" || opened !== undefined;
 
   function revoke(e: EdgeView, ev: MouseEvent<HTMLButtonElement>) {
     // anchor the confirm card to the left of the drawer, level with the row
@@ -283,15 +208,17 @@ export function NodeDrawer({ agentId }: { agentId: string }) {
   );
 
   return (
+    <>
     <aside
       role="dialog"
       aria-labelledby="drawer-title"
+      inert={covered}
       className="hive-drawer absolute inset-0 z-20 flex flex-col overflow-y-auto border-l border-ink bg-paper shadow-[-8px_0_24px_rgb(0_0_0/0.12)]"
     >
       <div className="flex items-center gap-3 px-6 pt-[22px] pb-[18px]">
         {icon ? <Image src={icon} alt="" width={28} height={28} /> : <span aria-hidden="true" className="size-7 rounded-full border border-dashed border-clay" />}
         <div className="min-w-0 flex-1">
-          <h2 id="drawer-title" className="truncate font-display text-[26px] leading-tight text-ink">{displayName(agent, labels)}</h2>
+          <h2 id="drawer-title" className="truncate font-display text-[26px] leading-tight text-ink">{shownName}</h2>
           <p className={cn("truncate font-mono text-[14px] whitespace-pre", agent.connected ? "text-status-active" : "text-ink-3")}>
             agent #{agent.agentId.toString()}  ·  {agent.connected ? "active" : "not connected"}
           </p>
@@ -335,38 +262,18 @@ export function NodeDrawer({ agentId }: { agentId: string }) {
       <section className={section} aria-label="Memory history">
         <p className={eyebrow}>MEMORY HISTORY  ·  {writes.length}</p>
         {past === "error" && <p className="text-[14px] leading-[1.45] text-ink-3">Couldn’t read the history from Monad. New writes still appear here.</p>}
-        {locked && (
-          <div className="flex flex-col gap-2 rounded-chip border border-line bg-paper-2 px-3.5 py-3">
-            <p className="text-[15px] leading-[1.5] text-ink-2">Your memories stay encrypted until you unlock with your passkey. They are decrypted on this device and never leave it.</p>
-            <div>
-              <button type="button" className={button} disabled={unlocking} onClick={() => void unlockMemories()}>{unlocking ? "Waiting for your passkey…" : "Unlock to read"}</button>
-            </div>
-            {unlockError && <p role="alert" className="text-[14px] leading-[1.45] text-status-revoked">{unlockError}</p>}
-          </div>
-        )}
         {past === "loading" && !writes.length && <p className="text-[15px] leading-[1.5] text-ink-2">Loading history from Monad…</p>}
         {writes.length ? (
-          <ul className="flex flex-col gap-3">
-            {history.items.map((w) => (
-              <HistoryItem
-                key={w.slotId.toString()}
-                entry={w}
-                preview={previews[w.contentHash]}
-                reached={w.propagatedTo ? `  ·  ${w.propagatedTo.length ? `→ ${w.propagatedTo.map(name).join(", ")}` : "stayed here"}` : ""}
-              />
-            ))}
-          </ul>
+          <>
+            <MemoryList entries={writes} page={historyPage} onPage={setHistoryPage} pageSize={HISTORY_PAGE_SIZE} from="agent" />
+            <div>
+              <button type="button" onClick={() => setUi({ drawerView: "history" })} className="min-h-9 cursor-pointer text-[15px] font-medium whitespace-pre text-ink underline underline-offset-2 hover:text-ink-2">
+                See all {writes.length}  →
+              </button>
+            </div>
+          </>
         ) : (
           past !== "loading" && past !== "error" && <p className="text-[15px] leading-[1.5] text-ink-2">No writes yet.</p>
-        )}
-        {history.pages > 1 && (
-          <nav aria-label="Memory history pages" className="flex items-center justify-between gap-3 pt-1">
-            <p aria-live="polite" className="font-mono text-[14px] whitespace-pre text-ink-3">{history.from}–{history.to} of {history.total}</p>
-            <div className="flex gap-2">
-              <button type="button" className={button} aria-label="Newer writes" disabled={history.page === 0} onClick={() => setHistoryPage(history.page - 1)}>Prev</button>
-              <button type="button" className={button} aria-label="Older writes" disabled={history.page >= history.pages - 1} onClick={() => setHistoryPage(history.page + 1)}>Next</button>
-            </div>
-          </nav>
         )}
       </section>
 
@@ -378,5 +285,8 @@ export function NodeDrawer({ agentId }: { agentId: string }) {
         </a>
       </div>
     </aside>
+    {view === "history" && <AllHistory agentName={shownName} entries={writes} page={allPage} onPage={setAllPage} />}
+    {opened && typeof view === "object" && <MemoryDetail key={view.slotId} agentName={shownName} entry={opened} back={view.from} name={name} />}
+    </>
   );
 }
