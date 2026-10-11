@@ -2,6 +2,7 @@
 
 import { ViewportPortal, useInternalNode, type InternalNode } from "@xyflow/react";
 import type { KeyboardEvent } from "react";
+import { hasReverse, labelTransform } from "@/lib/edgeGeometry";
 import { useGraph, type EdgeView } from "@/lib/stores/graph";
 import { expiresIn } from "@/lib/topics";
 
@@ -19,6 +20,7 @@ function EdgeFocus({ edge, onOpen }: { edge: EdgeView; onOpen(key: string, el: H
   const from = useInternalNode(edge.from.toString());
   const to = useInternalNode(edge.to.toString());
   const agents = useGraph((s) => s.agents);
+  const pair = useGraph((s) => hasReverse(Object.values(s.edges), edge));
   if (!from || !to || !from.measured.width || !to.measured.width) return null;
   const a = center(from);
   const b = center(to);
@@ -36,7 +38,7 @@ function EdgeFocus({ edge, onOpen }: { edge: EdgeView; onOpen(key: string, el: H
       onClick={(e) => onOpen(edge.key, e.currentTarget, "menu")}
       aria-label={`Edge ${name(edge.from)} to ${name(edge.to)}, topic ${edge.topic}, ${expiresIn(edge.expiresAt)}. Enter for actions, Delete to revoke.`}
       className="pointer-events-none absolute h-[58px] w-[210px] rounded-sm opacity-0 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
-      style={{ transform: `translate(-50%, 0) translate(${(a.x + b.x) / 2}px, ${(a.y + b.y) / 2 + 18}px)` }}
+      style={{ transform: labelTransform(a, b, pair, 18) }}
     />
   );
 }

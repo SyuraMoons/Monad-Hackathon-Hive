@@ -2,6 +2,7 @@
 
 import { EdgeLabelRenderer, useInternalNode, type Edge, type EdgeProps, type InternalNode } from "@xyflow/react";
 import { memo } from "react";
+import { hasReverse, labelTransform, lineShift } from "@/lib/edgeGeometry";
 import { shortHash } from "@/lib/format";
 import { explorerTx } from "@/lib/explorer";
 import { useGraph } from "@/lib/stores/graph";
@@ -38,6 +39,8 @@ function HiveEdgeImpl({ data, source, target }: EdgeProps<HiveFlowEdge>) {
   const edge = useGraph((s) => (data ? s.edges[data.edgeKey] : undefined));
   const from = useInternalNode(source);
   const to = useInternalNode(target);
+  // A → B with a live B → A is drawn as a pair: two parallel arrows, each with its own label.
+  const pair = useGraph((s) => (edge ? hasReverse(Object.values(s.edges), edge) : false));
   if (!edge || !data || !from || !to || !from.measured.width || !to.measured.width) return null;
 
   const a = borderPoint(from, center(to));
@@ -45,8 +48,8 @@ function HiveEdgeImpl({ data, source, target }: EdgeProps<HiveFlowEdge>) {
   // stop a few px short of the border so the arrowhead's tip touches it
   const len = Math.hypot(bRaw.x - a.x, bRaw.y - a.y) || 1;
   const b = { x: bRaw.x - ((bRaw.x - a.x) / len) * 3, y: bRaw.y - ((bRaw.y - a.y) / len) * 3 };
-  const path = `M ${a.x},${a.y} L ${b.x},${b.y}`;
-  const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+  const shift = lineShift(a, b, pair);
+  const path = `M ${a.x + shift.x},${a.y + shift.y} L ${b.x + shift.x},${b.y + shift.y}`;
 
   const pending = edge.state === "pending";
   const ghost = edge.state === "revoked";
@@ -64,7 +67,7 @@ function HiveEdgeImpl({ data, source, target }: EdgeProps<HiveFlowEdge>) {
         <EdgeLabelRenderer>
           <div
             className="hive-ghost-label pointer-events-none absolute rounded-sm border border-status-revoked bg-paper px-2.5 py-[5px] font-mono text-[14px] whitespace-pre text-status-revoked"
-            style={{ transform: `translate(-50%, 0) translate(${mid.x}px, ${mid.y + 20}px)` }}
+            style={{ transform: labelTransform(a, b, pair, 20) }}
           >
             revoked {edge.revokedAt ? new Date(edge.revokedAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : ""}
             {txHash ? `  ·  tx ${shortHash(txHash)}` : ""}
@@ -98,7 +101,7 @@ function HiveEdgeImpl({ data, source, target }: EdgeProps<HiveFlowEdge>) {
       <EdgeLabelRenderer>
         <div
           className="nodrag nopan pointer-events-auto absolute flex flex-col items-center gap-1 rounded-sm border bg-paper px-2.5 py-1.5 text-[14px] leading-none"
-          style={{ transform: `translate(-50%, 0) translate(${mid.x}px, ${mid.y + 22}px)`, borderColor: color }}
+          style={{ transform: labelTransform(a, b, pair, 22), borderColor: color }}
         >
           <span className="font-mono font-medium whitespace-pre text-ink">
             {topicLabel(edge.topic)}  ·  {pending ? "pending" : edge.state === "revoking" ? "revoking…" : expiresIn(edge.expiresAt)}
