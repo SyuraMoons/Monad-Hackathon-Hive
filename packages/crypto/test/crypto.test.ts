@@ -1,7 +1,7 @@
 import { createDecipheriv, createCipheriv, randomBytes } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { keccak256, concatBytes } from "viem";
-import { contentHash, CryptoError, decrypt, decryptBytes, encrypt, encryptBytes, fromBase64, toBase64 } from "../src/index.js";
+import { contentHash, CryptoError, decrypt, decryptBytes, encrypt, encryptBytes, fromBase64, keyIdOf, toBase64 } from "../src/index.js";
 
 const KEY = ("0x" + "11".repeat(32)) as `0x${string}`;
 const OTHER_KEY = ("0x" + "22".repeat(32)) as `0x${string}`;
@@ -90,5 +90,15 @@ describe("encryptBytes / decryptBytes", () => {
     expect(await decryptBytes(sealed, KEY)).toEqual(data);
     expect(sealed.contentHash).toBe(contentHash(sealed.iv, sealed.ciphertext));
     await expect(decryptBytes(sealed, OTHER_KEY)).rejects.toBeInstanceOf(CryptoError);
+  });
+});
+
+describe("keyIdOf", () => {
+  it("names a key without revealing it, the same from hex or bytes", () => {
+    const id = keyIdOf(KEY);
+    expect(id).toMatch(/^hive-key:0x[0-9a-f]{16}$/);
+    expect(id).not.toContain("1111");
+    expect(keyIdOf(new Uint8Array(32).fill(0x11))).toBe(id);
+    expect(keyIdOf(OTHER_KEY)).not.toBe(id);
   });
 });

@@ -1,6 +1,5 @@
-import { decrypt, encrypt } from "@hive/crypto";
+import { decrypt, encrypt, keyIdOf } from "@hive/crypto";
 import { HiveError, MEMORY_NOTICE, MEMORY_PAGE_DEFAULT, PREVIEW_CHARS, openDoc, sealDoc, zTxHash, type Hex, type ListMemoryOutput, type MemoryDoc, type MemoryKind, type MemoryMeta, type ReadMemoryOutput, type WriteMemoryOutput } from "@hive/shared";
-import { concatBytes, hexToBytes, keccak256, stringToBytes } from "viem";
 import { embedAfterWrite, type EmbeddingDeps } from "./embeddings.js";
 import { ownSlots, permittedSlots } from "./permissions.js";
 import type { DocCache } from "./sessions.js";
@@ -267,9 +266,6 @@ export type WriteDeps = {
   /** Reports a failure without any memory content. */
   onError?: (stage: string, error: unknown) => void;
 };
-
-/** Which key sealed a row, without revealing it: a short domain-separated hash. */
-export const keyIdOf = (key: Hex) => `hive-key:${keccak256(concatBytes([stringToBytes("hive/key-id"), hexToBytes(key)])).slice(0, 18)}`;
 
 // One transaction at a time per agent key, or two parallel writes race for the same nonce.
 const queues = new Map<string, Promise<unknown>>();
