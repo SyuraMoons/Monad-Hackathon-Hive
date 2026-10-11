@@ -168,7 +168,7 @@ We build one layer at a time. Tick each step off here when it's done.
   - [x] Bridge: public agent card at `/agents/:id/card.json`, built from `AgentRegistry` only. Tested with supertest, not yet served from Railway
   - [x] Web: `createAgent` sends the third transaction when the bridge URL is `https`, and the agent drawer shows the identity or an "Add ERC-8004 identity" button. The id is remembered in this browser only until the indexer answers it. Unit-tested, and the calldata was simulated against the deployed registry with `cast call` (id returned, about 311k gas). No transaction sent yet, not yet seen in a browser. Agents registered from `/connect` get it from the drawer button
   - [x] Indexer: a fifth contract, `Registered` and `MetadataSet`, joined to `Agent.erc8004Id` after the owner check. Tested with simulated events, and replayed over real testnet history on 11 Oct: 35 identities of other projects, none joined yet. Not deployed to Envio Cloud
-  - [ ] Web: read `Agent.erc8004Id` from the indexer, so the drawer shows the identity on any browser (planned)
+  - [x] Web: the graph load also asks the indexer for the owner's joined identities, so the drawer shows one added from another browser. Unit-tested, and the query was run against the local indexer on 11 Oct (35 identities indexed, none joined, so it returned an empty list). Not yet seen in a browser
   - [ ] Live run: one agent created from the deployed web app, its card fetched from the URI onchain, and the join seen in the indexer
 - [ ] Propagation animation (CP2)
 - [ ] Demo script and rehearsal (CP3)
