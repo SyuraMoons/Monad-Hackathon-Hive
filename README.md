@@ -57,7 +57,9 @@ Everything below is on Monad testnet and can be checked without us. It was made 
 
 The owner's address sent the registrations and the edges; each write was sent by the writing agent's own key, which the owner derived from the passkey and the bridge holds only for the session. Only the content hash and the topic name are in those transactions. The memory text is ciphertext in Supabase.
 
-Not shown by these links: a revoke on this owner's edges (none has been revoked yet; a revoke was run on 10 Oct, see the [roadmap](docs/roadmap.md)), and the same passkey on a second device.
+The same owner also signed in on a second device, an iPad, with the same Google Password Manager passkey and got the same address, then agent 10 wrote slot 9 ([write](https://testnet.monadscan.com/tx/0x3e390fdc50a158240b54d2de93af746e55e33907033657eeb453e1d38bf58216), propagated to agents 11 and 12). The address on the iPad is the owner's report; the write is onchain.
+
+Not shown by these links: a revoke on this owner's edges (none has been revoked yet; a revoke was run on 10 Oct, see the [roadmap](docs/roadmap.md)).
 
 ## How it works
 
@@ -171,7 +173,7 @@ What the split changes:
 | User token (24 h) | `localStorage` | It can list agents and end sessions. It cannot sign or decrypt |
 | Agent tokens (24 h) | `sessionStorage` | Until the tab closes or sign-out |
 
-Both namespaces are deterministic, so the same passkey on a second device gives the same address and the same memory key. Two things are not recorded yet: the two-salt prompt on each authenticator (it is unit-tested against a fake one), and a cross-device run.
+Both namespaces are deterministic, so the same passkey on a second device gives the same address and the same memory key. On 11 Oct the same Google Password Manager passkey signed in on a Mac and on an iPad and gave the same address ([roadmap](docs/roadmap.md)). Not recorded yet: whether that took one prompt or two, Safari with iCloud Keychain and 1Password, and opening a memory sealed under the new key on the second device.
 
 ## For the bounties
 
@@ -190,9 +192,9 @@ Both namespaces are deterministic, so the same passkey on a second device gives 
 | --- | --- |
 | A PRF namespace doing non-account work | The memory namespace, under its own salt: memory is encrypted with its key and the owner decrypts their own memories in the browser with it ([ADR-029](docs/decisions.md), [ADR-024](docs/decisions.md)) |
 | Nothing sensitive persisted | See the table under [Keys](#keys-mera). No key is stored; two 24 h tokens are |
-| Cross-device | Both namespaces are deterministic, so a synced passkey gives the same address and the same memory key. Not yet recorded as a run |
+| Cross-device | Both namespaces are deterministic, so a synced passkey gives the same address and the same memory key. Run on 11 Oct, Mac and iPad with Google Password Manager: same address on both. Decrypting a memory on the second device is not recorded |
 
-Two honest limits. Inside the account namespace the owner key and the agent keys still come from one salt and are separated by derivation path, not by one salt each. And the two-salt prompt is unit-tested but not yet recorded on a real authenticator.
+Two honest limits. Inside the account namespace the owner key and the agent keys still come from one salt and are separated by derivation path, not by one salt each. And for the two-salt prompt we have a working sign-in on one authenticator, Google Password Manager, without the prompt count; the others are not run.
 
 ## Indexer (Envio)
 
@@ -225,7 +227,7 @@ Why not roll your own: a revoke takes effect on the next read, the permission hi
 ## What comes next
 
 - Run the claude.ai, Claude Desktop and ChatGPT connectors against the hosted bridge. The OAuth server for them is built ([ADR-019](docs/decisions.md)).
-- A recorded run of the two-salt prompt on each authenticator, and one with the same passkey on a second device.
+- The two-salt prompt recorded on Safari with iCloud Keychain and on 1Password, with the prompt count, and a memory opened on the second device.
 - Publish `@hive/mcp-client` to npm, so building on the bridge does not need this repo.
 - A contract redeploy that carries what is waiting in the source: `setExpiry`, so an edge's expiry changes in place ([ADR-027](docs/decisions.md)).
 - The rename from Hive to Mindshare in code, as one scripted change ([ADR-008](docs/decisions.md)).
@@ -241,7 +243,7 @@ Why not roll your own: a revoke takes effect on the next read, the permission hi
 | Bridge on Railway, web on Vercel | **Live** |
 | Envio indexer | **Live** on Envio Cloud, synced to head on 11 Oct |
 | ERC-8004 identity | **Run on testnet**, 11 Oct: four agents registered and joined in the indexer |
-| Memory key in its own PRF namespace | **Built**, unit-tested. Not yet recorded on a real authenticator |
+| Memory key in its own PRF namespace | **Live**. Signed in on two devices with one passkey on 11 Oct; prompt count and a decrypt on the second device not recorded |
 | Memory search and structured memory | **Built**, measured on fixtures. No live run |
 | claude.ai, Claude Desktop and ChatGPT connectors (OAuth) | **Built**, not yet run against those clients |
 | DeepSeek runner, propagation animation | Planned |

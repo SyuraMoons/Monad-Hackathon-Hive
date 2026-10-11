@@ -113,6 +113,22 @@ Not checked: the `/audit` page in a browser on the deployed site, an `EdgeRemove
 
 Not checked: who ran this and from which web app (the URIs show the bridge was the hosted one), which client the `gpt` agent used, a read by the receiving agents, `/audit` and the drawer in a browser, and a revoke by this owner.
 
+### 11 Oct 2026 — the same passkey on a second device (deployed site)
+After ADR-029 reached production (web `936d2a5` on Vercel, deployed 09:34 UTC; the hosted bridge's API spec lists `legacyEncryptionKey`). The owner `0xf45a…0214` holds one passkey in Google Password Manager, created on a Mac in Chrome.
+
+- **Second device:** an iPad (A16) in Chrome, the same Google account. Signing in at `https://monad-hackathon-eta.vercel.app` showed the same owner address, `0xf45af38B6ff9f990d2E8edbe0FdC3273BCdC0214`. Reported by the owner; an address can't be checked from outside.
+- **Memories on the second device:** the agent drawer on the iPad listed the agent's memories, including the write below. Reported by the owner.
+- **A write after the change:** agent 10 wrote slot 9 on topic `general`, `0x3e390fdc…8216` (block 70084418, 10:12 UTC, status success, sent by the agent's writer key `0x6518…5917`). The receipt has `MemoryWritten` and two `Propagate` events, to agents 11 and 12. Checked with `cast receipt`; `slotsSince(10, 0)` returns slots 6, 8 and 9.
+- **An agent read of older memories:** agent 10, connected through the hosted bridge, read its slot 6 and the memory agent 11 shared with it, both sealed before ADR-029. Seen as the agent's own output.
+- **A connector on the second device:** adding the bridge as a custom connector from the iPad reached the consent page and connected the agent. The page kept showing its waiting state after the Claude app opened (fixed in #175).
+
+Not checked:
+- Whether sign-in took one passkey prompt or two, on either device.
+- That the text of a memory sealed before ADR-029 and of slot 9 was opened (decrypted) on the iPad, as opposed to listed. The list comes from the chain and needs no key.
+- Which key sealed slot 9. It was written after the deploy, but the row's `keyId` was not read.
+- Safari with iCloud Keychain, and 1Password.
+- An iPhone: the passkey sheet there offered only a QR code and a security key. Not followed up.
+
 ## P0 features (required)
 
 | # | Feature | Owner | Status |
@@ -170,12 +186,12 @@ We build one layer at a time. Tick each step off here when it's done.
   - [x] Bridge: encrypted embeddings (off by default; the `memory_embedding` migration is written but not applied to the shared Supabase project)
   - [x] Shared agent instructions and context-size measurement (a seeded fixture, see _Verified runs_)
   - [ ] Live run: two Claude Code terminals on the deployed bridge, `HIVE_EMBEDDINGS=on`
-- [ ] The memory key in its own PRF namespace (ADR-029). Built and unit-tested; stays open until the two-salt prompt has run on a real authenticator
+- [ ] The memory key in its own PRF namespace (ADR-029). Built and unit-tested. Sign-in worked on the deployed site with a Google Password Manager passkey on two devices on 11 Oct (see _Verified runs_); stays open until the prompt count and a decrypt under the new key are recorded
   - [x] Shared: `legacyEncryptionKey` is optional on authorize
   - [x] Bridge: a session can hold the legacy key and tries it only when the current key fails to decrypt; new memories and vectors are sealed with the current key
   - [x] Web: both salts in one prompt with a second-prompt fallback, the memory key from the second output, the old key kept as legacy, and the owner's own read picks the key by `keyId`
   - [ ] Live run: sign in on Safari with iCloud Keychain, Chrome with Google Password Manager and 1Password; note for each whether it took one prompt or two; read an old memory and a new one
-  - [ ] The same passkey on a second device: same owner address and the same memories decrypted
+  - [ ] The same passkey on a second device: same owner address (seen on an iPad, 11 Oct, see _Verified runs_) and the same memories decrypted (listed there; opening an old and a new one not yet recorded)
 - [x] Memory history in the agent drawer: past writes read from `MemorySlots.slotsSince` (topic, time and content hash). The text of each memory is fetched as ciphertext from the bridge and decrypted in the browser (the drawer lists numbered rows; a row opens the memory in the panel, and "See all" opens the whole history; locked until the passkey is touched after a reload, ADR-024). Not yet tried in a browser
 - [x] Remove an agent from the canvas: hidden in this browser, bridge session ended, refused while it has edges (ADR-012). The registry has no delete. Not yet tried in a browser
 - [x] One terminal per agent: `claude --mcp-config` command on Connect and in the drawer, so several agents share one folder. Not yet tried against a real Claude Code
