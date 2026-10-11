@@ -170,6 +170,78 @@ contract KnowledgeGraphTest is Test {
         assertFalse(graph.hasPermission(aliceAgent, bobAgent, "work"));
     }
 
+    function test_SetExpiry_ShortensAccessWithoutAddingAnEdge() public {
+        vm.prank(alice);
+        uint256 edgeId = graph.addEdge(aliceAgent, bobAgent, "work", _future(7200));
+
+        vm.expectEmit(true, false, false, true);
+        emit IKnowledgeGraph.EdgeExpiryChanged(edgeId, _future(60), block.timestamp);
+        vm.prank(alice);
+        graph.setExpiry(edgeId, _future(60));
+
+        assertEq(graph.edge(edgeId).expiresAt, _future(60));
+        assertEq(graph.edgeCount(), 1);
+        assertEq(graph.edgesFrom(aliceAgent).length, 1);
+
+        vm.warp(_future(60));
+        assertFalse(graph.hasPermission(aliceAgent, bobAgent, "work"));
+    }
+
+    function test_SetExpiry_ExtendsAccess() public {
+        vm.prank(alice);
+        uint256 edgeId = graph.addEdge(aliceAgent, bobAgent, "work", _future(60));
+
+        vm.prank(alice);
+        graph.setExpiry(edgeId, _future(7200));
+
+        vm.warp(_future(3600));
+        assertTrue(graph.hasPermission(aliceAgent, bobAgent, "work"));
+    }
+
+    function test_SetExpiry_RevokeAfterwardsRevokesEverything() public {
+        vm.prank(alice);
+        uint256 edgeId = graph.addEdge(aliceAgent, bobAgent, "work", _future(7200));
+        vm.prank(alice);
+        graph.setExpiry(edgeId, _future(3600));
+
+        vm.prank(alice);
+        graph.removeEdge(edgeId);
+        assertFalse(graph.hasPermission(aliceAgent, bobAgent, "work"));
+    }
+
+    function test_SetExpiry_OnlyFromOwner() public {
+        vm.prank(alice);
+        uint256 edgeId = graph.addEdge(aliceAgent, bobAgent, "work", _future(3600));
+
+        vm.expectRevert(abi.encodeWithSelector(IKnowledgeGraph.NotAgentOwner.selector, aliceAgent, bob));
+        vm.prank(bob);
+        graph.setExpiry(edgeId, _future(7200));
+    }
+
+    function test_SetExpiry_UnknownEdgeReverts() public {
+        vm.expectRevert(abi.encodeWithSelector(IKnowledgeGraph.UnknownEdge.selector, 42));
+        vm.prank(alice);
+        graph.setExpiry(42, _future(3600));
+    }
+
+    function test_SetExpiry_RevokedEdgeReverts() public {
+        vm.startPrank(alice);
+        uint256 edgeId = graph.addEdge(aliceAgent, bobAgent, "work", _future(3600));
+        graph.removeEdge(edgeId);
+        vm.expectRevert(abi.encodeWithSelector(IKnowledgeGraph.EdgeInactive.selector, edgeId));
+        graph.setExpiry(edgeId, _future(7200));
+        vm.stopPrank();
+    }
+
+    function test_SetExpiry_PastExpiryReverts() public {
+        vm.prank(alice);
+        uint256 edgeId = graph.addEdge(aliceAgent, bobAgent, "work", _future(3600));
+
+        vm.expectRevert(abi.encodeWithSelector(IKnowledgeGraph.ExpiryInPast.selector, block.timestamp));
+        vm.prank(alice);
+        graph.setExpiry(edgeId, block.timestamp);
+    }
+
     function test_EdgesTo() public {
         vm.prank(alice);
         graph.addEdge(aliceAgent, bobAgent, "work", _future(3600));
