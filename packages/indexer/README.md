@@ -4,7 +4,7 @@ Envio HyperIndex for Hive's audit trail on Monad testnet (chain 10143). It turns
 
 It is for history and display only. Permission checks never read it: the bridge reads live chain state (AGENTS.md rule 3). Everything it stores is already public onchain (agent names, topic text, content hashes), never memory plaintext.
 
-Status: tested with simulated events, synced locally against testnet, and deployed to Envio Cloud on 11 Oct 2026 at `https://indexer.dev.hyperindex.xyz/19a4398/v1/graphql` (see [docs/roadmap.md](../../docs/roadmap.md)). When queried that day the deployed version had no `Erc8004Identity` and no `Agent.erc8004Id`, so it was built from a commit before the ERC-8004 handlers.
+Status: tested with simulated events, synced locally against testnet, and deployed to Envio Cloud on 11 Oct 2026 at `https://indexer.dev.hyperindex.xyz/5a8ecda/v1/graphql` (see [docs/roadmap.md](../../docs/roadmap.md)). Each deployment gets its own URL: the first one, `19a4398`, was built before the ERC-8004 handlers and is superseded.
 
 ## Entities
 
@@ -21,7 +21,7 @@ Three contract gaps are closed in the handlers (ADR-025): `EdgeRemoved` has no f
 
 ## ERC-8004 identities
 
-A fifth contract is indexed that is not ours: the ERC-8004 Identity Registry at `0x8004A818BFB912233c491871b3d84c89A494BD9e`. Every `Registered` since the start block becomes an `Erc8004Identity`, most of them from other projects. An identity is joined to an agent only when its `hiveAgentId` metadata names our `AgentRegistry` and an agent with the same owner, because anyone can write that metadata on their own identity. The first identity that passes becomes `Agent.erc8004Id`. Transfers of the identity token are not indexed, so `owner` is the owner at registration. Replayed over real testnet history on 11 Oct 2026: 35 identities, none joined, because no agent had one yet.
+A fifth contract is indexed that is not ours: the ERC-8004 Identity Registry at `0x8004A818BFB912233c491871b3d84c89A494BD9e`. Every `Registered` since the start block becomes an `Erc8004Identity`, most of them from other projects. An identity is joined to an agent only when its `hiveAgentId` metadata names our `AgentRegistry` and an agent with the same owner, because anyone can write that metadata on their own identity. The first identity that passes becomes `Agent.erc8004Id`. Transfers of the identity token are not indexed, so `owner` is the owner at registration. Replayed over real testnet history on 11 Oct 2026: 35 identities, none joined, because no agent had one yet. Later that day the Envio Cloud deployment showed 45 identities, 4 of them joined to agents 4, 5, 10 and 11.
 
 ## Commands
 

@@ -57,12 +57,18 @@ export class DocCache {
   }
 }
 
+/** The keys a read may decrypt with, the current one first (ADR-029). The legacy key never seals anything. */
+export const readKeys = (keys: { encryptionKey: Hex; legacyEncryptionKey?: Hex }): Hex[] =>
+  keys.legacyEncryptionKey ? [keys.encryptionKey, keys.legacyEncryptionKey] : [keys.encryptionKey];
+
 export type AgentSession = {
   agentId: bigint;
   name: string;
   owner: string;
   /** Delegated by the owner's passkey. Lives in memory only and is dropped on sign-out or restart. */
   encryptionKey: Hex;
+  /** The pre-ADR-029 key, when the owner still has memories sealed with it. Decrypt only. */
+  legacyEncryptionKey?: Hex;
   agentPrivateKey: Hex;
   expiresAt: number;
   lastCallAt: number | null;

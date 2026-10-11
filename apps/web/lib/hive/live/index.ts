@@ -25,8 +25,8 @@ import { chainReader, chainRegistry } from "./registryChain";
 const LOW_BALANCE = parseEther("0.05");
 
 export type LiveHiveClient = HiveClient & {
-  /** The signed-in owner's signer and encryption key, set by the session store after sign-in and cleared on sign-out. Memory only. */
-  useSigner(signer: HiveSigner | null, encryptionKey?: Uint8Array): void;
+  /** The signed-in owner's signer and encryption keys (current first, then the legacy one, ADR-029), set by the session store after sign-in and cleared on sign-out. Memory only. */
+  useSigner(signer: HiveSigner | null, encryptionKeys?: Uint8Array[]): void;
   /** Puts a saved session back after a reload, with no keys: the signer comes later, from the passkey. */
   resume(session: Session): void;
 };
@@ -34,12 +34,12 @@ export type LiveHiveClient = HiveClient & {
 export function createLiveClient(): LiveHiveClient {
   const bridge = createBridgeApi();
   let signer: HiveSigner | null = null;
-  let encryptionKey: Uint8Array | undefined;
+  let encryptionKeys: Uint8Array[] = [];
   return {
     mode: "live",
-    useSigner: (next, key) => {
+    useSigner: (next, keys) => {
       signer = next;
-      encryptionKey = next ? key : undefined;
+      encryptionKeys = next ? (keys ?? []) : [];
     },
     resume: bridge.resume,
     status: {
@@ -78,7 +78,7 @@ export function createLiveClient(): LiveHiveClient {
     events: bridge.events,
     memory: {
       history: (agentId) => agentHistory(chainHistory, agentId),
-      preview: (contentHash) => previewMemory({ fetchSealed: bridge.sealedMemory, encryptionKey: () => encryptionKey }, contentHash),
+      preview: (contentHash) => previewMemory({ fetchSealed: bridge.sealedMemory, encryptionKeys: () => encryptionKeys }, contentHash),
     },
     identity: {
       cardUrl: (agentId) => identityCardUrl(process.env.NEXT_PUBLIC_BRIDGE_URL, agentId),

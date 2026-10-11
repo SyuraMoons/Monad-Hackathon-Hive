@@ -25,6 +25,9 @@ Known pitfalls. Add to this list when you hit a new one.
 
 ## Web session
 
+- Sign-in asks the passkey for two PRF salts in one prompt (ADR-029). An authenticator that answers only one is asked again, so a second prompt right after the first is expected there, not a bug. If both salts come back with the same output the sign-in is refused ("This passkey can't create a separate encryption key."). Not yet run on a real authenticator.
+- The recovery phrase restores the account, not the memories written after ADR-029. Those need the passkey.
+
 - A reload keeps you signed in (live mode) but locked: the keys are derived again from the passkey, and the Connect page shows "Unlock with passkey" until then. Mock mode still goes to `/login`.
 - The saved session is the 24h user token, fixed from sign-in. It does not slide forward with use.
 - Sign out clears this browser only. Another tab stays signed in until it reloads, because the bridge does not revoke user tokens.
@@ -46,7 +49,7 @@ Known pitfalls. Add to this list when you hit a new one.
 - **Express 5 types:** a function returning `express()` needs an explicit `Express` return type under pnpm, or `tsc` reports TS2742.
 - **uint256 in JSON:** `bigint` throws in `JSON.stringify`. Send decimal strings (see `@hive/shared` ids) and convert at the edge.
 - **Merged stacked PRs leave your local `development` stale.** GitHub merges each PR into `origin/development`, your local branch doesn't move. Before you start, run `git fetch && git merge --ff-only origin/development`, or you will think code is missing (this cost us an hour: the bridge looked unbuilt).
-- **Never rename the HKDF string `hive/encrypt`,** not even in the Mindshare rename (ADR-008).
+- **Never rename the HKDF string `hive/encrypt`,** not even in the Mindshare rename (ADR-008). The same goes for the memory namespace's strings `hive/prf/memory/v1` and `hive/memory-key/v1` (ADR-029): each decides a key.
 
 ## Memory
 

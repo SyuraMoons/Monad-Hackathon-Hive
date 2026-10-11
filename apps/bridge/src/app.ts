@@ -199,12 +199,13 @@ export function createApp(deps: AppDeps): Express {
     res.json(body);
   }));
 
-  // The owner hands the bridge the agent key and encryption key. Both stay in memory (SessionStore) and are never echoed.
+  // The owner hands the bridge the agent key and encryption key, and the legacy key if old memories need it (ADR-029).
+  // All stay in memory (SessionStore) and are never echoed.
   app.post("/v1/agents/:id/authorize", requireUser, wrap(async (req, res) => {
     const id = zAgentId.safeParse(req.params.id);
     if (!id.success) throw new HiveError("INVALID_INPUT", "Agent id must be a decimal integer.");
     const body = zAuthorizeBody.safeParse(req.body);
-    if (!body.success) throw new HiveError("INVALID_INPUT", "Expected { agentPrivateKey, encryptionKey } as 32-byte hex keys.");
+    if (!body.success) throw new HiveError("INVALID_INPUT", "Expected { agentPrivateKey, encryptionKey } as 32-byte hex keys, and legacyEncryptionKey the same if given.");
     const user = res.locals.user as UserClaims;
 
     const agent = await readAgent(id.data);
@@ -214,7 +215,7 @@ export function createApp(deps: AppDeps): Express {
     if (agent.writer.toLowerCase() !== agentAddress.toLowerCase()) throw new HiveError("FORBIDDEN", "That key is not this agent's registered writer.");
 
     const { token, expiresAt } = await deps.tokens.signAgent(id.data, user.owner);
-    deps.sessions.put({ agentId: id.data, name: agent.name, owner: user.owner, encryptionKey: body.data.encryptionKey as Hex, agentPrivateKey: body.data.agentPrivateKey as Hex, expiresAt });
+    deps.sessions.put({ agentId: id.data, name: agent.name, owner: user.owner, encryptionKey: body.data.encryptionKey as Hex, legacyEncryptionKey: body.data.legacyEncryptionKey as Hex | undefined, agentPrivateKey: body.data.agentPrivateKey as Hex, expiresAt });
     // Best effort: a failed top-up must not block authorize. The first write then reports a chain error.
     await funder.ensureFunded(user.owner, agentAddress).catch(() => console.error("bridge: gas top-up failed"));
 

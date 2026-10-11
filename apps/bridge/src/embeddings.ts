@@ -1,7 +1,7 @@
-import { decryptBytes, encryptBytes } from "@hive/crypto";
+import { decryptBytesWithAny, encryptBytes } from "@hive/crypto";
 import type { Hex, MemoryDoc } from "@hive/shared";
 import type { Opened, ReadDeps } from "./memory.js";
-import type { DocCache } from "./sessions.js";
+import { readKeys, type DocCache } from "./sessions.js";
 import type { Embedder, VectorStore } from "./types.js";
 
 // Embedding vectors for search (ADR-022). A vector is derived from plaintext and can be partly turned back into it, so it is
@@ -148,7 +148,7 @@ export async function vectorsFor(deps: ReadDeps, items: readonly Opened[]): Prom
           const row = stored.get(key);
           if (!row) return;
           try {
-            const v = vectorFromBytes(await decryptBytes(row, deps.encryptionKey), e.embedder.dims);
+            const v = vectorFromBytes(await decryptBytesWithAny(row, readKeys(deps)), e.embedder.dims);
             vectors.set(key, v);
             deps.docs?.setVector(job.hash, model, v);
             missing.delete(key);

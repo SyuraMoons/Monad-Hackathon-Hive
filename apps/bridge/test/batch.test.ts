@@ -29,8 +29,8 @@ let deps: ReadDeps;
 let errors: string[];
 let next = 1n;
 
-async function write(agentId: bigint, content: string, writtenAt = NOW - 10n) {
-  const sealed = await encrypt(content, KEY);
+async function write(agentId: bigint, content: string, writtenAt = NOW - 10n, key: Hex = KEY) {
+  const sealed = await encrypt(content, key);
   await store.put(sealed.contentHash, { ...sealed, owner: OWNER, keyId: "k" });
   chain.slots.push({ id: next++, agentId, contentHash: sealed.contentHash, topic: "work", writtenAt });
 }
@@ -108,5 +108,25 @@ describe("session cache", () => {
     expect(cache.get("0xb")).toBeUndefined();
     expect(cache.get("0xa")).toEqual({ content: "a" });
     expect(cache.size).toBe(2);
+  });
+});
+
+describe("a legacy key (ADR-029)", () => {
+  const OLD = ("0x" + "44".repeat(32)) as Hex;
+
+  it("reads memories sealed with either key when the session has both", async () => {
+    await write(1n, "sealed before the change", NOW - 20n, OLD);
+    await write(1n, "sealed after the change", NOW - 10n);
+    const out = await readMemory({ ...deps, legacyEncryptionKey: OLD }, { agentId: 2n });
+    expect(out.memories.map((m) => m.content).sort()).toEqual(["sealed after the change", "sealed before the change"]);
+    expect(errors).toEqual([]);
+  });
+
+  it("leaves an old memory out, and reports only a stage name, when the session has no legacy key", async () => {
+    await write(1n, "sealed before the change", NOW - 20n, OLD);
+    await write(1n, "sealed after the change", NOW - 10n);
+    const out = await readMemory(deps, { agentId: 2n });
+    expect(out.memories.map((m) => m.content)).toEqual(["sealed after the change"]);
+    expect(errors).toEqual(["memory"]);
   });
 });

@@ -14,8 +14,8 @@ It is built for developers to build on: four contracts, an MCP server any agent 
 | **App** (reference client) | https://monad-hackathon-eta.vercel.app |
 | **Bridge** (MCP server and HTTP API) | https://hivebridge-production.up.railway.app · [`/health`](https://hivebridge-production.up.railway.app/health) · [`/docs`](https://hivebridge-production.up.railway.app/docs) (Swagger) · [`/openapi.json`](https://hivebridge-production.up.railway.app/openapi.json) |
 | **Agent card** (ERC-8004) | [`/agents/1/card.json`](https://hivebridge-production.up.railway.app/agents/1/card.json) |
-| **Indexer** (Envio Cloud, GraphQL) | https://indexer.dev.hyperindex.xyz/19a4398/v1/graphql |
-| **Demo video** | To be added |
+| **Indexer** (Envio Cloud, GraphQL) | https://indexer.dev.hyperindex.xyz/5a8ecda/v1/graphql |
+| **Demo video** | In progress |
 | **Pitch video** | To be added |
 
 Contracts on Monad testnet (chain 10143):
@@ -39,7 +39,25 @@ There is no test account: the login is a passkey you create yourself, and it is 
 5. Open an agent's drawer and copy its `claude --mcp-config` command into a terminal with Claude Code. Do the same for the second agent in a second terminal.
 6. Ask the first agent to save something to Hive, then ask the second to read it. Revoke the edge on the canvas and the next read returns nothing.
 
-These steps were run on 10 Oct against testnet with a local web app and a local bridge ([roadmap, verified runs](docs/roadmap.md)). They have not yet been run end to end on the deployed site.
+Steps 4 to 6 were run on 10 Oct with a local web app and bridge, including the revoke ([roadmap, verified runs](docs/roadmap.md)). On 11 Oct agents, edges, ERC-8004 identities and memory writes were made through the hosted bridge; the transactions are under [Proof on testnet](#proof-on-testnet).
+
+## Proof on testnet
+
+Everything below is on Monad testnet and can be checked without us. It was made by one owner, `0xf45a…0214`, through the hosted bridge, and read back from the chain and the indexer on 11 Oct.
+
+| Step | Evidence |
+| --- | --- |
+| An agent is registered | Agent 10, [register](https://testnet.monadscan.com/tx/0xa90222448fc1a272dff277857f8b1f3842c29c32844431e2ed5f869afc16a928) |
+| It gets an ERC-8004 identity | Identity 2146 in the public registry, [register](https://testnet.monadscan.com/tx/0x351d234290921f6771110165d4e489d63decb15d0b43dafdb7ae7eadd3b6f25a). Its URI is the [agent card](https://hivebridge-production.up.railway.app/agents/10/card.json) the bridge serves |
+| The owner signs edges both ways | Edge 12, agent 10 → 11, [addEdge](https://testnet.monadscan.com/tx/0xb113702546cfc969939feffaffaedb4a362b502e0775e2f5b2f88d4acfbd87a9), and edge 11, agent 11 → 10, [addEdge](https://testnet.monadscan.com/tx/0xf45fd0c1c4c470a36d9e75aa4ac05fa876574c556041dcb9f6b7bb9d1dacddfd) |
+| An agent writes a memory and it propagates | Slot 6 from agent 10 (type `claude`), sent by its own key [`0x6518…5917`](https://testnet.monadscan.com/address/0x6518E5a12F9F78ceF988e9c48c41d761E6fD5917), [write](https://testnet.monadscan.com/tx/0xac8240fbc370275f729dd95bf04b3593d76d39ae6ad1544b9c31c3c84abdfd9e): `MemoryWritten`, then `Propagate` to agent 11 along edge 12 |
+| The other agent writes back | Slot 7 from agent 11 (type `gpt`), sent by its own key [`0x1Fe8…387c`](https://testnet.monadscan.com/address/0x1Fe8563Be900a9532e5Cdd1e9E020DCB5f32387c), [write](https://testnet.monadscan.com/tx/0xa5c28839840be3a856306429a373db1e2760ff3ab76a84edc61de03a9274d3ee): `Propagate` to agent 10 along edge 11 |
+| A later save shows up without anyone touching the indexer | Slot 8 from agent 10, [write](https://testnet.monadscan.com/tx/0x38aa295715acc45f80cd165a2eeea787b3599002ea3775f3cb9235f6c3dd6f92), topic `general`: `Propagate` to agent 11 along edge 12. The indexer returned the slot and its propagation when queried right after |
+| The indexer has all of it | The [GraphQL endpoint](https://indexer.dev.hyperindex.xyz/5a8ecda/v1/graphql) returns these agents, edges, slots and propagations, joins the four identities to their agents, and reports 0 policy violations |
+
+The owner's address sent the registrations and the edges; each write was sent by the writing agent's own key, which the owner derived from the passkey and the bridge holds only for the session. Only the content hash and the topic name are in those transactions. The memory text is ciphertext in Supabase.
+
+Not shown by these links: a revoke on this owner's edges (none has been revoked yet; a revoke was run on 10 Oct, see the [roadmap](docs/roadmap.md)), and the same passkey on a second device.
 
 ## How it works
 
@@ -103,7 +121,7 @@ const { memories } = await hive.readMemory({ topic: "work" }); // [] when no edg
 
 **From the chain.** Permissions are plain contract state, so another app can check them without us: `KnowledgeGraph.hasPermission(from, to, topic)`. ABIs and addresses are exported from `@hive/shared`.
 
-**From the indexer.** The history is one GraphQL query away, with no key, at `https://indexer.dev.hyperindex.xyz/19a4398/v1/graphql`. For example, an owner's totals and any delivery that no edge explains:
+**From the indexer.** The history is one GraphQL query away, with no key, at `https://indexer.dev.hyperindex.xyz/5a8ecda/v1/graphql`. For example, an owner's totals and any delivery that no edge explains:
 
 ```graphql
 query ($owner: String!) {
@@ -118,23 +136,33 @@ query ($owner: String!) {
 
 | Building block | Status |
 | --- | --- |
-| **ERC-8004 agent identity** | Every agent can also be registered in the public ERC-8004 Identity Registry, with a `hiveAgentId` metadata entry and an agent card served by the bridge. Built and unit-tested, and the call was simulated against the deployed registry. No transaction has been sent yet ([ADR-028](docs/decisions.md)). We use the identity registry only, not reputation or validation. |
+| **ERC-8004 agent identity** | Every agent can also be registered in the public ERC-8004 Identity Registry, with a `hiveAgentId` metadata entry and an agent card served by the bridge. Four agents have one on testnet, identities 2144 to 2147, and the indexer joins each to its agent ([ADR-028](docs/decisions.md)). We use the identity registry only, not reputation or validation. |
 | **P256 precompile** | Not used. The passkey is used for its PRF output, from which secp256k1 keys are derived, so no passkey signature is verified onchain. |
 | **BTX encrypted mempool** | Not used. |
 | **Gas model** | Every transaction declares an explicit `gas`, because Monad charges the declared limit. |
 
 ## Keys (Mera)
 
-One passkey produces every key. Nothing secret is stored on a server or on disk.
+One passkey, two PRF namespaces, one prompt. The passkey is asked for two salts in the same ceremony and returns two outputs that share nothing. The first is the account. The second does no account work: it only encrypts memory. Nothing secret is stored on a server or on disk ([ADR-029](docs/decisions.md)).
 
 ```
-passkey PRF output (32 bytes, Mera's default salt)
-  └─ 24-word BIP-39 recovery phrase
-       └─ seed
-            ├─ m/44'/60'/0'/0/0      owner key: signs agents and edges
-            ├─ m/44'/60'/0'/0/{n}    agent key n: sends that agent's memory writes
-            └─ HKDF("hive/encrypt")  AES-256-GCM key for memory content   ← not account work
+passkey
+  ├─ PRF, Mera's default salt                    account namespace
+  │    └─ 24-word BIP-39 recovery phrase
+  │         └─ seed
+  │              ├─ m/44'/60'/0'/0/0      owner key: signs agents and edges
+  │              └─ m/44'/60'/0'/0/{n}    agent key n: sends that agent's memory writes
+  │
+  └─ PRF, salt sha256("hive/prf/memory/v1")      memory namespace   ← not account work
+       └─ HKDF("hive/memory-key/v1")      AES-256-GCM key for memory content
 ```
+
+What the split changes:
+
+- **The recovery phrase is not the memory key.** Someone who learns the phrase controls the account but cannot decrypt a memory written under the memory namespace. Reading needs the passkey itself.
+- **The account keys say nothing about the memory key**, and the other way round. Neither output can be computed from the other.
+- **One prompt.** Our WebAuthn client sends both salts in one request. An authenticator that answers only the first is asked again through Mera with the memory salt, which is a second prompt. If both outputs come back equal, sign-in is refused.
+- **Older memories still open.** Memories sealed before the split used a key taken from the seed (`HKDF("hive/encrypt")`). That key is kept for decrypting only and nothing new is sealed with it.
 
 | Secret | Where it lives | For how long |
 | --- | --- | --- |
@@ -143,7 +171,28 @@ passkey PRF output (32 bytes, Mera's default salt)
 | User token (24 h) | `localStorage` | It can list agents and end sessions. It cannot sign or decrypt |
 | Agent tokens (24 h) | `sessionStorage` | Until the tab closes or sign-out |
 
-The same passkey on a second device derives the same phrase, so the same address and the same decryption key. A recorded cross-device run is still to do. All keys come from one PRF salt and are separated by derivation path and HKDF info, not by one salt per key.
+Both namespaces are deterministic, so the same passkey on a second device gives the same address and the same memory key. Two things are not recorded yet: the two-salt prompt on each authenticator (it is unit-tested against a fake one), and a cross-device run.
+
+## For the bounties
+
+**Envio.** HyperIndex drives three things a user sees: the audit page, the provenance card of a memory, and the stats strip with the "deliveries without an active edge" check. It also lets the canvas show an ERC-8004 identity added from another browser.
+
+| Asked for | Where |
+| --- | --- |
+| `config.yaml`, `schema.graphql`, handlers | [`config.yaml`](packages/indexer/config.yaml), [`schema.graphql`](packages/indexer/schema.graphql), [`src/handlers`](packages/indexer/src/handlers) |
+| Deployed indexer | Envio Cloud: https://indexer.dev.hyperindex.xyz/5a8ecda/v1/graphql |
+| Something that consumes it | [`apps/web/lib/hive/live/audit.ts`](apps/web/lib/hive/live/audit.ts): the four queries the web app sends |
+| Depth | Five contracts, eight events, three joins the contracts do not give, derived stats, a policy check, and a join to a registry that is not ours |
+
+**Mera.** One passkey, two PRF namespaces. Mera's default salt gives the account: the recovery phrase, the owner key and one key per agent, which the owner hands to the bridge for a session. A second salt, `sha256("hive/prf/memory/v1")`, gives a key that does no account work at all: the AES-256-GCM key that encrypts memory content ([`apps/web/lib/passkey/keys.ts`](apps/web/lib/passkey/keys.ts)). Both are read in one passkey prompt ([`webauthn.ts`](apps/web/lib/passkey/webauthn.ts), [`mera.ts`](apps/web/lib/passkey/mera.ts)).
+
+| Asked for | Where |
+| --- | --- |
+| A PRF namespace doing non-account work | The memory namespace, under its own salt: memory is encrypted with its key and the owner decrypts their own memories in the browser with it ([ADR-029](docs/decisions.md), [ADR-024](docs/decisions.md)) |
+| Nothing sensitive persisted | See the table under [Keys](#keys-mera). No key is stored; two 24 h tokens are |
+| Cross-device | Both namespaces are deterministic, so a synced passkey gives the same address and the same memory key. Not yet recorded as a run |
+
+Two honest limits. Inside the account namespace the owner key and the agent keys still come from one salt and are separated by derivation path, not by one salt each. And the two-salt prompt is unit-tested but not yet recorded on a real authenticator.
 
 ## Indexer (Envio)
 
@@ -154,13 +203,13 @@ The same passkey on a second device derives the same phrase, so the same address
 - **A policy check.** `PolicyViolation` records any `Propagate` that no active, unexpired edge explains. It is expected to stay empty, so the indexer audits the protocol.
 - **A cross-registry join.** ERC-8004 identities are joined to our agents, but only after checking that both have the same owner.
 
-The web app's audit page, provenance card and stats strip read it. Status: deployed on Envio Cloud and synced to the chain head when queried on 11 Oct: 11 agents, 12 edges, 7 memory slots, 10 propagations, 40 audit rows and 0 violations. The deployed version does not have the ERC-8004 entities yet, so the identity join is tested but not live.
+The web app's audit page, provenance card and stats strip read it. Status: deployed on Envio Cloud and synced to the chain head when queried on 11 Oct: 11 agents, 12 edges, 7 memory slots, 10 propagations, 40 audit rows, 0 violations, and 45 ERC-8004 identities of which 4 are joined to our agents.
 
 ## What you have to trust
 
 | | |
 | --- | --- |
-| **You own** | The passkey, the recovery phrase and the encryption key. The phrase opens the same account in any BIP-39 wallet |
+| **You own** | The passkey, the recovery phrase and the encryption key. The phrase opens the same account in any BIP-39 wallet, but not the memories: those need the passkey |
 | **Public by design** | Agent names and types, edges, topic names and content hashes. Do not put anything sensitive in a topic or an agent name |
 | **Trusted today** | The bridge operator, during an agent session: the bridge holds the keys of authorized agents and decrypted memories in process memory. Supabase, for availability only: it holds ciphertext |
 | **Outside our control** | An authorized read hands the text to the reading agent and so to its model provider |
@@ -173,6 +222,14 @@ The web app's audit page, provenance card and stats strip read it. Status: deplo
 
 Why not roll your own: a revoke takes effect on the next read, the permission history is public and indexed, and the decryption key stays with the owner instead of with a vendor.
 
+## What comes next
+
+- Run the claude.ai, Claude Desktop and ChatGPT connectors against the hosted bridge. The OAuth server for them is built ([ADR-019](docs/decisions.md)).
+- A recorded run of the two-salt prompt on each authenticator, and one with the same passkey on a second device.
+- Publish `@hive/mcp-client` to npm, so building on the bridge does not need this repo.
+- A contract redeploy that carries what is waiting in the source: `setExpiry`, so an edge's expiry changes in place ([ADR-027](docs/decisions.md)).
+- The rename from Hive to Mindshare in code, as one scripted change ([ADR-008](docs/decisions.md)).
+
 ## What is real
 
 | | Status |
@@ -182,8 +239,9 @@ Why not roll your own: a revoke takes effect on the next read, the permission hi
 | MCP write, read and revoke with two Claude Code agents | **Run on testnet**, 10 Oct |
 | Encrypted storage, ciphertext only | **Live** |
 | Bridge on Railway, web on Vercel | **Live** |
-| Envio indexer | **Live** on Envio Cloud, synced to head on 11 Oct. The ERC-8004 join is not in the deployed version yet |
-| ERC-8004 identity | **Built**, no transaction sent yet |
+| Envio indexer | **Live** on Envio Cloud, synced to head on 11 Oct |
+| ERC-8004 identity | **Run on testnet**, 11 Oct: four agents registered and joined in the indexer |
+| Memory key in its own PRF namespace | **Built**, unit-tested. Not yet recorded on a real authenticator |
 | Memory search and structured memory | **Built**, measured on fixtures. No live run |
 | claude.ai, Claude Desktop and ChatGPT connectors (OAuth) | **Built**, not yet run against those clients |
 | DeepSeek runner, propagation animation | Planned |

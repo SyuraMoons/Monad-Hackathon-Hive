@@ -58,6 +58,8 @@ describe("api", () => {
     expect(zAgentsResponse.safeParse([{ agentId: 1, name: "Claude", agentType: "claude", connected: true, lastCallAt: null, tokenExpiresAt: null }]).success).toBe(false);
     expect(zAgentsResponse.safeParse([{ agentId: "1", name: "Claude", agentType: "cursor", connected: true, lastCallAt: null, tokenExpiresAt: null }]).success).toBe(false);
     expect(zAuthorizeBody.safeParse({ agentPrivateKey: "0x12", encryptionKey: KEY }).success).toBe(false);
+    expect(zAuthorizeBody.safeParse({ agentPrivateKey: KEY, encryptionKey: KEY, legacyEncryptionKey: KEY }).success).toBe(true);
+    expect(zAuthorizeBody.safeParse({ agentPrivateKey: KEY, encryptionKey: KEY, legacyEncryptionKey: "0x12" }).success).toBe(false);
     expect(zAuthorizeResponse.safeParse({ agentToken: "t", expiresAt: 1, mcpUrl: "not a url" }).success).toBe(false);
     expect(zMemoryResponse.safeParse({ ciphertext: "not base64!", iv: "AAEC", keyId: "k1" }).success).toBe(false);
   });

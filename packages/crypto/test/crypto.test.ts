@@ -1,7 +1,7 @@
 import { createDecipheriv, createCipheriv, randomBytes } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { keccak256, concatBytes } from "viem";
-import { contentHash, CryptoError, decrypt, decryptBytes, encrypt, encryptBytes, fromBase64, keyIdOf, toBase64 } from "../src/index.js";
+import { contentHash, CryptoError, decrypt, decryptBytes, decryptBytesWithAny, decryptWithAny, encrypt, encryptBytes, fromBase64, keyIdOf, toBase64 } from "../src/index.js";
 
 const KEY = ("0x" + "11".repeat(32)) as `0x${string}`;
 const OTHER_KEY = ("0x" + "22".repeat(32)) as `0x${string}`;
@@ -90,6 +90,20 @@ describe("encryptBytes / decryptBytes", () => {
     expect(await decryptBytes(sealed, KEY)).toEqual(data);
     expect(sealed.contentHash).toBe(contentHash(sealed.iv, sealed.ciphertext));
     await expect(decryptBytes(sealed, OTHER_KEY)).rejects.toBeInstanceOf(CryptoError);
+  });
+});
+
+describe("decryptWithAny", () => {
+  it("opens a row with whichever key sealed it, in either order", async () => {
+    const sealed = await encrypt("sealed with the old key", OTHER_KEY);
+    expect(await decryptWithAny(sealed, [KEY, OTHER_KEY])).toBe("sealed with the old key");
+    expect(await decryptWithAny(sealed, [OTHER_KEY, KEY])).toBe("sealed with the old key");
+  });
+
+  it("rejects when no key fits, and when no key is given", async () => {
+    const sealed = await encryptBytes(new Uint8Array([1, 2, 3]), OTHER_KEY);
+    await expect(decryptBytesWithAny(sealed, [KEY])).rejects.toBeInstanceOf(CryptoError);
+    await expect(decryptBytesWithAny(sealed, [])).rejects.toBeInstanceOf(CryptoError);
   });
 });
 
