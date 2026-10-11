@@ -61,7 +61,7 @@ Port `4000`. JSON everywhere, validated with the shared zod schemas. Allow the w
 | `GET /v1/agents` | → `zAgentsResponse` | The owner's agents with `connected`, `lastCallAt`, `tokenExpiresAt` |
 | `POST /v1/agents/:id/authorize` | `zAuthorizeBody` → `zAuthorizeResponse` | Both keys are `0x` + 64 hex. Reject unless `agents(id).owner == token owner` and `address(agentPrivateKey) == agents(id).agentKey`. Keys live in memory only |
 | `DELETE /v1/agents/:id/session` | → `204` | Web calls it for every agent on Sign out |
-| `GET /v1/memory/:contentHash` | → `zMemoryResponse` | base64 `ciphertext` and `iv`. The web decrypts locally with the same key |
+| `GET /v1/memory/:contentHash` | → `zMemoryResponse` | **Built.** User token only. base64 `ciphertext`, `iv` and `keyId`; the web decrypts locally with the same key. Someone else's memory is a 404, the same as a missing one. `Cache-Control: private, no-store` |
 | `GET /v1/events?token=` | SSE, each `data:` is a `zHiveEvent` | **Built.** `EventSource` can't send headers, so the user token is in the query. `Last-Event-ID` replays up to the last 100 events per owner. Events live in memory only: a bridge restart drops them |
 | `POST /mcp` | MCP over Streamable HTTP, `Authorization: Bearer <agentToken>` | Tools and shapes in `schema/mcp.ts`. The caller's agent comes from the token, never from an argument |
 
