@@ -1,6 +1,6 @@
 # Plan: read your own memories in the canvas
 
-Status: built in two stacked PRs (bridge route, then web). Unit-tested; not yet run in a browser or on testnet.
+Status, 11 Oct 2026: built and merged (#139 bridge route, #141 web, #148 history views) and recorded as ADR-024. Unit-tested; not yet run in a browser or on testnet. The Problem section below describes the state before those PRs.
 
 ## Problem
 
