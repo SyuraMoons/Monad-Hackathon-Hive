@@ -150,6 +150,19 @@ describe("POST /v1/agents/:id/authorize", () => {
     expect(sessions.get(1n)?.encryptionKey).toBe(newEnc);
   });
 
+  it("keeps a legacy key when one is given, drops it when the next authorize has none, and never echoes it (ADR-029)", async () => {
+    seedAgent(1n, owner.address, agentAddress);
+    const auth = await signIn();
+    const legacy = ("0x" + "55".repeat(32)) as Hex;
+    const res = await authorize(1, auth, { agentPrivateKey: AGENT_KEY, encryptionKey: ENC_KEY, legacyEncryptionKey: legacy });
+    expect(res.status).toBe(200);
+    expect(sessions.get(1n)).toMatchObject({ encryptionKey: ENC_KEY, legacyEncryptionKey: legacy });
+    expect(JSON.stringify(res.body)).not.toContain(legacy.slice(2));
+    expect((await authorize(1, auth, { agentPrivateKey: AGENT_KEY, encryptionKey: ENC_KEY, legacyEncryptionKey: "0x1234" })).status).toBe(400);
+    await authorize(1, auth);
+    expect(sessions.get(1n)?.legacyEncryptionKey).toBeUndefined();
+  });
+
   it("502 CHAIN_ERROR when the registry cannot be read", async () => {
     chain.agent = async () => { throw new Error("rpc down"); };
     const res = await authorize(1, await signIn());
