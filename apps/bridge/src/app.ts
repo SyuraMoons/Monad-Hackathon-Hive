@@ -1,8 +1,9 @@
 import {
-  HiveError, zAgentId, zAgentType, zAgentsResponse, zAuthChallengeBody, zAuthVerifyBody, zAuthorizeBody, zContentHash, zCredentialId, zPutVaultBody, monadTestnet,
-  type VaultResponse, type AuthChallengeResponse, type AuthVerifyResponse, type AuthorizeResponse, type Hex, type HealthResponse, type MemoryResponse,
+  ERC8004_REGISTRATION_TYPE, HiveError, hiveDeployment, zAgentId, zAgentType, zAgentsResponse, zAuthChallengeBody, zAuthVerifyBody, zAuthorizeBody, zContentHash, zCredentialId, zPutVaultBody, monadTestnet,
+  type AgentCardWire, type VaultResponse, type AuthChallengeResponse, type AuthVerifyResponse, type AuthorizeResponse, type Hex, type HealthResponse, type MemoryResponse,
 } from "@hive/shared";
 import type { z } from "zod";
+import { LATEST_PROTOCOL_VERSION } from "@modelcontextprotocol/sdk/types.js";
 import { privateKeyToAddress } from "viem/accounts";
 import express, { type ErrorRequestHandler, type Express, type Request, type RequestHandler, type Response } from "express";
 import swaggerUi from "swagger-ui-express";
@@ -151,6 +152,31 @@ export function createApp(deps: AppDeps): Express {
       throw new HiveError("CHAIN_ERROR", "Could not read the agent registry.");
     }
   };
+
+  // Public on purpose: this is the file an agent's ERC-8004 URI points to (ADR-028). Built from AgentRegistry alone,
+  // which is public onchain (ADR-023): no session state, no keys, nothing from a memory. The path is `agentCardPath` in @hive/shared.
+  app.get("/agents/:id/card.json", wrap(async (req, res) => {
+    const id = zAgentId.safeParse(req.params.id);
+    if (!id.success) throw new HiveError("INVALID_INPUT", "Agent id must be a decimal integer.");
+    const agent = await readAgent(id.data);
+    const type = zAgentType.safeParse(agent.agentType);
+    const base = (deps.publicUrl ?? `${req.protocol}://${req.get("host")}`).replace(/\/+$/, "");
+    const card: AgentCardWire = {
+      type: ERC8004_REGISTRATION_TYPE,
+      name: agent.name.slice(0, 64) || `Agent ${id.data}`,
+      description: "Mindshare agent. It shares memory with other agents only along permission edges its owner signed on Monad testnet.",
+      services: [{ name: "MCP", endpoint: `${base}/mcp`, version: LATEST_PROTOCOL_VERSION }],
+      x402Support: false,
+      // An agent can write once its owner has set a writer key.
+      active: agent.writer.toLowerCase() !== ZERO,
+      registrations: [],
+      supportedTrust: [],
+      hive: { chainId: hiveDeployment.chainId, agentRegistry: hiveDeployment.agentRegistry, agentId: id.data.toString(), agentType: type.success ? type.data : "other", owner: agent.owner },
+    };
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Cache-Control", "public, max-age=60");
+    res.json(card);
+  }));
 
   app.get("/v1/agents", requireUser, wrap(async (_req, res) => {
     const user = res.locals.user as UserClaims;

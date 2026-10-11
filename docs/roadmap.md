@@ -165,7 +165,8 @@ We build one layer at a time. Tick each step off here when it's done.
   - [ ] Codex CLI sign-in through OAuth instead of a saved token (planned: needs bridge discovery routes the local bridge does not serve yet)
 - [ ] ERC-8004 identity for every agent (ADR-028)
   - [x] Shared: registry ABI and address, `hiveAgentId` encoding, agent card schema. Unit-tested; selectors and topics checked against the deployed bytecode. No transaction sent yet
-  - [ ] Bridge agent card and the web's third transaction (planned)
+  - [x] Bridge: public agent card at `/agents/:id/card.json`, built from `AgentRegistry` only. Tested with supertest, not yet served from Railway
+  - [ ] Web: the third transaction and a retry in the agent drawer (planned)
   - [ ] Indexer: `Registered` and `MetadataSet`, joined to `Agent` (planned)
 - [ ] Propagation animation (CP2)
 - [ ] Demo script and rehearsal (CP3)

@@ -1,5 +1,5 @@
 import {
-  ERROR_CODES, MCP_TOOLS, zAgentsResponse, zAuthChallengeBody, zAuthChallengeResponse, zAuthVerifyBody, zAuthVerifyResponse, zAuthorizeBody,
+  ERROR_CODES, MCP_TOOLS, zAgentCard, zAgentsResponse, zAuthChallengeBody, zAuthChallengeResponse, zAuthVerifyBody, zAuthVerifyResponse, zAuthorizeBody,
   zAuthorizeResponse, zErrorEnvelope, zHealthResponse, zHiveEvent, zMemoryResponse, zPutVaultBody, zVaultResponse,
 } from "@hive/shared";
 import { z } from "zod";
@@ -41,6 +41,7 @@ export function buildOpenApi(version = "0.0.0"): Json {
     AuthVerifyBody: schemaOf(zAuthVerifyBody),
     AuthVerifyResponse: schemaOf(zAuthVerifyResponse),
     AgentsResponse: schemaOf(zAgentsResponse),
+    AgentCard: schemaOf(zAgentCard),
     AuthorizeBody: schemaOf(zAuthorizeBody),
     AuthorizeResponse: schemaOf(zAuthorizeResponse),
     MemoryResponse: schemaOf(zMemoryResponse),
@@ -106,6 +107,14 @@ export function buildOpenApi(version = "0.0.0"): Json {
           tags: ["Agents"], operationId: "listAgents", summary: "List the owner's agents with connection status",
           security: userAuth,
           responses: { 200: { description: "Agents owned by the signed-in user.", content: json("AgentsResponse") }, ...pick(401, 502) },
+        },
+      },
+      "/agents/{id}/card.json": {
+        get: {
+          tags: ["Agents"], operationId: "getAgentCard", summary: "An agent's public ERC-8004 registration file",
+          description: "Public on purpose: this is the file the agent's ERC-8004 URI points to (ADR-028). It is built from `AgentRegistry` only (name, type, owner, the MCP endpoint and the Hive agent id), all of which is public onchain. It says nothing about sessions, keys or memories, and it grants no access. `registrations` is planned and currently an empty list.",
+          parameters: [agentIdParam],
+          responses: { 200: { description: "The agent card.", content: json("AgentCard") }, ...pick(400, 404, 502) },
         },
       },
       "/v1/agents/{id}/authorize": {
