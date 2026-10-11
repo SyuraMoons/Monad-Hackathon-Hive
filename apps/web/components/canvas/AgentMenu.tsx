@@ -3,6 +3,7 @@
 import { useRef, type KeyboardEvent } from "react";
 import { zeroAddress } from "viem";
 import { Popover } from "@/components/ui/Popover";
+import { hasGuide, PRODUCT } from "@/lib/hive/agentTypes";
 import { displayName, useGraph } from "@/lib/stores/graph";
 import { useUi, type Anchor } from "@/lib/stores/ui";
 
@@ -57,8 +58,8 @@ export function AgentMenu({ agentId, at, placed, onPrimary, onEditLabel, onTakeO
       <div ref={list} onKeyDown={onKeyDown}>
         <button type="button" role="menuitem" className={item} onClick={run(() => setUi({ drawerAgentId: agent.agentId }))}>Open details</button>
         <button type="button" role="menuitem" className={item} onClick={run(onPrimary)}>{placed ? "Show on canvas" : "Place on canvas"}</button>
-        {agent.agentType === "claude" && agent.agentKey !== zeroAddress && (
-          <button type="button" role="menuitem" className={item} onClick={run(() => setUi({ connectAgent: agent.agentId }))}>Connect to Claude…</button>
+        {hasGuide(agent.agentType) && agent.agentKey !== zeroAddress && (
+          <button type="button" role="menuitem" className={item} onClick={run(() => setUi({ connectAgent: agent.agentId }))}>Connect to {PRODUCT[agent.agentType]}…</button>
         )}
         <button type="button" role="menuitem" className={item} onClick={run(onEditLabel)}>{labels[agentId] ? "Edit label…" : "Add label…"}</button>
         {placed && (
