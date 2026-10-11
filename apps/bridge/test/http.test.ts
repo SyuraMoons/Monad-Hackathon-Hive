@@ -164,6 +164,29 @@ describe("DELETE /v1/agents/:id/session", () => {
   });
 });
 
+describe("DELETE /v1/sessions", () => {
+  it("needs a token and ends every session of the owner, silent ones included, and no one else's", async () => {
+    clock = 1_700_000_000;
+    const sessions = new SessionStore(now);
+    const key = ("0x" + "00".repeat(32)) as `0x${string}`;
+    const put = (agentId: bigint, owner: string) => sessions.put({ agentId, name: "a", owner, encryptionKey: key, agentPrivateKey: key, expiresAt: clock + 1000 });
+    put(1n, account.address);
+    put(2n, account.address.toLowerCase());
+    put(3n, "0x00000000000000000000000000000000000000b2");
+    sessions.touch(1n); // 1 has called a tool, 2 never has: both must go
+    const app = build({ sessions });
+    const token = (await signIn(app)).res.body.userToken as string;
+    expect((await request(app).delete("/v1/sessions")).status).toBe(401);
+    expect(sessions.count()).toBe(3);
+    expect((await request(app).delete("/v1/sessions").set("Authorization", `Bearer ${token}`)).status).toBe(204);
+    expect(sessions.get(1n)).toBeUndefined();
+    expect(sessions.get(2n)).toBeUndefined();
+    expect(sessions.get(3n)).toBeDefined();
+    expect((await request(app).delete("/v1/sessions").set("Authorization", `Bearer ${token}`)).status).toBe(204);
+    expect(sessions.count()).toBe(1);
+  });
+});
+
 describe("CORS and errors", () => {
   it("allows only the configured origin, answers preflight", async () => {
     const app = build();

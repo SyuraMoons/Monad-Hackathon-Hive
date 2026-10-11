@@ -125,6 +125,14 @@ export function buildOpenApi(version = "0.0.0"): Json {
           responses: { 204: { description: "Session ended (or there was none)." }, ...pick(400, 401, 403) },
         },
       },
+      "/v1/sessions": {
+        delete: {
+          tags: ["Agents"], operationId: "endAllSessions", summary: "End every agent session of the signed-in owner",
+          description: "Sign-out. Removes the keys of every agent of this owner from memory, including agents that never called a tool, and stops their tokens working. Idempotent.",
+          security: userAuth,
+          responses: { 204: { description: "Sessions ended (or there were none)." }, ...pick(401) },
+        },
+      },
       "/v1/memory/{contentHash}": {
         get: {
           tags: ["Memory"], operationId: "getMemory", summary: "Fetch one of your own memories as ciphertext",
