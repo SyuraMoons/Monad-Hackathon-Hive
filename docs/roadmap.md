@@ -163,13 +163,17 @@ We build one layer at a time. Tick each step off here when it's done.
   - [ ] Add the connector in a real ChatGPT against a deployed bridge, and check the menu names in the guide
   - [ ] DeepSeek guide stays planned until the runner has a live run (ADR-020)
   - [ ] Codex CLI sign-in through OAuth instead of a saved token (planned: needs bridge discovery routes the local bridge does not serve yet)
+- [ ] ERC-8004 identity for every agent (ADR-028)
+  - [x] Shared: registry ABI and address, `hiveAgentId` encoding, agent card schema. Unit-tested; selectors and topics checked against the deployed bytecode. No transaction sent yet
+  - [ ] Bridge agent card and the web's third transaction (planned)
+  - [ ] Indexer: `Registered` and `MetadataSet`, joined to `Agent` (planned)
 - [ ] Propagation animation (CP2)
 - [ ] Demo script and rehearsal (CP3)
 
 ## Open questions (from the PRD)
 
 - Does Mera PRF work under Next.js 15? The smoke test answers this. _Still open 3 Oct — only the dev-signer path has been run._
-- Is an ERC-8004 registry deployed on Monad testnet?
+- ~~Is an ERC-8004 registry deployed on Monad testnet?~~ Yes: the Identity Registry answers at `0x8004A818BFB912233c491871b3d84c89A494BD9e` (checked with `cast` on 11 Oct, ADR-028).
 - Does the MCP TypeScript SDK support our custom server setup?
 - Can React Flow handle 20+ nodes with animation?
 - ~~Final product name~~: decided, Mindshare (ADR-008). The rename PR is still to do.

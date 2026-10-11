@@ -256,3 +256,19 @@ Short architecture decision records. To add one, append the next number and don'
 - Contract: `KnowledgeGraph.setExpiry(edgeId, expiresAt)` (owner of `from`, edge active, expiry in the future) emits `EdgeExpiryChanged`. It is in the source, tested and in the ABI in `@hive/shared`, but the deployed contracts do not have it. The web does not call it.
 
 **Consequences.** Until a redeploy, an update costs two transactions and adds one entry to `_fromList` per update. A redeploy resets testnet state (ADR-021) and the indexer needs a handler for `EdgeExpiryChanged`; when that lands the web switches the update step to `setExpiry`, and this ADR is updated. Edges left over from before this change are cleaned up one revoke at a time.
+
+## ADR-028: Every agent also gets an ERC-8004 identity; it never decides access
+**Date:** 2026-10-11 · **Status:** accepted, shared contract only. The web transaction, the bridge card and the indexer join are planned
+
+**Context.** Our `AgentRegistry` is private to this project: nothing outside Hive can find an agent in it. ERC-8004 is a public identity registry for agents, and one is deployed on Monad testnet at `0x8004A818BFB912233c491871b3d84c89A494BD9e` (`AgentIdentity`, version 2.0.0, about 2,100 agents on 11 Oct). Its `register(string,(string,bytes)[])`, `getMetadata`, `tokenURI` and `ownerOf` selectors and its `Registered` and `MetadataSet` topics were found in the deployed bytecode, and `register` was simulated with `cast call` (about 311k gas with one metadata entry). No transaction has been sent to it yet.
+
+**Decision.**
+- After `register` and `setAgentWriter`, the owner sends a third transaction: `register(agentURI, [("hiveAgentId", abi.encode(agentRegistry, agentId))])` on the ERC-8004 registry. The owner's EOA pays (ADR-006) and declares the gas (rule 5).
+- The link is the `hiveAgentId` metadata entry, not the URL. It carries our `AgentRegistry` address, so ids from an older deploy (ADR-021) cannot be confused with current ones. It is a claim: a reader accepts it only if the ERC-8004 owner is also the owner of that Hive agent. The key is onchain and is never renamed.
+- `agentURI` is `<bridge>/agents/<hiveAgentId>/card.json`. The bridge builds the card from `AgentRegistry` alone: name, type, owner, the MCP endpoint and the Hive id. All of that is already public (ADR-023). No memory content, key or token goes into it.
+- The third transaction is optional. If it fails, the agent works as before and the owner can retry later; the same retry covers agents created before this ADR. The web does not send it when the bridge URL is not `https`, so a local run does not write `localhost` links into a public registry.
+- Envio indexes `Registered` and `MetadataSet` and joins them to `Agent` after the owner check.
+- Permissions do not change. They read our `AgentRegistry` and `KnowledgeGraph` on live chain state (rule 3). An ERC-8004 identity, its metadata or its card never widen or narrow what an agent reads. No contract is redeployed.
+- The ABI, the address, the metadata encoding and the card schema live in `@hive/shared` (`erc8004.ts`). The ABI is hand-written, because the registry is not built from `packages/contracts`.
+
+**Consequences.** Creating an agent costs a third transaction, about 0.03 MON at the gas price seen on 10 Oct. The card's `registrations` list stays empty: the ERC-8004 id does not exist when the URI is written, and the registry has no lookup from our id back to its id. Filling it from the indexer is planned. If the bridge moves to another domain the stored URIs go stale until the owner updates them, which is not built. We use the Identity Registry only. Reputation and validation are not used, and docs and UI must say "ERC-8004 identity", nothing wider (rule 8).
