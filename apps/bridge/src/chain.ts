@@ -79,6 +79,8 @@ export class ViemChainWriter implements ChainWriter {
   async write({ agentKey, ...call }: { agentKey: Hex } & WriteCall): Promise<WriteReceipt> {
     try {
       const estimate = await this.deps.estimate(agentKey, call);
+      // Monad charges the declared limit. An estimate above the cap would revert and still be charged in full, so it is not sent.
+      if (estimate > GAS_MAX) throw new HiveError("CHAIN_ERROR", "This memory write needs more gas than the bridge allows, so nothing was sent.");
       const gas = (estimate * GAS_MARGIN_PCT) / 100n;
       const txHash = await this.deps.submit(agentKey, { ...call, gas: gas < GAS_MIN ? GAS_MIN : gas > GAS_MAX ? GAS_MAX : gas });
       const receipt = await this.deps.receipt(txHash);
