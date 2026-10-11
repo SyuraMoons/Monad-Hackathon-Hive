@@ -101,10 +101,10 @@ Not checked: Envio Cloud, an `EdgeRemoved` on real data (none exists yet), and t
 | P0.4 | Passkey auth via Mera | P2 | 🚧 real passkey ceremony and key derivation (ADR-005); `/smoke` can sign with the passkey (#79), but that path is untested |
 | P0.5 | Encrypted storage (Supabase) | P2 | ✅ ciphertext-only table, bridge store (#66, #69) |
 | P0.6 | MCP bridge server | P2 | 🚧 MCP read/write, authorize, gas top-up, chain reader (#71–#77); SSE `/v1/events` built (`agent.connected`, `memory.written`, `memory.read`, `agent.disconnected`); `GET /v1/memory/:contentHash` (the owner's own ciphertext read) is built; `session.expiring` is planned |
-| P0.7 | Visual canvas (React Flow) | P3 | 🚧 canvas, audit and connect screens on the mock client. In live mode the live client reads agents and registers them from `/connect` (unit-tested, not yet run against testnet) and reads the bridge's event stream (unit-tested, not yet run in the browser); edges are read and signed on-chain (not yet run on testnet); audit is still a stub; the agent drawer reads memory text through `GET /v1/memory/:contentHash` and decrypts it on this device (unit-tested, not yet run in a browser, ADR-024) |
+| P0.7 | Visual canvas (React Flow) | P3 | 🚧 canvas, audit and connect screens on the mock client. In live mode the live client reads agents and registers them from `/connect` (unit-tested, not yet run against testnet) and reads the bridge's event stream (unit-tested, not yet run in the browser); edges are read and signed on-chain (not yet run on testnet); audit and provenance read the Envio indexer (unit-tested, and the queries were run against a local synced indexer on 11 Oct; not yet seen in a browser); the agent drawer reads memory text through `GET /v1/memory/:contentHash` and decrypts it on this device (unit-tested, not yet run in a browser, ADR-024) |
 | P0.8 | Live propagation animation | P3 | ⏳ |
 | P0.9 | 2 mock chatbots | P4 | ⏳ placeholder only |
-| P0.10 | Envio indexer (audit trail) | P2 | 🚧 `packages/indexer`: schema, handlers and derived stats (policy check, per-edge counts), tested with simulated events. Synced locally against testnet on 11 Oct (see _Verified runs_); not deployed to Envio Cloud, and the web still reads the mock for audit |
+| P0.10 | Envio indexer (audit trail) | P2 | 🚧 `packages/indexer`: schema, handlers and derived stats (policy check, per-edge counts), tested with simulated events. Synced locally against testnet on 11 Oct (see _Verified runs_); not deployed to Envio Cloud. The web reads it in live mode (queries confirmed against the local indexer) |
 | P0.11 | Demo script + rehearsal | P4 | ⏳ |
 
 P1 nice-to-haves, only after all P0 items are done: Claude Desktop MCP integration, colored isolation zones, provenance view, time-travel replay, ChatGPT integration.
@@ -129,7 +129,7 @@ We build one layer at a time. Tick each step off here when it's done.
   - [x] Handlers replayed over the real testnet history with the test indexer, 11 Oct (see _Verified runs_)
   - [x] Full local run with Postgres and Hasura (`envio dev`), 11 Oct: synced to head, 7 agents, 4 edges, 2 slots, 2 propagations, 0 violations, and the GraphQL API answers without a secret
   - [ ] Deploy to Envio Cloud (public GraphQL URL)
-  - [ ] Web: `graph.auditEvents` and `graph.provenance` read the indexer
+  - [x] Web: `graph.auditEvents` and `graph.provenance` read the indexer in live mode (`NEXT_PUBLIC_ENVIO_URL`). Unit-tested, and run against the local indexer on 11 Oct: all 10 rows of one owner passed the shared schemas, provenance and stats matched. Not yet seen in a browser
   - [ ] Web: stats strip on `/audit`
 - [x] Bridge: MCP tools `write_memory` / `read_memory`, plus SSE `/events`
   - [x] MCP `hive_write_memory` / `hive_read_memory` / `hive_whoami`, live chain reads, `authorize` with gas top-up, encrypted write to `MemorySlots` (#71, #74, #75, #77). A live write from Claude Code returned a receipt on 5 Oct (see _Verified runs_)
