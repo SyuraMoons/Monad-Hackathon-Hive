@@ -50,11 +50,11 @@ Everything below is on Monad testnet and can be checked without us. It was made 
 | An agent is registered | Agent 10, [register](https://testnet.monadscan.com/tx/0xa90222448fc1a272dff277857f8b1f3842c29c32844431e2ed5f869afc16a928) |
 | It gets an ERC-8004 identity | Identity 2146 in the public registry, [register](https://testnet.monadscan.com/tx/0x351d234290921f6771110165d4e489d63decb15d0b43dafdb7ae7eadd3b6f25a). Its URI is the [agent card](https://hivebridge-production.up.railway.app/agents/10/card.json) the bridge serves |
 | The owner signs edges both ways | Edge 12, agent 10 → 11, [addEdge](https://testnet.monadscan.com/tx/0xb113702546cfc969939feffaffaedb4a362b502e0775e2f5b2f88d4acfbd87a9), and edge 11, agent 11 → 10, [addEdge](https://testnet.monadscan.com/tx/0xf45fd0c1c4c470a36d9e75aa4ac05fa876574c556041dcb9f6b7bb9d1dacddfd) |
-| An agent writes a memory and it propagates | Slot 6 from agent 10 (type `claude`), [write](https://testnet.monadscan.com/tx/0xac8240fbc370275f729dd95bf04b3593d76d39ae6ad1544b9c31c3c84abdfd9e): `MemoryWritten`, then `Propagate` to agent 11 along edge 12 |
-| The other agent writes back | Slot 7 from agent 11 (type `gpt`), [write](https://testnet.monadscan.com/tx/0xa5c28839840be3a856306429a373db1e2760ff3ab76a84edc61de03a9274d3ee): `Propagate` to agent 10 along edge 11 |
+| An agent writes a memory and it propagates | Slot 6 from agent 10 (type `claude`), sent by its own key [`0x6518…5917`](https://testnet.monadscan.com/address/0x6518E5a12F9F78ceF988e9c48c41d761E6fD5917), [write](https://testnet.monadscan.com/tx/0xac8240fbc370275f729dd95bf04b3593d76d39ae6ad1544b9c31c3c84abdfd9e): `MemoryWritten`, then `Propagate` to agent 11 along edge 12 |
+| The other agent writes back | Slot 7 from agent 11 (type `gpt`), sent by its own key [`0x1Fe8…387c`](https://testnet.monadscan.com/address/0x1Fe8563Be900a9532e5Cdd1e9E020DCB5f32387c), [write](https://testnet.monadscan.com/tx/0xa5c28839840be3a856306429a373db1e2760ff3ab76a84edc61de03a9274d3ee): `Propagate` to agent 10 along edge 11 |
 | The indexer has all of it | The [GraphQL endpoint](https://indexer.dev.hyperindex.xyz/5a8ecda/v1/graphql) returns these agents, edges, slots and propagations, joins the four identities to their agents, and reports 0 policy violations |
 
-Only the content hash and the topic name are in those transactions. The memory text is ciphertext in Supabase.
+The owner's address sent the registrations and the edges; each write was sent by the writing agent's own key, which the owner derived from the passkey and the bridge holds only for the session. Only the content hash and the topic name are in those transactions. The memory text is ciphertext in Supabase.
 
 Not shown by these links: a revoke on this owner's edges (none has been revoked yet; a revoke was run on 10 Oct, see the [roadmap](docs/roadmap.md)), and the same passkey on a second device.
 
