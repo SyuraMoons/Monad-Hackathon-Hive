@@ -8,19 +8,21 @@ import { LockedError, type MemoryView } from "../memoryView";
 export type PreviewDeps = {
   /** GET /v1/memory/:contentHash. */
   fetchSealed(contentHash: ContentHash): Promise<MemoryResponse>;
-  /** The encryption key, or undefined while the keys are locked. */
-  encryptionKey(): Uint8Array | undefined;
+  /** The owner's encryption keys, the current one first (ADR-029). Empty while the keys are locked. */
+  encryptionKeys(): Uint8Array[];
 };
 
 const fromBase64 = (value: string) => Uint8Array.from(atob(value), (c) => c.charCodeAt(0));
 
 export async function previewMemory(deps: PreviewDeps, contentHash: ContentHash): Promise<MemoryView> {
-  const key = deps.encryptionKey();
-  // Keys.end() zeroes the array in place, so all zeros means signed out.
-  if (!key || key.every((b) => b === 0)) throw new LockedError();
+  // Keys.end() zeroes the arrays in place, so all zeros means signed out.
+  const keys = deps.encryptionKeys().filter((k) => !k.every((b) => b === 0));
+  if (keys.length === 0) throw new LockedError();
 
   const sealed = await deps.fetchSealed(contentHash);
-  if (sealed.keyId !== keyIdOf(key)) throw new HiveError("FORBIDDEN", "This memory was sealed with a different key.");
+  // The row says which key sealed it: the current one, or the one from before ADR-029.
+  const key = keys.find((k) => keyIdOf(k) === sealed.keyId);
+  if (!key) throw new HiveError("FORBIDDEN", "This memory was sealed with a different key.");
 
   let plaintext: string;
   try {

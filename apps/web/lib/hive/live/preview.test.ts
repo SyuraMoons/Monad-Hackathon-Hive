@@ -15,12 +15,12 @@ async function sealed(plaintext: string, key = KEY) {
   return { hash: s.contentHash, res };
 }
 
-const deps = (res: MemoryResponse | Error, key: Uint8Array | null = KEY) => ({
+const deps = (res: MemoryResponse | Error, key: Uint8Array | null = KEY, legacy?: Uint8Array) => ({
   fetchSealed: async () => {
     if (res instanceof Error) throw res;
     return res;
   },
-  encryptionKey: () => key ?? undefined,
+  encryptionKeys: () => [...(key ? [key] : []), ...(legacy ? [legacy] : [])],
 });
 
 describe("previewMemory", () => {
@@ -44,9 +44,19 @@ describe("previewMemory", () => {
 
   it("does not ask the bridge while locked", async () => {
     let asked = false;
-    const d = { fetchSealed: async () => { asked = true; throw new Error("no"); }, encryptionKey: () => undefined };
+    const d = { fetchSealed: async () => { asked = true; throw new Error("no"); }, encryptionKeys: () => [] };
     await expect(previewMemory(d, ("0x" + "aa".repeat(32)) as ContentHash)).rejects.toBeInstanceOf(LockedError);
     expect(asked).toBe(false);
+  });
+
+  it("opens a memory sealed with the legacy key when that key is held too (ADR-029)", async () => {
+    const { hash, res } = await sealed("sealed before the change", OTHER);
+    expect(await previewMemory(deps(res, KEY, OTHER), hash)).toEqual({ content: "sealed before the change" });
+  });
+
+  it("is locked when every held key is zeroed", async () => {
+    const { hash, res } = await sealed("x");
+    await expect(previewMemory(deps(res, new Uint8Array(32), new Uint8Array(32)), hash)).rejects.toBeInstanceOf(LockedError);
   });
 
   it("refuses a memory sealed with another key, before decrypting", async () => {
