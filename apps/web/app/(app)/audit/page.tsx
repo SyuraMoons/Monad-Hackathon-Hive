@@ -1,9 +1,10 @@
 "use client";
 
-import type { AuditEvent, ContentHash } from "@hive/shared";
+import type { AuditEvent, ContentHash, OwnerStats } from "@hive/shared";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { ProvenanceCard } from "@/components/audit/ProvenanceCard";
+import { StatsStrip } from "@/components/audit/StatsStrip";
 import { OptionChip } from "@/components/ui/OptionChip";
 import { cn } from "@/lib/cn";
 import { explorerTx } from "@/lib/explorer";
@@ -50,6 +51,7 @@ const keyOf = (e: AuditEvent) => `${e.kind}-${e.txHash}-${"slotId" in e ? e.slot
 function useAuditEvents(owner: string | undefined) {
   const [events, setEvents] = useState<AuditEvent[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [stats, setStats] = useState<OwnerStats | null>(null);
   // Refresh when the graph or the feed changes (a new write, a signed or revoked edge).
   const feedCount = useFeed((s) => s.rows.length);
   const edgeCount = useGraph((s) => Object.keys(s.edges).length);
@@ -68,13 +70,18 @@ function useAuditEvents(owner: string | undefined) {
         .then((c) => c.graph.auditEvents(owner as `0x${string}`))
         .then((ev) => { if (alive.current) { setEvents(ev); setError(null); } })
         .catch((e) => { if (alive.current) setError(e instanceof Error ? e.message : String(e)); });
+      // Independent of the rows: if the counters fail the strip stays hidden instead of showing made-up zeros.
+      void getHiveClient()
+        .then((c) => c.graph.ownerStats(owner as `0x${string}`))
+        .then((st) => { if (alive.current) setStats(st); })
+        .catch(() => { if (alive.current) setStats(null); });
     };
     const wait = Math.max(0, 2000 - (Date.now() - lastFetch.current));
     if (wait === 0) { run(); return; }
     const t = setTimeout(run, wait);
     return () => clearTimeout(t);
   }, [owner, feedCount, edgeCount]);
-  return { events, error };
+  return { events, stats, error };
 }
 
 // Figma 08 · Audit (62:170).
@@ -82,7 +89,7 @@ export default function AuditPage() {
   const owner = useSession((s) => s.owner);
   const mode = useSession((s) => s.mode);
   const agents = useGraph((s) => s.agents);
-  const { events, error } = useAuditEvents(owner);
+  const { events, stats, error } = useAuditEvents(owner);
   const [filter, setFilter] = useState<FilterKey>("all");
   const [page, setPage] = useState(0);
   const [selected, setSelected] = useState<ContentHash | null>(null);
@@ -130,6 +137,8 @@ export default function AuditPage() {
           ←  Back to canvas
         </Link>
       </div>
+
+      {stats && <StatsStrip stats={stats} />}
 
       <div className="mt-8 grid items-start gap-8 xl:grid-cols-[820px_460px] xl:justify-between">
         <div className="flex min-w-0 flex-col gap-4">
