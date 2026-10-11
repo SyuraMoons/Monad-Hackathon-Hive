@@ -107,11 +107,17 @@ export function createBridgeApi(): Pick<HiveClient, "auth" | "agents" | "oauth">
         return { owner: body.owner, ...res };
       },
       // Sign out ends every agent's bridge session, so scoped keys leave the bridge's memory (rules §5.1).
+      // One call for all of them: an agent that never called a tool is not `connected` but holds keys all the same.
       async signOut(session) {
         userToken = session.userToken;
         try {
-          const list = await agents.list();
-          await Promise.allSettled(list.filter((a) => a.connected).map((a) => agents.disconnect(a.agentId)));
+          try {
+            await call("DELETE", "/v1/sessions", { token: token() });
+          } catch {
+            // A bridge that predates that route: end the sessions one by one, connected or not (the call is idempotent).
+            const list = await agents.list();
+            await Promise.allSettled(list.map((a) => agents.disconnect(a.agentId)));
+          }
         } finally {
           userToken = undefined;
           owner = undefined;
