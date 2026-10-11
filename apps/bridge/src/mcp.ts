@@ -1,3 +1,4 @@
+import { keyIdOf } from "@hive/crypto";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { DEFAULT_TOPIC, HIVE_INSTRUCTIONS, HiveError, zListMemoryInput, zReadMemoryInput, zSaveSessionInput, zSearchMemoryInput, zWriteMemoryInput, type MemoryMeta, type WhoamiOutput, type WriteMemoryOutput } from "@hive/shared";
@@ -7,7 +8,7 @@ import { privateKeyToAddress } from "viem/accounts";
 import type { GasFunder } from "./funder.js";
 import type { EventBus } from "./events.js";
 import type { EmbeddingDeps } from "./embeddings.js";
-import { keyIdOf, listMemory, readMemory, writeMemory, type ReadDeps } from "./memory.js";
+import { listMemory, readMemory, writeMemory, type ReadDeps } from "./memory.js";
 import { searchMemory } from "./search.js";
 import { looksLikeSecret } from "./secrets.js";
 import type { SessionStore, AgentSession } from "./sessions.js";

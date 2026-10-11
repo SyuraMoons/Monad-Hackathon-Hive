@@ -21,6 +21,7 @@ import type {
   TxHash,
   UnixSeconds,
 } from "@hive/shared";
+import type { MemoryView } from "./memoryView";
 
 export type HiveMode = "mock" | "live";
 
@@ -87,8 +88,8 @@ export interface HiveClient {
   memory: {
     /** The agent's past writes from the chain, newest first (at most 50). Content stays encrypted: this is hashes and topics. */
     history(agentId: AgentId): Promise<MemoryHistoryRow[]>;
-    /** Fetches the ciphertext and decrypts it on this device (rules O4). */
-    preview(contentHash: ContentHash): Promise<string>;
+    /** Fetches the ciphertext and decrypts it on this device (rules O4). Rejects with `LockedError` while the keys are locked. */
+    preview(contentHash: ContentHash): Promise<MemoryView>;
   };
   tx: {
     /** AgentRegistry.register(name, agentType, agentKey) as an owner userOp (rules O1). */

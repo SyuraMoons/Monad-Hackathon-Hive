@@ -3,6 +3,7 @@
 import type { AgentId, ContentHash, EdgeTopic, HiveEvent, SlotId, Topic, TxHash, UnixSeconds } from "@hive/shared";
 import { create } from "zustand";
 import { getHiveClient } from "@/lib/hive/client";
+import { LockedError, type MemoryView } from "@/lib/hive/memoryView";
 import type { MemoryHistoryRow } from "@/lib/hive/types";
 
 export type FeedRow =
@@ -14,14 +15,16 @@ const MAX_ROWS = 200;
 
 type FeedState = {
   rows: FeedRow[];
-  /** Plaintext decrypted on this device, by content hash. "error" if it couldn't be fetched or decrypted. */
-  previews: Record<ContentHash, string | "error" | "loading">;
+  /** Memories decrypted on this device, by content hash. "locked" until the passkey unlocks the keys, "error" if it couldn't be fetched or decrypted. */
+  previews: Record<ContentHash, MemoryView | "error" | "locked" | "loading">;
   /** An agent's past writes from the chain, by agent id. Hashes and topics only. */
   history: Record<string, MemoryHistoryRow[] | "loading" | "error">;
   loadHistory(agentId: AgentId): Promise<void>;
   applyEvent(event: HiveEvent): void;
   push(row: FeedRow): void;
   loadPreview(hash: ContentHash): Promise<void>;
+  /** Tries again every preview that was waiting for the keys. Call it after an unlock. */
+  retryLocked(): void;
   reset(): void;
 };
 
@@ -59,16 +62,31 @@ export const useFeed = create<FeedState>()((set, get) => ({
 
   async loadPreview(hash) {
     if (get().previews[hash]) return;
-    set({ previews: { ...get().previews, [hash]: "loading" } });
-    try {
-      const text = await (await getHiveClient()).memory.preview(hash);
-      set({ previews: { ...get().previews, [hash]: text } });
-    } catch {
-      set({ previews: { ...get().previews, [hash]: "error" } });
-    }
+    await fetchPreview(hash);
+  },
+
+  retryLocked() {
+    for (const [hash, p] of Object.entries(get().previews)) if (p === "locked") void fetchPreview(hash as ContentHash);
   },
 
   reset() {
+    generation++;
     set({ rows: [], previews: {}, history: {} });
   },
 }));
+
+/** Bumped by reset(), so a decrypt that finishes after sign-out can't put plaintext back. */
+let generation = 0;
+
+/** Fetches and decrypts one memory whatever its state, so a locked one can be tried again. */
+async function fetchPreview(hash: ContentHash) {
+  const { getState, setState } = useFeed;
+  const started = generation;
+  const put = (p: FeedState["previews"][ContentHash]) => started === generation && setState({ previews: { ...getState().previews, [hash]: p } });
+  put("loading");
+  try {
+    put(await (await getHiveClient()).memory.preview(hash));
+  } catch (e) {
+    put(e instanceof LockedError ? "locked" : "error");
+  }
+}

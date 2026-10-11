@@ -1,6 +1,6 @@
 # Plan: read your own memories in the canvas
 
-Status: PR 1 (bridge route) built; PR 2 (web) not started.
+Status: built in two stacked PRs (bridge route, then web). Unit-tested; not yet run in a browser or on testnet.
 
 ## Problem
 

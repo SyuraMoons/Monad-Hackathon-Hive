@@ -203,3 +203,16 @@ Short architecture decision records. To add one, append the next number and don'
 - Only the onchain permission graph decides what an agent may read, checked in deterministic code on live chain state before any fetch, decrypt or ranking. Models (LLMs, embeddings) and fields an agent wrote may only rank or hide memories inside the permitted set, and one agent's fields never affect another sender's memories.
 
 **Consequences.** Hard rules 2 and 3 in AGENTS.md and the trust model in `docs/architecture.md` are reworded to match. No contract, gas or API change. Making topics private would need a contract that stores only a topic hash in `MemorySlots`, which means a redeploy (ADR-021); not planned.
+
+## ADR-024: The owner reads their own memories in the browser, through the bridge as a ciphertext relay
+**Date:** 2026-10-11 · **Status:** proposed
+
+**Context.** The canvas lists what each agent wrote, but only as a topic, a time and a content hash: the owner could not read their own memories. Memory text is AES-GCM ciphertext in Supabase, and the owner's browser already holds the key (the HKDF `hive/encrypt` key from the passkey phrase). The only read path was MCP, which is for agents.
+
+**Decision.**
+- `GET /v1/memory/:contentHash` (user token only) returns `{ ciphertext, iv, keyId }` for a memory whose stored `owner` is the caller. Another owner's memory is a 404, the same as a missing one, so the route does not reveal which hashes exist. The bridge never decrypts on this path.
+- The browser checks `keyId`, checks that `keccak256(iv ‖ ciphertext)` is the hash it asked for, decrypts with the key from the passkey, and unwraps the `hive-memory/v1` envelope.
+- Decrypted text lives in browser memory only (never localStorage), is dropped on sign-out, and a decrypt that finishes after sign-out is discarded. After a reload the keys are locked until one passkey touch, and the drawer says so.
+- This is not an agent read, so it is not checked against the permission graph: the owner reads what they own, with their own key. Rule 3 is about what an agent may read and is unchanged.
+
+**Consequences.** No contract or gas change. The drawer shows only what the agent itself wrote, not what other agents shared into it (that needs a permission-aware path and is not planned). Built and unit-tested, not yet run in a browser or against testnet (rule 8).
