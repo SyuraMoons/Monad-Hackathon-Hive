@@ -12,6 +12,8 @@ import { chainHistory } from "./historyChain";
 import { loadEdgeNotes, saveEdgeNote } from "../edgeNotes";
 import { addEdgeTx, edgesOf, removeEdgeTx } from "./edges";
 import { chainEdges, edgeReader } from "./edgesChain";
+import { identityCardUrl, registerIdentity } from "./identity";
+import { chainIdentity } from "./identityChain";
 import { registerAndBind, toAgent } from "./registry";
 import { previewMemory } from "./preview";
 import { chainReader, chainRegistry } from "./registryChain";
@@ -77,7 +79,22 @@ export function createLiveClient(): LiveHiveClient {
       history: (agentId) => agentHistory(chainHistory, agentId),
       preview: (contentHash) => previewMemory({ fetchSealed: bridge.sealedMemory, encryptionKey: () => encryptionKey }, contentHash),
     },
+    identity: {
+      cardUrl: (agentId) => identityCardUrl(process.env.NEXT_PUBLIC_BRIDGE_URL, agentId),
+    },
     tx: {
+      registerIdentity(agentId) {
+        const current = signer;
+        const run = async () => {
+          if (!current) throw new HiveError("UNAUTHORIZED", "Unlock with your passkey first.");
+          return registerIdentity(chainIdentity(current), { bridgeUrl: process.env.NEXT_PUBLIC_BRIDGE_URL, agentId });
+        };
+        const done = run().then(
+          ({ erc8004Id, txHash }) => ({ status: "confirmed" as const, txHash: zTxHash.parse(txHash), explorerUrl: explorerTx(txHash), erc8004Id }),
+          (e: unknown) => ({ status: "failed" as const, error: e instanceof HiveError ? e : new HiveError("CHAIN_ERROR", "Could not add the ERC-8004 identity on Monad.") }),
+        );
+        return { status: "pending", wait: () => done };
+      },
       registerAgent({ name, agentType, agentKey }) {
         const current = signer;
         const run = async () => {
