@@ -91,7 +91,7 @@ Not checked: a live write and search from two agents, the `memory_embedding` tab
 | P0.7 | Visual canvas (React Flow) | P3 | 🚧 canvas, audit and connect screens on the mock client. In live mode the live client reads agents and registers them from `/connect` (unit-tested, not yet run against testnet) and reads the bridge's event stream (unit-tested, not yet run in the browser); edges are read and signed on-chain (not yet run on testnet); audit is still a stub; the agent drawer reads memory text through `GET /v1/memory/:contentHash` and decrypts it on this device (unit-tested, not yet run in a browser, ADR-024) |
 | P0.8 | Live propagation animation | P3 | ⏳ |
 | P0.9 | 2 mock chatbots | P4 | ⏳ placeholder only |
-| P0.10 | Envio indexer (audit trail) | P2 | ⏳ |
+| P0.10 | Envio indexer (audit trail) | P2 | 🚧 `packages/indexer`: schema, handlers and derived stats (policy check, per-edge counts), tested with simulated events. Not yet synced against testnet, not deployed to Envio Cloud, and the web still reads the mock for audit |
 | P0.11 | Demo script + rehearsal | P4 | ⏳ |
 
 P1 nice-to-haves, only after all P0 items are done: Claude Desktop MCP integration, colored isolation zones, provenance view, time-travel replay, ChatGPT integration.
@@ -111,7 +111,12 @@ We build one layer at a time. Tick each step off here when it's done.
   - [x] Code and unit tests with fake chain deps
   - [x] Run against testnet with a passkey-signed owner and a real `claude --mcp-config` terminal, 10 Oct (see _Verified runs_). Done from the canvas sidebar; `/connect` itself was not run
 - [ ] Wire edge creation → contract tx (CP1). Works from `/smoke` (dev signer, 3 Oct); the live client now sends `addEdge` / `removeEdge` and reads edges from `KnowledgeGraph` (unit-tested, built but not yet run on testnet), so this stays open until it is
-- [ ] Envio indexer
+- [ ] Envio indexer (`packages/indexer`)
+  - [x] Config for the four contracts from block 69814735, schema, handlers, derived stats and the policy check. Unit-tested with Envio's test indexer and simulated events
+  - [ ] Live sync against Monad testnet (needs `ENVIO_API_TOKEN` and Docker)
+  - [ ] Deploy to Envio Cloud (public GraphQL URL)
+  - [ ] Web: `graph.auditEvents` and `graph.provenance` read the indexer
+  - [ ] Web: stats strip on `/audit`
 - [x] Bridge: MCP tools `write_memory` / `read_memory`, plus SSE `/events`
   - [x] MCP `hive_write_memory` / `hive_read_memory` / `hive_whoami`, live chain reads, `authorize` with gas top-up, encrypted write to `MemorySlots` (#71, #74, #75, #77). A live write from Claude Code returned a receipt on 5 Oct (see _Verified runs_)
   - [x] SSE `/v1/events`: bridge route and web client, tested against a real port and a fake `EventSource`. Not yet seen turning the Connect page green in a browser. `session.expiring` is planned
