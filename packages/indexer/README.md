@@ -20,19 +20,38 @@ Three contract gaps are closed in the handlers (ADR-025): `EdgeRemoved` has no f
 
 ## Commands
 
+Needs Node 22.15 or newer (Envio 3). Docker is only for running it locally.
+
 ```bash
-pnpm --filter @hive/shared build      # the sync script and tests import it
+pnpm --filter @hive/shared build      # the sync script and the drift test read its build
 pnpm --filter @hive/indexer sync      # abis/*.json from @hive/shared, checks config.yaml addresses
-pnpm --filter @hive/indexer test      # envio codegen, then vitest (no database needed)
-pnpm --filter @hive/indexer dev       # local indexer + GraphQL, needs Docker and ENVIO_API_TOKEN
+pnpm --filter @hive/indexer test      # envio codegen, then vitest (no database, no token)
+pnpm --filter @hive/indexer dev       # local Postgres + Hasura + indexer; needs Docker and a token
 ```
 
-`ENVIO_API_TOKEN` (HyperSync) is created at <https://app.envio.dev/api-tokens>. Put it in `.env`, not in git.
+Local run:
+
+1. Create a HyperSync token at <https://envio.dev/app/api-tokens>.
+2. Put it in `packages/indexer/.env` as `ENVIO_API_TOKEN=...`. Envio reads `.env` from the indexer folder, not the repo root, and the file is gitignored.
+3. Start Docker, then `pnpm --filter @hive/indexer dev`. Hasura opens at <http://localhost:8080> (password `testing`).
+4. After a change to `config.yaml`, `schema.graphql` or an ABI, restart with `pnpm --filter @hive/indexer exec envio dev -r` to re-index from `start_block`.
+
+`ENVIO_TUI=false` turns the terminal UI off (it is off by default in CI).
+
+## Why nothing here imports the workspace
+
+Envio Cloud builds this folder on its own and asks that every import stays inside it. So the handlers import only `envio` and local files, `tsconfig.json` does not extend the repo's base config, and `@hive/shared` is not a dependency: the sync script and the drift test read its build by relative path, on a developer machine only.
 
 ## Contract changes
 
-The contracts were redeployed once (ADR-021). After another redeploy: run `pnpm --filter @hive/contracts abi`, then `pnpm --filter @hive/indexer sync`, update `start_block` and the addresses in `config.yaml` (the test fails until they match `@hive/shared`) and redeploy the indexer.
+The contracts were redeployed once (ADR-021). After another redeploy: run `pnpm --filter @hive/contracts abi`, then `pnpm --filter @hive/indexer sync`, update `start_block` and the addresses in `config.yaml` (the test fails until they match `@hive/shared`) and push: Envio Cloud re-indexes from the start block on every deploy.
 
 ## Deploy (Envio Cloud)
 
-Connect the GitHub repo in Envio Cloud, set the root directory to `packages/indexer`, the branch to `development`, and add `ENVIO_API_TOKEN` as a secret. The public GraphQL URL goes in `NEXT_PUBLIC_ENVIO_URL` for the web app.
+1. Sign in at <https://envio.dev/app> with GitHub and install the Envio Deployments app on the repo.
+2. Add an indexer: root directory `packages/indexer`, config file `config.yaml`, deployment branch `development`.
+3. No token is needed there: Envio Cloud provides HyperSync access itself. Any variable you do add must start with `ENVIO_`.
+4. Every push to the deployment branch builds a new version. The old one serves queries until the new one has synced.
+5. Copy the GraphQL endpoint into `NEXT_PUBLIC_ENVIO_URL` for the web app.
+
+Envio Cloud builds with pnpm 10.32 and recommends Node 24. The repo pins pnpm 11; a local install of this folder with pnpm 10.32 switches to the pinned version and works, but that has not been run on Envio Cloud yet. The free plan stops at 100,000 processed events or 7 days without a request, and keeps 3 deployments per indexer.

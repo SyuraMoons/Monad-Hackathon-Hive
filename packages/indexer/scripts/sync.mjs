@@ -1,9 +1,10 @@
 // Writes abis/*.json from @hive/shared and checks that config.yaml lists the same addresses as hiveDeployment.
-// Run `pnpm --filter @hive/shared build` first. `--check` only compares and exits 1 on drift.
+// @hive/shared is read by path and is not a dependency: Envio Cloud builds this folder on its own, so nothing the
+// indexer runs may import from outside it. Run `pnpm --filter @hive/shared build` first. `--check` only compares and exits 1 on drift.
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { AgentRegistryAbi, KnowledgeGraphAbi, MemorySlotsAbi, PropagationEngineAbi, hiveDeployment } from "@hive/shared";
+import { AgentRegistryAbi, KnowledgeGraphAbi, MemorySlotsAbi, PropagationEngineAbi, hiveDeployment } from "../../shared/dist/index.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const check = process.argv.includes("--check");
