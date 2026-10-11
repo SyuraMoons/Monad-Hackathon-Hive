@@ -28,3 +28,18 @@ export const auditId = {
 };
 
 export const topicStatsId = (owner: string, topic: string) => `${owner}:${topic}`;
+
+/** ERC-8004 metadata key that points an identity at a Hive agent (ADR-028). Same string as `ERC8004_HIVE_AGENT_KEY` in @hive/shared. */
+export const HIVE_AGENT_KEY = "hiveAgentId";
+
+/** Our AgentRegistry, lowercase. A reference to any other registry is not ours to join. Kept in step with @hive/shared by the config test. */
+export const HIVE_AGENT_REGISTRY = "0x06f4401cf289bfc29de59fc1b624096dc69ff25b";
+
+/**
+ * Reads `abi.encode(address agentRegistry, uint256 agentId)`. `undefined` for any other length or a dirty address word.
+ * The value is a claim by whoever set it: the handler links it only when the owners match.
+ */
+export function parseHiveAgentRef(value: string): { agentRegistry: string; agentId: string } | undefined {
+  const m = /^0x0{24}([0-9a-f]{40})([0-9a-f]{64})$/.exec(value.toLowerCase());
+  return m ? { agentRegistry: `0x${m[1]}`, agentId: BigInt(`0x${m[2]}`).toString() } : undefined;
+}

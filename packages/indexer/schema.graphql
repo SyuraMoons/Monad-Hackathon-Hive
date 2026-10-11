@@ -9,6 +9,19 @@ type Agent {
   writer: String
   registeredAt: Int!
   registeredTx: String!
+  # The agent's ERC-8004 identity (ADR-028): the first one whose owner is this agent's owner. Display only.
+  erc8004Id: String
+}
+
+# An identity in the public ERC-8004 registry, registered since the start block (ADR-028). Most belong to other projects.
+# `hiveAgentId` is set only when its `hiveAgentId` metadata names our AgentRegistry and an agent of the same owner.
+type Erc8004Identity {
+  id: ID!
+  owner: String! @index
+  agentURI: String!
+  registeredAt: Int!
+  registeredTx: String!
+  hiveAgentId: String @index
 }
 
 type Edge {

@@ -8,7 +8,7 @@ indexer.onEvent({ contract: "AgentRegistry", event: "AgentRegistered" }, async (
   const owner = event.params.owner;
   const at = event.block.timestamp;
   const txHash = event.transaction.hash;
-  context.Agent.set({ id, owner, name: event.params.name, agentType: event.params.agentType, writer: undefined, registeredAt: at, registeredTx: txHash });
+  context.Agent.set({ id, owner, name: event.params.name, agentType: event.params.agentType, writer: undefined, registeredAt: at, registeredTx: txHash, erc8004Id: undefined });
   context.AgentStats.set({ id, owner, writes: 0, received: 0, edgesOut: 0, edgesIn: 0, lastActiveAt: at });
   context.AuditEvent.set(auditRow({
     id: auditId.agent(id), owner, kind: "agent.registered", at, block: event.block.number, logIndex: event.logIndex, txHash,
