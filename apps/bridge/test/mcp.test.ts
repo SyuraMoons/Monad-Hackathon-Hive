@@ -122,6 +122,22 @@ describe("MCP over Streamable HTTP (official SDK client)", () => {
     await client.close();
   });
 
+  it("whoami gives a fixed message when the registry read fails, not the raw RPC error", async () => {
+    const client = await connect(agentToken["ChatGPT"]);
+    const real = chain.agent.bind(chain);
+    chain.agent = async () => {
+      throw new Error("HTTP request failed. URL: https://rpc.example/key-123 Contract: 0xabc");
+    };
+    try {
+      const res = await call(client, "hive_whoami");
+      expect(res.isError).toBe(true);
+      expect(res.text).toBe("Could not read your agent from the registry.");
+    } finally {
+      chain.agent = real;
+      await client.close();
+    }
+  });
+
   it("Claude writes through MCP; ChatGPT reads it; Therapy Bot (no edge) still gets nothing", async () => {
     const claude = await connect(agentToken["Claude"]);
     const w = await call(claude, "hive_write_memory", { topic: "work", content: "Launch moved to Friday" });
