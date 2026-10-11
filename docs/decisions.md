@@ -230,3 +230,17 @@ Short architecture decision records. To add one, append the next number and don'
 - The indexer is for history and display only. Permission checks still read live chain state (rule 3), so a lagging or wrong index can never widen what an agent reads.
 
 **Consequences.** HyperSync needs an API token. A topic name appears only if the edge or slot was written after the start block. Tested with simulated events; not yet synced against testnet or deployed, so docs and UI call it built, not verified (rule 8).
+
+## ADR-026: A mutual connection is two ordinary edges, signed one after the other
+**Date:** 2026-10-11 · **Status:** accepted
+
+**Context.** Edges are directed. To let two agents read each other the owner drew an edge, filled the editor, signed, then did the whole thing again the other way. The two edges were also drawn on the same line with their labels on top of each other.
+
+**Decision.**
+- The edge editor gets a Direction choice. "Both directions" signs `A → B` and then `B → A` with the same topic and expiry. One direction stays the default, so sharing both ways is always an explicit choice.
+- It is two `KnowledgeGraph.addEdge` calls from one unlock, not a new contract call: the deployed contracts have no pair or batch entry point and are not redeployed (ADR-021). Each leg declares its own gas (rule 5). The legs run sequentially, because they share one sending account.
+- The second leg is not sent if the first fails. If the second fails, the first stays a valid one-way edge and the toast names which direction is missing.
+- Nothing changes in the bridge, the shared schema or the permission check. Each direction is its own edge with its own expiry, revoke and tx link, so revoking one side leaves the other.
+- The canvas draws a pair as two parallel arrows, each with its own label.
+
+**Consequences.** Two transactions cost two gas payments and about one extra confirmation of waiting. The pair is not atomic. An atomic pair would need a redeploy and is not planned. "Revoke both" in the edge menu is not built.
