@@ -18,6 +18,7 @@
 | Data | Where | Why |
 | --- | --- | --- |
 | Agent identities | Monad (`AgentRegistry`) | Public, verifiable identity |
+| Agent identity for other projects (optional) | Monad (ERC-8004 Identity Registry) and an agent card on the bridge | Lets anything outside Hive find an agent. Never decides access (ADR-028). Built, no transaction sent yet |
 | Permission edges (from, to, topic, expiry) | Monad (`KnowledgeGraph`) | Anyone can audit who may share what |
 | Memory write events (content **hash** only) | Monad (`MemorySlots`) | Verifiable propagation trail |
 | Memory content | Supabase, AES-GCM ciphertext | Private. The server can't decrypt it |
@@ -35,7 +36,9 @@ The same phrase restores the same account without the passkey, in Hive or any BI
 
 Transactions were planned as ERC-4337 user operations through Pimlico's paymaster, so users need no MON. See [ADR-002](decisions.md). Superseded by [ADR-006](decisions.md) — writes go from a faucet-funded EOA; Kernel + Pimlico return behind `HiveSigner`.
 
-## Flows (planned)
+## Flows
+
+The edge and memory flows ran on testnet on 10 Oct (see the roadmap's verified runs). The canvas pulse animation is planned.
 
 **Add a permission edge** (checkpoint CP1)
 ```

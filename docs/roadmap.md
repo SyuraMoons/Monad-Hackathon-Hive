@@ -20,7 +20,9 @@ Deadline: **13 Oct 2026, 23:59 UTC**. Demo freeze: **10 Oct**.
 | **CP2**: end-to-end propagation | 5 Oct | Agent A writes memory, a propagation event fires, Agent B receives it, and all of it is visible on the canvas with animation |
 | **CP3**: demo freeze | 10 Oct | No new features after this. Only rehearsal and bug fixes |
 
-**Status, 5 Oct:** CP1 and CP2 are not met on `development`. The contracts are deployed and their source is merged (#76). Adding an edge works from `/smoke` with the dev signer, but the canvas still runs on the mock client. The bridge now streams `agent.connected`, `memory.written` and `memory.read` on `/v1/events` and the live client reads that stream (integration and unit tests, not yet run in the browser).
+**Status, 11 Oct:** CP1 is met except for the Envio part being seen in a browser: on 10 Oct a passkey-derived owner signed an edge from the canvas and the transaction confirmed, and on 11 Oct the indexer on Envio Cloud showed the edges. CP2 is met without the canvas animation: one agent wrote, the other read, and a revoke stopped it (10 Oct), with a local web app and bridge; it has not been repeated on the deployed site. Details are in _Verified runs_.
+
+**Status, 5 Oct (superseded):** CP1 and CP2 are not met on `development`. The contracts are deployed and their source is merged (#76). Adding an edge works from `/smoke` with the dev signer, but the canvas still runs on the mock client. The bridge now streams `agent.connected`, `memory.written` and `memory.read` on `/v1/events` and the live client reads that stream (integration and unit tests, not yet run in the browser).
 
 ## Verified runs
 
@@ -107,7 +109,7 @@ Not checked: the `/audit` page in a browser on the deployed site, an `EdgeRemove
 | P0.1 | AgentRegistry contract | P1 | ✅ deployed to testnet, source and tests in #76 |
 | P0.2 | KnowledgeGraph contract (edges) | P1 | ✅ deployed to testnet, source and tests in #76 |
 | P0.3 | MemorySlots + PropagationEngine | P1 | ✅ deployed to testnet, source and tests in #76 |
-| P0.4 | Passkey auth via Mera | P2 | 🚧 real passkey ceremony and key derivation (ADR-005); `/smoke` can sign with the passkey (#79), but that path is untested |
+| P0.4 | Passkey auth via Mera | P2 | 🚧 real passkey ceremony and key derivation (ADR-005). A passkey-derived owner registered agents and signed and revoked an edge on testnet from the canvas on 10 Oct (Chrome, `localhost`). Not yet run: `/smoke` with the passkey, and the same passkey on a second device |
 | P0.5 | Encrypted storage (Supabase) | P2 | ✅ ciphertext-only table, bridge store (#66, #69) |
 | P0.6 | MCP bridge server | P2 | 🚧 MCP read/write, authorize, gas top-up, chain reader (#71–#77); SSE `/v1/events` built (`agent.connected`, `memory.written`, `memory.read`, `agent.disconnected`); `GET /v1/memory/:contentHash` (the owner's own ciphertext read) is built; `session.expiring` is planned |
 | P0.7 | Visual canvas (React Flow) | P3 | 🚧 canvas, audit and connect screens on the mock client. In live mode the live client reads agents and registers them from `/connect` (unit-tested, not yet run against testnet) and reads the bridge's event stream (unit-tested, not yet run in the browser); edges are read and signed on-chain (not yet run on testnet); audit and provenance read the Envio indexer (unit-tested, and the queries were run against a local synced indexer on 11 Oct; not yet seen in a browser); the agent drawer reads memory text through `GET /v1/memory/:contentHash` and decrypts it on this device (unit-tested, not yet run in a browser, ADR-024) |
@@ -126,7 +128,7 @@ We build one layer at a time. Tick each step off here when it's done.
 - [x] Docs (README, AGENTS.md, docs/)
 - [ ] Mera passkey smoke test: `/smoke` page with passkey → address → one onchain tx (gas paid by the Mera EOA, ADR-006)
   - [x] Dev-signer variant verified 3 Oct (see _Verified runs_)
-  - [ ] Passkey-signed tx: `/smoke` uses `lib/passkey` (#79) but nobody has run it yet
+  - [ ] Passkey-signed tx on `/smoke`: it uses `lib/passkey` (#79) but nobody has run that page. The same passkey path did sign agents and an edge from the canvas on 10 Oct (see _Verified runs_)
 - [x] Contracts: AgentRegistry, KnowledgeGraph, MemorySlots, PropagationEngine, with tests and a deploy to testnet (#71, #76)
 - [x] Canvas: React Flow with 3 nodes and drawable edges (mock client)
 - [ ] Live agent registration from `/connect`: `register` + `setAgentWriter`, then bridge `authorize`
@@ -184,8 +186,8 @@ We build one layer at a time. Tick each step off here when it's done.
 
 ## Open questions (from the PRD)
 
-- Does Mera PRF work under Next.js 15? The smoke test answers this. _Still open 3 Oct — only the dev-signer path has been run._
+- ~~Does Mera PRF work under Next.js 15?~~ Yes: a passkey-derived owner signed transactions from the Next.js 15 app on 10 Oct (Chrome on `localhost`, see _Verified runs_).
 - ~~Is an ERC-8004 registry deployed on Monad testnet?~~ Yes: the Identity Registry answers at `0x8004A818BFB912233c491871b3d84c89A494BD9e` (checked with `cast` on 11 Oct, ADR-028).
-- Does the MCP TypeScript SDK support our custom server setup?
+- ~~Does the MCP TypeScript SDK support our custom server setup?~~ Yes: SDK 1.31 with a stateless Streamable HTTP transport, used by Claude Code against testnet on 5 and 10 Oct ([feedback.md](feedback.md), 2 Oct).
 - Can React Flow handle 20+ nodes with animation?
 - ~~Final product name~~: decided, Mindshare (ADR-008). The rename PR is still to do.
