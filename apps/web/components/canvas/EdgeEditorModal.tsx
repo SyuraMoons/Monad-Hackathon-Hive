@@ -191,9 +191,9 @@ export function EdgeEditorModal({ from, to, initialTopic, onClose, onSign, retur
               {pendingSame
                 ? "An edge here is already being signed. Wait for it to confirm."
                 : both
-                  ? `Two edges, one per direction, signed one after the other with one passkey prompt. Each can be revoked on its own${outsideText}.`
+                  ? `Two edges, one per direction, signed one after the other with one passkey prompt.${existing || existingBack ? " An edge that already exists is revoked first and signed again with the new expiry." : ""} Each can be revoked on its own${outsideText}.`
                   : existing
-                    ? `This edge already exists (${expiresIn(existing.expiresAt)}). Signing updates its expiry instead of adding a second one.`
+                    ? `This edge already exists (${expiresIn(existing.expiresAt)}). Updating revokes it and signs a new one with the new expiry: two transactions, one passkey prompt.`
                     : `One direction only: ${toName} can’t write back${outsideText}.`}
             </p>
           </>
