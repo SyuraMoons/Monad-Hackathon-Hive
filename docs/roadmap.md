@@ -130,7 +130,7 @@ We build one layer at a time. Tick each step off here when it's done.
   - [x] Full local run with Postgres and Hasura (`envio dev`), 11 Oct: synced to head, 7 agents, 4 edges, 2 slots, 2 propagations, 0 violations, and the GraphQL API answers without a secret
   - [ ] Deploy to Envio Cloud (public GraphQL URL)
   - [x] Web: `graph.auditEvents` and `graph.provenance` read the indexer in live mode (`NEXT_PUBLIC_ENVIO_URL`). Unit-tested, and run against the local indexer on 11 Oct: all 10 rows of one owner passed the shared schemas, provenance and stats matched. Not yet seen in a browser
-  - [ ] Web: stats strip on `/audit`
+  - [x] Web: stats strip on `/audit` (counters and the "deliveries without an active edge" check from `OwnerStats`). Unit-tested for wording and queries, and the stats query was run against the local indexer; not yet seen in a browser
 - [x] Bridge: MCP tools `write_memory` / `read_memory`, plus SSE `/events`
   - [x] MCP `hive_write_memory` / `hive_read_memory` / `hive_whoami`, live chain reads, `authorize` with gas top-up, encrypted write to `MemorySlots` (#71, #74, #75, #77). A live write from Claude Code returned a receipt on 5 Oct (see _Verified runs_)
   - [x] SSE `/v1/events`: bridge route and web client, tested against a real port and a fake `EventSource`. Not yet seen turning the Connect page green in a browser. `session.expiring` is planned
