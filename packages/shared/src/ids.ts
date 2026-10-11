@@ -1,4 +1,4 @@
-import { getAddress, hexToString, isAddress, stringToHex, type Address, type Hex } from "viem";
+import { getAddress, isAddress, type Address, type Hex } from "viem";
 import { z } from "zod";
 
 export type { Address, Hex };
@@ -24,7 +24,7 @@ export type EdgeId = bigint;
 export const zSlotId = zUint256;
 export type SlotId = bigint;
 
-/** Topic: lowercase slug, stored onchain as UTF-8 bytes32, right-padded. */
+/** Topic: lowercase slug. Onchain it is a `string` in `MemorySlots` and `keccak256(topic)` in `KnowledgeGraph` (and the bridge's `topicHash`); there is no bytes32 form of it. */
 export const zTopic = z.string().regex(/^[a-z0-9-]{1,31}$/, "topic must match ^[a-z0-9-]{1,31}$").brand<"Topic">();
 export type Topic = z.infer<typeof zTopic>;
 
@@ -32,9 +32,6 @@ export type Topic = z.infer<typeof zTopic>;
 export const ALL_TOPICS = "*";
 export const zEdgeTopic = z.union([z.literal(ALL_TOPICS), zTopic]);
 export type EdgeTopic = z.infer<typeof zEdgeTopic>;
-
-export const topicToBytes32 = (topic: Topic): Hex => stringToHex(topic, { size: 32 });
-export const topicFromBytes32 = (value: Hex): Topic => zTopic.parse(hexToString(value, { size: 32 }).replace(/\0+$/, ""));
 
 const zBytes32 = z.string().regex(/^0x[0-9a-fA-F]{64}$/, "expected 32-byte hex").transform((s) => s.toLowerCase() as Hex);
 
