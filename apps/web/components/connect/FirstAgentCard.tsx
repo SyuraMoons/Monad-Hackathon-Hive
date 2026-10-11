@@ -86,6 +86,7 @@ export function FirstAgentCard({ agentName, owner }: { agentName: string; owner:
         >
           Create on the canvas
         </PillButton>
+        {waiting && <p className="text-[14px] leading-[1.5] text-ink-3">This button turns on when the MON arrives. You can open the canvas below in the meantime.</p>}
       </div>
     </div>
   );

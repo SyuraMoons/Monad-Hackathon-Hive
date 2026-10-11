@@ -3,7 +3,6 @@
 import { zeroAddress } from "viem";
 import type { AgentType } from "@hive/shared";
 import Image from "next/image";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { NewAgentForm } from "@/components/app/NewAgentForm";
@@ -263,13 +262,10 @@ export default function ConnectPage() {
             ))}
             {all.length === 0 && <li className="font-mono text-[14px] text-ink-3">{graphReady ? "no agents yet" : "Loading your agents from Monad…"}</li>}
           </ul>
-          <PillButton disabled={all.length === 0} onClick={() => router.push("/canvas")}>
+          <PillButton onClick={() => router.push("/canvas")}>
             Open the canvas
           </PillButton>
         </div>
-        <Link href="/canvas" className="inline-flex min-h-9 items-center text-[14px] text-ink-2 underline underline-offset-2 hover:text-ink">
-          Skip, I’ll connect them later
-        </Link>
       </div>
     </main>
   );
