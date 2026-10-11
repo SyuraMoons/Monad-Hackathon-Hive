@@ -1,6 +1,6 @@
 "use client";
 
-import { codexCommand, codexConfig, connectorUrl, gptSnippet } from "@/lib/hive/commands";
+import { codexCommand, codexConfig, connectorUrl, gptSnippet, nameSlug } from "@/lib/hive/commands";
 import { ConnectorUrl, Fine, Prose, Steps, type GuideBodyProps } from "./parts";
 
 export const GPT_TABS = [
@@ -33,15 +33,16 @@ export function GptGuide({ name, url, token, tab, card }: GuideBodyProps) {
     return (
       <>
         <Steps>
-          <li>Paste this in the terminal where you run Codex.</li>
-          <li>Start <code className="font-mono">codex</code> from that same terminal. Codex loads MCP servers at startup.</li>
+          <li>Paste this in a terminal. It adds Hive to <code className="font-mono">~/.codex/config.toml</code>, so it works from any terminal and folder.</li>
+          <li>Start <code className="font-mono">codex</code> and type <code className="font-mono">/mcp</code>: <code className="font-mono">hive-{nameSlug(name)}</code> should show as connected.</li>
         </Steps>
         {card(
           "codex",
           codexCommand(url, token, name),
-          "Codex saves only the name of the token variable, never the token. The token is scoped to this agent and expires in 24h: after Reconnect, paste the new command and restart Codex.",
-          { caption: "older Codex without --url: add this to ~/.codex/config.toml instead", command: codexConfig(url, name) },
+          "The token is saved in ~/.codex/config.toml on this computer. It is scoped to this agent and expires in 24h: after Reconnect, paste the new command and start a new Codex session. If /mcp shows failed, the bridge restarted or the token expired: Reconnect and paste again. Don’t run codex mcp add for this server, it erases the token.",
+          { caption: "or add this to ~/.codex/config.toml by hand (Windows)", command: codexConfig(url, token, name) },
         )}
+        <Fine>A new agent reads nothing until you draw an edge to it on the canvas. Codex CLI only: the Codex desktop app and IDE extension have their own MCP settings.</Fine>
       </>
     );
   }
