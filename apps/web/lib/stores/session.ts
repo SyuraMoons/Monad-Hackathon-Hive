@@ -55,6 +55,8 @@ type SessionState = {
   createAgent(name: string, agentType: AgentType, onStep?: (step: CreateStep) => void): Promise<AgentId>;
   /** Canvas Reconnect: gives the bridge the agent's keys again (one passkey touch when locked). A token under 24h old works again. Finishes a registration that stopped before the writer key was set. Throws a readable message. */
   authorizeAgent(agentId: AgentId): Promise<void>;
+  /** Adds the agent's ERC-8004 identity (one owner transaction, one passkey touch when locked, ADR-028). Throws a readable message. */
+  addAgentIdentity(agentId: AgentId): Promise<void>;
   /** Ends the agent's bridge session: its keys leave the bridge and its token stops working. */
   disconnectAgent(agentId: AgentId): Promise<void>;
   /** Asks the signed-in passkey again and returns the 24-word recovery phrase. Never stored. */
@@ -65,7 +67,7 @@ type SessionState = {
 };
 
 /** What `createAgent` is doing, for the form's progress text. */
-export type CreateStep = "registering" | "loading" | "authorizing";
+export type CreateStep = "registering" | "loading" | "authorizing" | "identity";
 
 export type Connection =
   | { phase: "registering" | "authorizing" }
@@ -332,7 +334,19 @@ export const useSession = create<SessionState>()((set, get) => ({
     onStep?.("authorizing");
     await authorizeWithKeys(keys, agent);
     await useGraph.getState().refreshAgents().catch(() => {});
+    // Optional third transaction (ADR-028). The agent works without it, so a failure is left for the drawer's retry.
+    if (useGraph.getState().identityAvailable) {
+      onStep?.("identity");
+      await useGraph.getState().addIdentity(agent.agentId).catch(() => {});
+    }
     return agent.agentId;
+  },
+
+  async addAgentIdentity(agentId) {
+    if (!useGraph.getState().agents[agentId.toString()]) throw new Error("That agent is not on your canvas.");
+    await get().unlock();
+    const result = await useGraph.getState().addIdentity(agentId);
+    if (result.status === "failed") throw result.error;
   },
 
   async authorizeAgent(agentId) {
