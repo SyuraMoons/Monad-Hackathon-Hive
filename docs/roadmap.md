@@ -166,7 +166,7 @@ We build one layer at a time. Tick each step off here when it's done.
 - [ ] ERC-8004 identity for every agent (ADR-028)
   - [x] Shared: registry ABI and address, `hiveAgentId` encoding, agent card schema. Unit-tested; selectors and topics checked against the deployed bytecode. No transaction sent yet
   - [x] Bridge: public agent card at `/agents/:id/card.json`, built from `AgentRegistry` only. Tested with supertest, not yet served from Railway
-  - [ ] Web: the third transaction and a retry in the agent drawer (planned)
+  - [x] Web: `createAgent` sends the third transaction when the bridge URL is `https`, and the agent drawer shows the identity or an "Add ERC-8004 identity" button. The id is remembered in this browser only until the indexer answers it. Unit-tested, and the calldata was simulated against the deployed registry with `cast call` (id returned, about 311k gas). No transaction sent yet, not yet seen in a browser. Agents registered from `/connect` get it from the drawer button
   - [ ] Indexer: `Registered` and `MetadataSet`, joined to `Agent` (planned)
 - [ ] Propagation animation (CP2)
 - [ ] Demo script and rehearsal (CP3)
