@@ -90,7 +90,7 @@ function buildServer(deps: McpDeps, session: AgentSession): McpServer {
     },
   );
 
-  const readDeps = (): ReadDeps => ({ chain: deps.chain, store: deps.store, encryptionKey: session.encryptionKey, now: deps.now, docs: session.docs, embeddings, onError: (stage) => console.error(`bridge: read failed at ${stage}`) });
+  const readDeps = (): ReadDeps => ({ chain: deps.chain, store: deps.store, encryptionKey: session.encryptionKey, legacyEncryptionKey: session.legacyEncryptionKey, now: deps.now, docs: session.docs, embeddings, onError: (stage) => console.error(`bridge: read failed at ${stage}`) });
 
   server.registerTool(
     "hive_list_memory",

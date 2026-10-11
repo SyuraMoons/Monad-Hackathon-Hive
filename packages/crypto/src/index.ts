@@ -61,6 +61,26 @@ export async function decryptBytes(sealed: { ciphertext: Uint8Array; iv: Uint8Ar
   }
 }
 
+/**
+ * Tries each key in order and returns what the first matching one opens. For rows sealed before a key change (ADR-029):
+ * AES-GCM authenticates, so a wrong key is rejected and never returns garbage. Throws the last `CryptoError` when none fits.
+ */
+export async function decryptBytesWithAny(sealed: { ciphertext: Uint8Array; iv: Uint8Array }, keys: readonly (Hex | Uint8Array)[]): Promise<Uint8Array> {
+  let last: unknown = new CryptoError("no key given");
+  for (const key of keys) {
+    try {
+      return await decryptBytes(sealed, key);
+    } catch (e) {
+      last = e;
+    }
+  }
+  throw last;
+}
+
+export async function decryptWithAny(sealed: { ciphertext: Uint8Array; iv: Uint8Array }, keys: readonly (Hex | Uint8Array)[]): Promise<string> {
+  return new TextDecoder().decode(await decryptBytesWithAny(sealed, keys));
+}
+
 export async function decrypt(sealed: { ciphertext: Uint8Array; iv: Uint8Array }, key: Hex | Uint8Array): Promise<string> {
   return new TextDecoder().decode(await decryptBytes(sealed, key));
 }

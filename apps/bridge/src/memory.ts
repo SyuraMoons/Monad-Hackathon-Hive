@@ -1,8 +1,8 @@
-import { decrypt, encrypt, keyIdOf } from "@hive/crypto";
+import { decryptWithAny, encrypt, keyIdOf } from "@hive/crypto";
 import { HiveError, MEMORY_NOTICE, MEMORY_PAGE_DEFAULT, PREVIEW_CHARS, openDoc, sealDoc, zTxHash, type Hex, type ListMemoryOutput, type MemoryDoc, type MemoryKind, type MemoryMeta, type ReadMemoryOutput, type WriteMemoryOutput } from "@hive/shared";
 import { embedAfterWrite, type EmbeddingDeps } from "./embeddings.js";
 import { ownSlots, permittedSlots } from "./permissions.js";
-import type { DocCache } from "./sessions.js";
+import { readKeys, type DocCache } from "./sessions.js";
 import type { ChainReader, ChainSlot, ChainWriter, CiphertextStore } from "./types.js";
 
 export type ReadDeps = {
@@ -10,6 +10,8 @@ export type ReadDeps = {
   store: CiphertextStore;
   /** The owner's delegated encryption key for this agent's session. */
   encryptionKey: Hex;
+  /** The key memories were sealed with before ADR-029. Only ever used to decrypt, after `encryptionKey` fails. */
+  legacyEncryptionKey?: Hex;
   now: () => bigint;
   /** The session's decrypted memories. Optional: without it every call fetches and decrypts again. */
   docs?: DocCache;
@@ -218,7 +220,7 @@ async function loadDocs(deps: ReadDeps, slots: readonly ChainSlot[]): Promise<{ 
       const row = sealed.get(key);
       if (!row) return;
       try {
-        const doc = openDoc(await decrypt(row, deps.encryptionKey));
+        const doc = openDoc(await decryptWithAny(row, readKeys(deps)));
         docs.set(key, doc);
         deps.docs?.set(hash, doc);
       } catch (e) {
