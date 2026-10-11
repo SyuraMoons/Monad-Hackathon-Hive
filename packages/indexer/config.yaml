@@ -1,6 +1,6 @@
 # Hive audit-trail indexer. Addresses and ABIs mirror @hive/shared (run `pnpm --filter @hive/indexer sync`).
 name: hive-indexer
-description: Agents, permission edges and memory writes on Monad testnet, with derived stats and a policy check.
+description: Agents, permission edges and memory writes on Monad testnet, with derived stats, a policy check and each agent's ERC-8004 identity.
 address_format: lowercase
 field_selection:
   transaction_fields:
@@ -28,6 +28,13 @@ contracts:
     handler: src/handlers/propagation.ts
     events:
       - event: Propagate
+  # Not ours: the public ERC-8004 Identity Registry (ADR-028). Indexed to join its identities to our agents.
+  - name: Erc8004IdentityRegistry
+    abi_file_path: abis/Erc8004IdentityRegistry.json
+    handler: src/handlers/identity.ts
+    events:
+      - event: Registered
+      - event: MetadataSet
 chains:
   - id: 10143
     # Block of the AgentRegistry deployment (ADR-021 redeploy, packages/contracts/broadcast).
@@ -41,3 +48,5 @@ chains:
         address: "0xdE8DAf9599366b2ef8Ae245bF574808844Aa5f8a"
       - name: PropagationEngine
         address: "0x4af2CC25026f918E88d727704D3FB888C20b0397"
+      - name: Erc8004IdentityRegistry
+        address: "0x8004A818BFB912233c491871b3d84c89A494BD9e"

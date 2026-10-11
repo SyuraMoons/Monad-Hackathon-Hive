@@ -4,17 +4,18 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { AgentRegistryAbi, KnowledgeGraphAbi, MemorySlotsAbi, PropagationEngineAbi, hiveDeployment } from "../../shared/dist/index.js";
+import { AgentRegistryAbi, Erc8004IdentityRegistryAbi, KnowledgeGraphAbi, MemorySlotsAbi, PropagationEngineAbi, erc8004Deployment, hiveDeployment } from "../../shared/dist/index.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const check = process.argv.includes("--check");
 
-const abis = { AgentRegistry: AgentRegistryAbi, KnowledgeGraph: KnowledgeGraphAbi, MemorySlots: MemorySlotsAbi, PropagationEngine: PropagationEngineAbi };
+const abis = { AgentRegistry: AgentRegistryAbi, KnowledgeGraph: KnowledgeGraphAbi, MemorySlots: MemorySlotsAbi, PropagationEngine: PropagationEngineAbi, Erc8004IdentityRegistry: Erc8004IdentityRegistryAbi };
 const addresses = {
   AgentRegistry: hiveDeployment.agentRegistry,
   KnowledgeGraph: hiveDeployment.knowledgeGraph,
   MemorySlots: hiveDeployment.memorySlots,
   PropagationEngine: hiveDeployment.propagationEngine,
+  Erc8004IdentityRegistry: erc8004Deployment.identityRegistry,
 };
 
 let drift = false;

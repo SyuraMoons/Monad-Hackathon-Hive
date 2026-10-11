@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { edgeCovers, pickEdge, type EdgeLike } from "../src/lib.js";
+import { edgeCovers, parseHiveAgentRef, pickEdge, type EdgeLike } from "../src/lib.js";
 
 const edge = (o: Partial<EdgeLike> & { id: string }): EdgeLike => ({ toAgent: "2", topic: "work", expiresAt: 2000, active: true, ...o });
 const target = { toAgent: "2", topic: "work", at: 1000 };
@@ -29,5 +29,19 @@ describe("pickEdge", () => {
   });
   it("returns nothing when no edge covers the target", () => {
     expect(pickEdge([edge({ id: "1", active: false })], target, new Set())).toBeUndefined();
+  });
+});
+
+describe("parseHiveAgentRef", () => {
+  const registry = "06f4401cf289bfc29de59fc1b624096dc69ff25b";
+  const value = `0x${"0".repeat(24)}${registry}${"7".padStart(64, "0")}`;
+  it("reads an address word and a uint256 word", () => {
+    expect(parseHiveAgentRef(value)).toEqual({ agentRegistry: `0x${registry}`, agentId: "7" });
+    expect(parseHiveAgentRef(value.toUpperCase().replace("0X", "0x"))).toEqual({ agentRegistry: `0x${registry}`, agentId: "7" });
+  });
+  it("refuses another length or a dirty address word", () => {
+    for (const bad of ["0x", "0x07", `${value}00`, `0x${"f".repeat(24)}${registry}${"7".padStart(64, "0")}`]) {
+      expect(parseHiveAgentRef(bad), bad).toBeUndefined();
+    }
   });
 });

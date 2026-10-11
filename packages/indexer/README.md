@@ -15,8 +15,13 @@ Status: tested with simulated events and synced locally against testnet on 11 Oc
 | `Edge.propagationCount`, `lifetimeSeconds` | Memories that travelled along an edge; how long a revoked edge lived |
 | `AgentStats`, `TopicStats`, `OwnerStats` | Counters per agent, per owner and topic, per owner |
 | `PolicyViolation` | A `Propagate` that no active, unexpired edge explains. Expected to stay empty |
+| `Erc8004Identity`, `Agent.erc8004Id` | Identities in the public ERC-8004 registry since the start block, and the one joined to each agent (ADR-028) |
 
 Three contract gaps are closed in the handlers (ADR-025): `EdgeRemoved` has no from, to or topic (read from the stored edge), `Propagate` has no slot id (joined by tx hash, sender and content hash) and `MemoryWritten` has no propagated count (counted from `Propagate` logs).
+
+## ERC-8004 identities
+
+A fifth contract is indexed that is not ours: the ERC-8004 Identity Registry at `0x8004A818BFB912233c491871b3d84c89A494BD9e`. Every `Registered` since the start block becomes an `Erc8004Identity`, most of them from other projects. An identity is joined to an agent only when its `hiveAgentId` metadata names our `AgentRegistry` and an agent with the same owner, because anyone can write that metadata on their own identity. The first identity that passes becomes `Agent.erc8004Id`. Transfers of the identity token are not indexed, so `owner` is the owner at registration. Replayed over real testnet history on 11 Oct 2026: 35 identities, none joined, because no agent had one yet.
 
 ## Commands
 

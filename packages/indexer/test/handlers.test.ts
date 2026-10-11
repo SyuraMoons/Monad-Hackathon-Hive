@@ -119,4 +119,60 @@ describe("audit indexer", () => {
     ]);
     expect((await idx.Agent.getOrThrow("1")).writer).toBe(WRITER);
   });
+
+  describe("ERC-8004 identity (ADR-028)", () => {
+    const REGISTRY = "0x06f4401cf289bfc29de59fc1b624096dc69ff25b";
+    const STRANGER = "0x2222222222222222222222222222222222222222";
+    const word = (hex: string) => hex.replace(/^0x/, "").padStart(64, "0");
+    const ref = (agentId: bigint, registry = REGISTRY): `0x${string}` => `0x${word(registry)}${word(agentId.toString(16))}`;
+    const identity = (erc8004Id: bigint, owner: `0x${string}`, n: number): Item => ({
+      contract: "Erc8004IdentityRegistry", event: "Registered", block: at(n, 1000 + n), transaction: tx(n),
+      params: { agentId: erc8004Id, agentURI: `https://bridge.example.com/agents/${erc8004Id}/card.json`, owner },
+    });
+    const metadata = (erc8004Id: bigint, value: `0x${string}`, n: number, key = "hiveAgentId"): Item => ({
+      contract: "Erc8004IdentityRegistry", event: "MetadataSet", block: at(n, 1000 + n), transaction: tx(n),
+      params: { agentId: erc8004Id, indexedMetadataKey: key, metadataKey: key, metadataValue: value },
+    });
+
+    it("joins an identity to the agent when both have the same owner", async () => {
+      const idx = await run([register(1n, "Claude", 1), identity(2142n, OWNER, 2), metadata(2142n, ref(1n), 2)]);
+      expect(await idx.Erc8004Identity.getOrThrow("2142")).toMatchObject({ owner: OWNER, hiveAgentId: "1", agentURI: "https://bridge.example.com/agents/2142/card.json", registeredTx: TX(2) });
+      expect((await idx.Agent.getOrThrow("1")).erc8004Id).toBe("2142");
+    });
+
+    it("keeps a stranger's identity but does not join it to our agent", async () => {
+      const idx = await run([register(1n, "Claude", 1), identity(2142n, STRANGER, 2), metadata(2142n, ref(1n), 2)]);
+      expect((await idx.Erc8004Identity.getOrThrow("2142")).hiveAgentId).toBeUndefined();
+      expect((await idx.Agent.getOrThrow("1")).erc8004Id).toBeUndefined();
+    });
+
+    it("ignores a reference to another registry, an unknown agent, a malformed value and other keys", async () => {
+      const idx = await run([
+        register(1n, "Claude", 1), identity(2142n, OWNER, 2),
+        metadata(2142n, ref(1n, "0x3333333333333333333333333333333333333333"), 3),
+        metadata(2142n, ref(99n), 4),
+        metadata(2142n, "0x01", 5),
+        metadata(2142n, ref(1n), 6, "agentWallet"),
+      ]);
+      expect((await idx.Erc8004Identity.getOrThrow("2142")).hiveAgentId).toBeUndefined();
+      expect((await idx.Agent.getOrThrow("1")).erc8004Id).toBeUndefined();
+    });
+
+    it("does not join an identity it never saw registered", async () => {
+      const idx = await run([register(1n, "Claude", 1), metadata(5n, ref(1n), 2)]);
+      expect((await idx.Agent.getOrThrow("1")).erc8004Id).toBeUndefined();
+    });
+
+    it("keeps the first identity on the agent when the owner registers a second one", async () => {
+      const idx = await run([register(1n, "Claude", 1), identity(2142n, OWNER, 2), metadata(2142n, ref(1n), 2), identity(2150n, OWNER, 3), metadata(2150n, ref(1n), 3)]);
+      expect((await idx.Agent.getOrThrow("1")).erc8004Id).toBe("2142");
+      expect((await idx.Erc8004Identity.getOrThrow("2150")).hiveAgentId).toBe("1");
+    });
+
+    it("leaves the audit rows and the counters alone", async () => {
+      const idx = await run([register(1n, "Claude", 1), identity(2142n, OWNER, 2), metadata(2142n, ref(1n), 2)]);
+      expect((await idx.AuditEvent.getAll()).map((e) => e.kind)).toEqual(["agent.registered"]);
+      expect(await idx.OwnerStats.getOrThrow(OWNER)).toMatchObject({ agents: 1 });
+    });
+  });
 });
