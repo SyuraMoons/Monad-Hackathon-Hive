@@ -27,7 +27,7 @@ forge test
 pnpm --filter @hive/contracts coverage
 ```
 
-42 tests, 100% line coverage on the four contracts.
+55 tests, 100% line coverage on the four contracts (measured 11 Oct).
 
 ## Redeploy loop
 

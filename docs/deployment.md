@@ -6,6 +6,7 @@ Where the testnet demo runs and the settings it needs.
 | --- | --- | --- |
 | Web (`@hive/web`) | Vercel | https://monad-hackathon-eta.vercel.app |
 | Bridge (`@hive/bridge`) | Railway | https://hivebridge-production.up.railway.app |
+| Indexer (`@hive/indexer`) | Envio Cloud, branch `development` | https://indexer.dev.hyperindex.xyz/19a4398/v1/graphql |
 
 Check the bridge with `curl https://hivebridge-production.up.railway.app/health`.
 
@@ -26,6 +27,7 @@ BRIDGE_CORS_ORIGINS=https://monad-hackathon-eta.vercel.app
 ```bash
 NEXT_PUBLIC_HIVE_MODE=live
 NEXT_PUBLIC_BRIDGE_URL=https://hivebridge-production.up.railway.app
+NEXT_PUBLIC_ENVIO_URL=https://indexer.dev.hyperindex.xyz/19a4398/v1/graphql
 ```
 
 `NEXT_PUBLIC_*` values are baked in at build time, so redeploy after changing one.

@@ -27,10 +27,12 @@ Run `pnpm build` and the tests of what you touched before you say a change is do
 | --- | --- | --- |
 | `@hive/web` | `apps/web` | Next.js 15 App Router, React 19, Tailwind v4. Path alias `@/*`. |
 | `@hive/bridge` | `apps/bridge` | Node ESM, run with `tsx`. Express 5 HTTP API and MCP server. See "Bridge" below. |
-| `@hive/agents` | `apps/agents` | Node ESM, run with `tsx`. Mock chatbots for the demo. |
+| `@hive/agents` | `apps/agents` | Node ESM, run with `tsx`. The DeepSeek runner (ADR-020). |
 | `@hive/shared` | `packages/shared` | Compiled with `tsc` to `dist/`. Chain config, ABIs, types. |
 | `@hive/crypto` | `packages/crypto` | AES-256-GCM `encrypt` / `decrypt` / `contentHash`. Same layout the web decrypts with WebCrypto. |
 | `@hive/contracts` | `packages/contracts` | Foundry. `forge-std` is a git submodule in `lib/`. |
+| `@hive/mcp-client` | `packages/mcp-client` | Typed MCP client for the bridge, used by the agent runner. |
+| `@hive/indexer` | `packages/indexer` | Envio HyperIndex for the audit trail. Imports nothing from the workspace (Envio Cloud builds the folder alone). Run with `dev:local`, not the root `pnpm dev`. |
 
 Internal dependencies use `"workspace:*"`. The web app consumes `@hive/shared` through `transpilePackages` in `next.config.ts`.
 
