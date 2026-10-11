@@ -50,7 +50,7 @@ type SessionState = {
   unlock(): Promise<HiveKeys>;
   signIn(options?: { create?: boolean }): Promise<void>;
   /** Connect page: register the agent if needed (owner userOp), then authorize it with the bridge (rules O1, §5.1). */
-  connectAgent(agentType: AgentType, name: string): Promise<void>;
+  connectAgent(agentType: AgentType): Promise<void>;
   /** Registers one more agent (an owner transaction that costs gas), then authorizes it. Resolves to its id. Throws a readable message. */
   createAgent(name: string, agentType: AgentType, onStep?: (step: CreateStep) => void): Promise<AgentId>;
   /** Canvas Reconnect: gives the bridge the agent's keys again (one passkey touch when locked). A token under 24h old works again. Finishes a registration that stopped before the writer key was set. Throws a readable message. */
@@ -70,7 +70,7 @@ type SessionState = {
 export type CreateStep = "registering" | "loading" | "authorizing" | "identity";
 
 export type Connection =
-  | { phase: "registering" | "authorizing" }
+  | { phase: "authorizing" }
   | { phase: "ready"; agentId: AgentId; agentToken: string; mcpUrl: string; expiresAt: number }
   | { phase: "error"; message: string };
 
@@ -279,35 +279,20 @@ export const useSession = create<SessionState>()((set, get) => ({
     return unlocking;
   },
 
-  async connectAgent(agentType, name) {
+  /**
+   * Gets a token for the first visible agent of a type, for the Connect page. It never sends a transaction: agents are
+   * created by the user (canvas sidebar or "+ New agent") and a half-registered one is finished from its own button.
+   */
+  async connectAgent(agentType) {
     const { keys, owner, connections } = get();
     const current = connections[agentType]?.phase;
-    if (!keys || !owner || current === "registering" || current === "authorizing" || current === "ready") return;
+    if (!keys || !owner || current === "authorizing" || current === "ready") return;
     const setConn = (c: Connection) => set({ connections: { ...get().connections, [agentType]: c } });
 
+    const graph = useGraph.getState();
+    const agent = Object.values(graph.agents).find((a) => a.agentType === agentType && !graph.hidden[a.agentId.toString()]);
+    if (!agent || agent.agentKey === zeroAddress) return;
     try {
-      const client = await getHiveClient();
-      const graph = useGraph.getState();
-      const ofType = Object.values(graph.agents).filter((a) => a.agentType === agentType);
-      // Every agent of this type is hidden: don't register another one or bring a hidden one back. Show it from the sidebar.
-      if (ofType.length && ofType.every((a) => graph.hidden[a.agentId.toString()])) return;
-      let agent = ofType.find((a) => !graph.hidden[a.agentId.toString()]);
-
-      // An agent with no writer key is a registration that stopped after the first transaction: finish it.
-      if (!agent) {
-        setConn({ phase: "registering" });
-        const n = nextAgentIndex(keys, Object.values(graph.agents).map((a) => a.agentKey));
-        const agentKey = privateKeyToAddress(keys.agentPrivateKey(n));
-        const result = await client.tx.registerAgent({ name, agentType, agentKey }).wait();
-        if (result.status === "failed") throw result.error;
-        await useGraph.getState().load(owner);
-        agent = useGraph.getState().agents[result.agentId.toString()];
-        if (!agent) throw new Error(`${name} was registered, but the graph hasn't caught up yet. Try again in a moment.`);
-      } else if (agent.agentKey === zeroAddress) {
-        setConn({ phase: "registering" });
-        agent = await bindIfNeeded(keys, owner, agent);
-      }
-
       setConn({ phase: "authorizing" });
       const res = await authorizeWithKeys(keys, agent);
       setConn({ phase: "ready", agentId: agent.agentId, agentToken: res.agentToken, mcpUrl: res.mcpUrl, expiresAt: res.expiresAt });
