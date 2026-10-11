@@ -28,11 +28,11 @@ export function toAgent(a: ChainAgent): Agent {
 export const isOutOfFunds = (x: unknown) =>
   x instanceof InsufficientFundsError || (x instanceof Error && /insufficient (balance|funds)/i.test(`${x.message} ${(x as { details?: string }).details ?? ""}`));
 
-/** Fixed messages only: nothing from the RPC or the signer goes into them. */
-function toHiveError(e: unknown): HiveError {
+/** Fixed messages only: nothing from the RPC goes into them. The owner address is named so it is clear which account has to hold the MON. */
+function toHiveError(e: unknown, owner: Address): HiveError {
   if (e instanceof HiveError) return e;
   if (e instanceof BaseError && e.walk(isOutOfFunds) !== null) {
-    return new HiveError("CHAIN_ERROR", "Your account has no MON for gas. Get test MON from the faucet, then try again.");
+    return new HiveError("CHAIN_ERROR", `Your account ${owner.slice(0, 6)}…${owner.slice(-4)} has no MON for gas. Send test MON from the faucet to that address, then try again.`);
   }
   return new HiveError("CHAIN_ERROR", "Could not register the agent on Monad.");
 }
@@ -54,6 +54,6 @@ export async function registerAndBind(
     const txHash = await deps.setWriter(registered.agentId, input.agentKey);
     return { agentId: registered.agentId, txHash };
   } catch (e) {
-    throw toHiveError(e);
+    throw toHiveError(e, input.owner);
   }
 }

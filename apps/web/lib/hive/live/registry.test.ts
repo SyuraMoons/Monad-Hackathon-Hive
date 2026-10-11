@@ -85,6 +85,7 @@ describe("registerAndBind", () => {
     expect(err).toBeInstanceOf(HiveError);
     expect((err as HiveError).code).toBe("CHAIN_ERROR");
     expect((err as HiveError).message).toMatch(/no MON for gas/);
+    expect((err as HiveError).message).toContain(`${input.owner.slice(0, 6)}…${input.owner.slice(-4)}`);
     expect((err as HiveError).message).not.toContain("SECRET");
   });
 
