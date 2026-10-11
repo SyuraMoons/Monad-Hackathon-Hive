@@ -5,6 +5,8 @@ import { hivePublicClient } from "../clients";
 import type { HiveSigner } from "../signer";
 import type { HiveClient, Session } from "../types";
 import { createBridgeApi } from "./bridge";
+import { auditEvents, provenance } from "./audit";
+import { envioAudit } from "./auditEnvio";
 import { agentHistory } from "./history";
 import { chainHistory } from "./historyChain";
 import { loadEdgeNotes, saveEdgeNote } from "../edgeNotes";
@@ -15,10 +17,7 @@ import { previewMemory } from "./preview";
 import { chainReader, chainRegistry } from "./registryChain";
 
 // Sign-in and agent sessions talk to the real bridge, agents are read from the AgentRegistry and edges from KnowledgeGraph.
-// Audit and provenance (Envio) arrive in step 10, one service at a time.
-const todo = (what: string): never => {
-  throw new Error(`${what}: not implemented yet: see step 10`);
-};
+// Audit and provenance are read from the Envio indexer (NEXT_PUBLIC_ENVIO_URL). Memory preview comes from the bridge.
 
 /** The owner's Mera account pays gas (ADR-006), so below this the edge editor points to the faucet. */
 const LOW_BALANCE = parseEther("0.05");
@@ -69,8 +68,8 @@ export function createLiveClient(): LiveHiveClient {
         const edges = await edgesOf(edgeReader, mine.map((a) => a.id), known, notes, written);
         return { agents: mine.map(toAgent), edges };
       },
-      auditEvents: async () => todo("graph.auditEvents"),
-      provenance: async () => todo("graph.provenance"),
+      auditEvents: (owner) => auditEvents(envioAudit, owner),
+      provenance: (contentHash) => provenance(envioAudit, contentHash),
     },
     events: bridge.events,
     memory: {
