@@ -258,7 +258,7 @@ Short architecture decision records. To add one, append the next number and don'
 **Consequences.** Until a redeploy, an update costs two transactions and adds one entry to `_fromList` per update. A redeploy resets testnet state (ADR-021) and the indexer needs a handler for `EdgeExpiryChanged`; when that lands the web switches the update step to `setExpiry`, and this ADR is updated. Edges left over from before this change are cleaned up one revoke at a time.
 
 ## ADR-028: Every agent also gets an ERC-8004 identity; it never decides access
-**Date:** 2026-10-11 · **Status:** accepted. Shared contract, bridge card and web transaction are built and unit-tested, with no transaction sent yet. The indexer join is planned
+**Date:** 2026-10-11 · **Status:** accepted. Shared contract, bridge card and web transaction are built and unit-tested, with no transaction sent yet. The indexer join is built and replayed over real history, where no agent has an identity yet
 
 **Context.** Our `AgentRegistry` is private to this project: nothing outside Hive can find an agent in it. ERC-8004 is a public identity registry for agents, and one is deployed on Monad testnet at `0x8004A818BFB912233c491871b3d84c89A494BD9e` (`AgentIdentity`, version 2.0.0, about 2,100 agents on 11 Oct). Its `register(string,(string,bytes)[])`, `getMetadata`, `tokenURI` and `ownerOf` selectors and its `Registered` and `MetadataSet` topics were found in the deployed bytecode, and `register` was simulated with `cast call` (about 311k gas with one metadata entry). No transaction has been sent to it yet.
 
@@ -268,7 +268,7 @@ Short architecture decision records. To add one, append the next number and don'
 - `agentURI` is `<bridge>/agents/<hiveAgentId>/card.json`. The bridge builds the card from `AgentRegistry` alone: name, type, owner, the MCP endpoint and the Hive id. All of that is already public (ADR-023). No memory content, key or token goes into it.
 - The third transaction is optional. If it fails, the agent works as before and the owner can retry later; the same retry covers agents created before this ADR. The web does not send it when the bridge URL is not `https`, so a local run does not write `localhost` links into a public registry.
 - Until the indexer answers it, the web remembers the ERC-8004 id in this browser only (`localStorage`, per registry deploy and owner). Another browser offers to add the identity again, which would mint a second one.
-- Envio indexes `Registered` and `MetadataSet` and joins them to `Agent` after the owner check.
+- Envio indexes `Registered` and `MetadataSet` and joins them to `Agent` after the owner check. It keeps the owner from registration and does not follow transfers of the identity token. The join adds no audit row and no counter.
 - Permissions do not change. They read our `AgentRegistry` and `KnowledgeGraph` on live chain state (rule 3). An ERC-8004 identity, its metadata or its card never widen or narrow what an agent reads. No contract is redeployed.
 - The ABI, the address, the metadata encoding and the card schema live in `@hive/shared` (`erc8004.ts`). The ABI is hand-written, because the registry is not built from `packages/contracts`.
 
