@@ -22,17 +22,26 @@
 | Permission edges (from, to, topic, expiry) | Monad (`KnowledgeGraph`) | Anyone can audit who may share what |
 | Memory write events (content **hash** only) | Monad (`MemorySlots`) | Verifiable propagation trail |
 | Memory content | Supabase, AES-GCM ciphertext | Private. The server can't decrypt it |
-| Keys | Derived on the client from the passkey PRF output | Never stored server-side |
+| Keys | Derived on the client from the passkey's PRF outputs, one salt for the account and one for memory | Never stored server-side |
 
 ## Keys
 
-One passkey produces several keys (this targets the Mera "One Passkey, Many Keys" bounty). The passkey's PRF output (Mera's default salt, 32 bytes) is the entropy of a 24-word BIP-39 **recovery phrase**, and every key comes from that phrase's seed ([ADR-005](decisions.md)):
+One passkey produces several keys (this targets the Mera "One Passkey, Many Keys" bounty), in two PRF namespaces that cannot be computed from each other ([ADR-005](decisions.md), [ADR-029](decisions.md)). Both salts are evaluated in one passkey prompt; an authenticator that answers only one salt per prompt is asked a second time.
 
-- `m/44'/60'/0'/0/0` is the **owner key**. It owns the Kernel smart account that signs graph changes.
-- `HKDF(seed, "hive/encrypt")` is the **encryption key** for memory content.
+**Account namespace** (Mera's default PRF salt). The 32-byte output is the entropy of a 24-word BIP-39 **recovery phrase**:
+
+- `m/44'/60'/0'/0/0` is the **owner key**. It signs graph changes directly (ADR-006).
 - `m/44'/60'/0'/0/{n}` is a **per-agent scoped key**, handed to the bridge when the user authorizes agent *n*.
 
-The same phrase restores the same account without the passkey, in Hive or any BIP-39 wallet. The wallet menu shows it after a fresh passkey prompt. Keys are derived and signing works today: the owner key signs writes directly (ADR-006), and on 10 Oct a passkey-derived owner registered agents and signed and revoked an edge on testnet from the canvas (see the roadmap's verified runs).
+**Memory namespace** (PRF salt `sha256("hive/prf/memory/v1")`). It does no account work:
+
+- `HKDF(output, "hive/memory-key/v1")` is the **encryption key** for memory content.
+
+`HKDF(seed, "hive/encrypt")`, the encryption key before ADR-029, is still derived as a **legacy key** that only decrypts memories sealed back then.
+
+Built and unit-tested; the two-salt prompt has not been run on a real authenticator yet.
+
+The same phrase restores the same account without the passkey, in Hive or any BIP-39 wallet. It does not decrypt memories written after ADR-029: that needs the passkey, or a synced copy of it on another device. The wallet menu shows it after a fresh passkey prompt. Keys are derived and signing works today: the owner key signs writes directly (ADR-006), and on 10 Oct a passkey-derived owner registered agents and signed and revoked an edge on testnet from the canvas (see the roadmap's verified runs).
 
 Transactions were planned as ERC-4337 user operations through Pimlico's paymaster, so users need no MON. See [ADR-002](decisions.md). Superseded by [ADR-006](decisions.md) — writes go from a faucet-funded EOA; Kernel + Pimlico return behind `HiveSigner`.
 
