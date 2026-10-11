@@ -27,12 +27,16 @@ interface IKnowledgeGraph {
         uint256 timestamp
     );
     event EdgeRemoved(uint256 indexed edgeId, address indexed by, uint256 timestamp);
+    event EdgeExpiryChanged(uint256 indexed edgeId, uint256 expiresAt, uint256 timestamp);
 
     function addEdge(uint256 from, uint256 to, string calldata topic, uint256 expiresAt)
         external
         returns (uint256 edgeId);
 
     function removeEdge(uint256 edgeId) external;
+
+    /// Moves the expiry of a live edge, earlier or later, without adding a second edge.
+    function setExpiry(uint256 edgeId, uint256 expiresAt) external;
 
     function hasPermission(uint256 from, uint256 to, string calldata topic) external view returns (bool);
 

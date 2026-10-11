@@ -244,3 +244,15 @@ Short architecture decision records. To add one, append the next number and don'
 - The canvas draws a pair as two parallel arrows, each with its own label.
 
 **Consequences.** Two transactions cost two gas payments and about one extra confirmation of waiting. The pair is not atomic. An atomic pair would need a redeploy and is not planned. "Revoke both" in the edge menu is not built.
+
+## ADR-027: Updating an edge replaces it; `setExpiry` is in the contract source and waits for a redeploy
+**Date:** 2026-10-11 · **Status:** accepted for the web, proposed for the contract
+
+**Context.** The edge editor offered "Update with passkey" and promised that signing "updates its expiry instead of adding a second one". Nothing did: `KnowledgeGraph.addEdge` appends, there is no uniqueness check and no expiry setter. So shortening an expiry left the old edge granting access, revoking one edge left its twin granting access, and every update added one more entry to `_fromList`, which `PropagationEngine.onMemoryWritten` loops over on every write.
+
+**Decision.**
+- Web: updating an edge revokes the live edge or edges with the same from, to and topic, then adds the new one. Two transactions from one unlock, revoke first, so a failure in between leaves no access (fail closed), and the toast says which step failed.
+- Web: revoking an edge revokes every live edge with the same from, to and topic, so duplicates left by the old behaviour go with it.
+- Contract: `KnowledgeGraph.setExpiry(edgeId, expiresAt)` (owner of `from`, edge active, expiry in the future) emits `EdgeExpiryChanged`. It is in the source, tested and in the ABI in `@hive/shared`, but the deployed contracts do not have it. The web does not call it.
+
+**Consequences.** Until a redeploy, an update costs two transactions and adds one entry to `_fromList` per update. A redeploy resets testnet state (ADR-021) and the indexer needs a handler for `EdgeExpiryChanged`; when that lands the web switches the update step to `setExpiry`, and this ADR is updated. Edges left over from before this change are cleaned up one revoke at a time.
