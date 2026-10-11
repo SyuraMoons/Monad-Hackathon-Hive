@@ -1,4 +1,5 @@
 export * from "./chain.js";
+export * from "./erc8004.js";
 export * from "./errors.js";
 export * from "./ids.js";
 export * from "./instructions.js";

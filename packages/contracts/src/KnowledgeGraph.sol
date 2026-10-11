@@ -48,6 +48,17 @@ contract KnowledgeGraph is IKnowledgeGraph {
         emit EdgeRemoved(edgeId, msg.sender, block.timestamp);
     }
 
+    function setExpiry(uint256 edgeId, uint256 expiresAt) external {
+        Edge storage e = _edges[edgeId];
+        if (e.id == 0) revert UnknownEdge(edgeId);
+        if (registry.ownerOf(e.from) != msg.sender) revert NotAgentOwner(e.from, msg.sender);
+        if (!e.active) revert EdgeInactive(edgeId);
+        if (expiresAt <= block.timestamp) revert ExpiryInPast(expiresAt);
+
+        e.expiresAt = expiresAt;
+        emit EdgeExpiryChanged(edgeId, expiresAt, block.timestamp);
+    }
+
     function hasPermission(uint256 from, uint256 to, string calldata topic) external view returns (bool) {
         bytes32 topicHash = keccak256(bytes(topic));
         uint256[] storage list = _fromList[from];

@@ -5,26 +5,28 @@ import { hivePublicClient } from "../clients";
 import type { HiveSigner } from "../signer";
 import type { HiveClient, Session } from "../types";
 import { createBridgeApi } from "./bridge";
+import { agentIdentities, auditEvents, ownerStats, provenance } from "./audit";
+import { envioAudit } from "./auditEnvio";
 import { agentHistory } from "./history";
 import { chainHistory } from "./historyChain";
 import { loadEdgeNotes, saveEdgeNote } from "../edgeNotes";
 import { addEdgeTx, edgesOf, removeEdgeTx } from "./edges";
 import { chainEdges, edgeReader } from "./edgesChain";
+import { identityCardUrl, registerIdentity } from "./identity";
+import { chainIdentity } from "./identityChain";
 import { registerAndBind, toAgent } from "./registry";
+import { previewMemory } from "./preview";
 import { chainReader, chainRegistry } from "./registryChain";
 
 // Sign-in and agent sessions talk to the real bridge, agents are read from the AgentRegistry and edges from KnowledgeGraph.
-// Audit, provenance (Envio) and memory preview arrive in step 10, one service at a time.
-const todo = (what: string): never => {
-  throw new Error(`${what}: not implemented yet: see step 10`);
-};
+// Audit and provenance are read from the Envio indexer (NEXT_PUBLIC_ENVIO_URL). Memory preview comes from the bridge.
 
 /** The owner's Mera account pays gas (ADR-006), so below this the edge editor points to the faucet. */
 const LOW_BALANCE = parseEther("0.05");
 
 export type LiveHiveClient = HiveClient & {
-  /** The signed-in owner's signer, set by the session store after sign-in and cleared on sign-out. Memory only. */
-  useSigner(signer: HiveSigner | null): void;
+  /** The signed-in owner's signer and encryption key, set by the session store after sign-in and cleared on sign-out. Memory only. */
+  useSigner(signer: HiveSigner | null, encryptionKey?: Uint8Array): void;
   /** Puts a saved session back after a reload, with no keys: the signer comes later, from the passkey. */
   resume(session: Session): void;
 };
@@ -32,10 +34,12 @@ export type LiveHiveClient = HiveClient & {
 export function createLiveClient(): LiveHiveClient {
   const bridge = createBridgeApi();
   let signer: HiveSigner | null = null;
+  let encryptionKey: Uint8Array | undefined;
   return {
     mode: "live",
-    useSigner: (next) => {
+    useSigner: (next, key) => {
       signer = next;
+      encryptionKey = next ? key : undefined;
     },
     resume: bridge.resume,
     status: {
@@ -66,15 +70,32 @@ export function createLiveClient(): LiveHiveClient {
         const edges = await edgesOf(edgeReader, mine.map((a) => a.id), known, notes, written);
         return { agents: mine.map(toAgent), edges };
       },
-      auditEvents: async () => todo("graph.auditEvents"),
-      provenance: async () => todo("graph.provenance"),
+      auditEvents: (owner) => auditEvents(envioAudit, owner),
+      provenance: (contentHash) => provenance(envioAudit, contentHash),
+      ownerStats: (owner) => ownerStats(envioAudit, owner),
+      identities: (owner) => agentIdentities(envioAudit, owner),
     },
     events: bridge.events,
     memory: {
       history: (agentId) => agentHistory(chainHistory, agentId),
-      preview: async () => todo("memory.preview"),
+      preview: (contentHash) => previewMemory({ fetchSealed: bridge.sealedMemory, encryptionKey: () => encryptionKey }, contentHash),
+    },
+    identity: {
+      cardUrl: (agentId) => identityCardUrl(process.env.NEXT_PUBLIC_BRIDGE_URL, agentId),
     },
     tx: {
+      registerIdentity(agentId) {
+        const current = signer;
+        const run = async () => {
+          if (!current) throw new HiveError("UNAUTHORIZED", "Unlock with your passkey first.");
+          return registerIdentity(chainIdentity(current), { bridgeUrl: process.env.NEXT_PUBLIC_BRIDGE_URL, agentId });
+        };
+        const done = run().then(
+          ({ erc8004Id, txHash }) => ({ status: "confirmed" as const, txHash: zTxHash.parse(txHash), explorerUrl: explorerTx(txHash), erc8004Id }),
+          (e: unknown) => ({ status: "failed" as const, error: e instanceof HiveError ? e : new HiveError("CHAIN_ERROR", "Could not add the ERC-8004 identity on Monad.") }),
+        );
+        return { status: "pending", wait: () => done };
+      },
       registerAgent({ name, agentType, agentKey }) {
         const current = signer;
         const run = async () => {

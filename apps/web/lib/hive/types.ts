@@ -4,6 +4,7 @@ import type {
   AgentStatus,
   AgentType,
   AuditEvent,
+  OwnerStats,
   AuthorizeResponse,
   ContentHash,
   EdgeId,
@@ -21,6 +22,8 @@ import type {
   TxHash,
   UnixSeconds,
 } from "@hive/shared";
+import type { AgentIdentity } from "./identities";
+import type { MemoryView } from "./memoryView";
 
 export type HiveMode = "mock" | "live";
 
@@ -79,6 +82,10 @@ export interface HiveClient {
     load(owner: Address): Promise<{ agents: ChainAgent[]; edges: EdgeRow[] }>;
     auditEvents(owner: Address): Promise<AuditEvent[]>;
     provenance(contentHash: ContentHash): Promise<Provenance | null>;
+    /** Counters for the Audit strip. All zero for an owner the indexer has not seen. */
+    ownerStats(owner: Address): Promise<OwnerStats>;
+    /** The owner's ERC-8004 identities as the indexer joined them, by Hive agent id (ADR-028). Display only. */
+    identities(owner: Address): Promise<Record<string, AgentIdentity>>;
   };
   events: {
     /** Bridge SSE. Returns an unsubscribe function. */
@@ -87,10 +94,16 @@ export interface HiveClient {
   memory: {
     /** The agent's past writes from the chain, newest first (at most 50). Content stays encrypted: this is hashes and topics. */
     history(agentId: AgentId): Promise<MemoryHistoryRow[]>;
-    /** Fetches the ciphertext and decrypts it on this device (rules O4). */
-    preview(contentHash: ContentHash): Promise<string>;
+    /** Fetches the ciphertext and decrypts it on this device (rules O4). Rejects with `LockedError` while the keys are locked. */
+    preview(contentHash: ContentHash): Promise<MemoryView>;
+  };
+  identity: {
+    /** The URI an ERC-8004 identity for this agent would carry, or null when the bridge is not on a public https URL (ADR-028). */
+    cardUrl(agentId: AgentId): string | null;
   };
   tx: {
+    /** One owner transaction on the ERC-8004 Identity Registry, linked to the agent by metadata (ADR-028). Optional: it grants nothing. */
+    registerIdentity(agentId: AgentId): TxHandle<{ erc8004Id: bigint }>;
     /** AgentRegistry.register(name, agentType, agentKey) as an owner userOp (rules O1). */
     registerAgent(input: { name: string; agentType: AgentType; agentKey: Address }): TxHandle<{ agentId: AgentId }>;
     addEdge(input: { from: AgentId; to: AgentId; topic: Topic; expiresAt: UnixSeconds }): TxHandle<{ edgeId: EdgeId }>;

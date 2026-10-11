@@ -1,3 +1,4 @@
+import { keyIdOf } from "@hive/crypto";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { DEFAULT_TOPIC, HIVE_INSTRUCTIONS, HiveError, zListMemoryInput, zReadMemoryInput, zSaveSessionInput, zSearchMemoryInput, zWriteMemoryInput, type MemoryMeta, type WhoamiOutput, type WriteMemoryOutput } from "@hive/shared";
@@ -7,7 +8,7 @@ import { privateKeyToAddress } from "viem/accounts";
 import type { GasFunder } from "./funder.js";
 import type { EventBus } from "./events.js";
 import type { EmbeddingDeps } from "./embeddings.js";
-import { keyIdOf, listMemory, readMemory, writeMemory, type ReadDeps } from "./memory.js";
+import { listMemory, readMemory, writeMemory, type ReadDeps } from "./memory.js";
 import { searchMemory } from "./search.js";
 import { looksLikeSecret } from "./secrets.js";
 import type { SessionStore, AgentSession } from "./sessions.js";
@@ -116,10 +117,16 @@ function buildServer(deps: McpDeps, session: AgentSession): McpServer {
   );
 
   server.registerTool("hive_whoami", { description: "Who you are in Hive and when your session ends.", inputSchema: {} }, async () => {
-    const agent = await deps.chain.agent(session.agentId);
-    // STUB: readableTopics needs topic text, but KnowledgeGraph stores only keccak256(topic). Fill from EdgeAdded logs or Envio.
-    const out: WhoamiOutput = { agentId: session.agentId, name: agent.name, owner: getAddress(session.owner), tokenExpiresAt: session.expiresAt, readableTopics: [] };
-    return result(out);
+    try {
+      const agent = await deps.chain.agent(session.agentId);
+      // STUB: readableTopics needs topic text, but KnowledgeGraph stores only keccak256(topic). Fill from EdgeAdded logs or Envio.
+      const out: WhoamiOutput = { agentId: session.agentId, name: agent.name, owner: getAddress(session.owner), tokenExpiresAt: session.expiresAt, readableTopics: [] };
+      return result(out);
+    } catch (e) {
+      // The error name only: a viem message carries the RPC URL and addresses, and the SDK would hand it to the agent as is.
+      console.error(`bridge: whoami failed at registry${e instanceof Error ? ` (${e.name})` : ""}`);
+      return failure("Could not read your agent from the registry.");
+    }
   });
 
   return server;

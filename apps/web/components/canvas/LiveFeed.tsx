@@ -36,7 +36,7 @@ function FeedRow({ row, newest }: { row: Row; newest: boolean }) {
     who = name(row.agentId);
     topic = row.topic;
     const p = previews[row.contentHash];
-    message = p === undefined || p === "loading" ? <span className="text-ink-3">Decrypting on this device…</span> : p === "error" ? <span className="text-ink-3">Couldn’t decrypt this memory here.</span> : <span title={p.length > PREVIEW_CHARS ? p : undefined}>{clip(p)}</span>;
+    message = p === undefined || p === "loading" ? <span className="text-ink-3">Decrypting on this device…</span> : p === "locked" ? <span className="text-ink-3">Locked on this device. Open an agent to unlock.</span> : p === "error" ? <span className="text-ink-3">Couldn’t decrypt this memory here.</span> : <span title={p.content.length > PREVIEW_CHARS ? p.content : undefined}>{clip(p.content)}</span>;
     meta = row.propagatedTo.length
       ? `→ propagated to ${joinNames(row.propagatedTo.map(name))}`
       : `no edge covers “${row.topic}” · stayed with ${who}`;

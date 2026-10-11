@@ -1,11 +1,21 @@
 import { describe, expect, it } from "vitest";
-import { aiConnectPrompt, aiDesktopPrompt, claudeCommand, claudeDesktopConfig, claudeTerminalCommand, connectorUrl, deepseekRunner, isLocalUrl, nameSlug, gptRunner, gptSnippet } from "./commands";
+import { aiConnectPrompt, aiDesktopPrompt, claudeCommand, claudeDesktopConfig, claudeTerminalCommand, connectorUrl, deepseekClaudeCommand, deepseekRunner, isLocalUrl, nameSlug, gptSnippet, codexCommand, codexConfig, mcpClientConfig, mcpHttpDetails } from "./commands";
 
 describe("connect commands", () => {
   it("passes the url and token to the DeepSeek runner and nothing else", () => {
     expect(deepseekRunner("http://localhost:4000/mcp", "tok")).toBe(
       "HIVE_MCP_URL=http://localhost:4000/mcp \\\nHIVE_TOKEN_DEEPSEEK=tok \\\npnpm --filter @hive/agents deepseek --chat",
     );
+  });
+
+  it("runs Claude Code on DeepSeek with the key and model left in the shell", () => {
+    const cmd = deepseekClaudeCommand("http://localhost:4000/mcp", "tok", "DeepSeek · FE");
+    expect(cmd.split("\n").slice(0, 3)).toEqual([
+      "ANTHROPIC_BASE_URL=https://api.deepseek.com/anthropic \\",
+      "ANTHROPIC_AUTH_TOKEN=$DEEPSEEK_API_KEY \\",
+      "ANTHROPIC_MODEL=$DEEPSEEK_MODEL \\",
+    ]);
+    expect(cmd.endsWith(claudeTerminalCommand("http://localhost:4000/mcp", "tok", "DeepSeek · FE"))).toBe(true);
   });
 
   it("puts the url and token in the Claude Code command", () => {
@@ -33,9 +43,36 @@ describe("connect commands", () => {
     expect(claudeTerminalCommand("http://h/x'y", "t", "a")).toContain(`x'\\''y`);
   });
 
-  it("keeps the model out of the GPT snippet and the token in the runner", () => {
-    expect(gptSnippet("u", "tok")).toContain("process.env.OPENAI_MODEL");
-    expect(gptRunner("tok")).toBe("HIVE_TOKEN_GPT=tok pnpm --filter @hive/agents gpt --chat");
+  it("keeps the model out of the GPT snippet and sends the bare token, which the Responses API treats as the OAuth token", () => {
+    const snippet = gptSnippet("https://b.example/mcp", "tok");
+    expect(snippet).toContain("process.env.OPENAI_MODEL");
+    expect(snippet).toContain('server_url: "https://b.example/mcp"');
+    expect(snippet).toContain('authorization: "tok"');
+  });
+
+  it("connects Codex with one paste that replaces the old entry and appends a static header", () => {
+    expect(codexCommand("https://b.example/mcp", "tok", "GPT · FE")).toBe(
+      [
+        "codex mcp remove hive-gpt-fe >/dev/null 2>&1",
+        "cat >> ~/.codex/config.toml <<'EOF'",
+        "",
+        "[mcp_servers.hive-gpt-fe]",
+        'url = "https://b.example/mcp"',
+        'http_headers = { Authorization = "Bearer tok" }',
+        "EOF",
+      ].join("\n"),
+    );
+  });
+
+  it("gives the Codex config block with no token variable, for editing the file by hand", () => {
+    const toml = codexConfig("https://b.example/mcp", "tok", "GPT · FE");
+    expect(toml).toBe('[mcp_servers.hive-gpt-fe]\nurl = "https://b.example/mcp"\nhttp_headers = { Authorization = "Bearer tok" }');
+    expect(toml).not.toContain("bearer_token_env_var");
+  });
+
+  it("gives a generic MCP app the stdio config and the plain HTTP details", () => {
+    expect(mcpClientConfig("https://b.example/mcp", "tok", "DeepSeek")).toBe(claudeDesktopConfig("https://b.example/mcp", "tok", "DeepSeek"));
+    expect(mcpHttpDetails("https://b.example/mcp", "tok")).toBe("url:    https://b.example/mcp\nheader: Authorization: Bearer tok");
   });
 
   it("builds a Claude Desktop config that keeps the token in env, not in args", () => {

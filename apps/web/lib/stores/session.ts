@@ -9,6 +9,7 @@ import { checkAgentName } from "@/lib/hive/agentName";
 import { clearAgentTokens, loadAgentTokens, saveAgentTokens } from "@/lib/hive/agentTokens";
 import { clearSavedSession, loadSavedSession, saveSession } from "@/lib/hive/savedSession";
 import type { HiveMode } from "@/lib/hive/types";
+import { useFeed } from "./feed";
 import { useGraph, type AgentNode } from "./graph";
 import type { LiveHiveClient } from "@/lib/hive/live";
 import type { MockHiveClient } from "@/lib/hive/mock";
@@ -54,6 +55,8 @@ type SessionState = {
   createAgent(name: string, agentType: AgentType, onStep?: (step: CreateStep) => void): Promise<AgentId>;
   /** Canvas Reconnect: gives the bridge the agent's keys again (one passkey touch when locked). A token under 24h old works again. Finishes a registration that stopped before the writer key was set. Throws a readable message. */
   authorizeAgent(agentId: AgentId): Promise<void>;
+  /** Adds the agent's ERC-8004 identity (one owner transaction, one passkey touch when locked, ADR-028). Throws a readable message. */
+  addAgentIdentity(agentId: AgentId): Promise<void>;
   /** Ends the agent's bridge session: its keys leave the bridge and its token stops working. */
   disconnectAgent(agentId: AgentId): Promise<void>;
   /** Asks the signed-in passkey again and returns the 24-word recovery phrase. Never stored. */
@@ -64,7 +67,7 @@ type SessionState = {
 };
 
 /** What `createAgent` is doing, for the form's progress text. */
-export type CreateStep = "registering" | "loading" | "authorizing";
+export type CreateStep = "registering" | "loading" | "authorizing" | "identity";
 
 export type Connection =
   | { phase: "registering" | "authorizing" }
@@ -187,7 +190,7 @@ export const useSession = create<SessionState>()((set, get) => ({
         const k = keys;
         (client as MockHiveClient).adoptDemoAgents(session.owner, (n) => privateKeyToAddress(k.agentPrivateKey(n)));
       } else {
-        (client as LiveHiveClient).useSigner({ account: keys.owner, end: () => {} });
+        (client as LiveHiveClient).useSigner({ account: keys.owner, end: () => {} }, keys.encryptionKey);
       }
       const agents = await client.agents.list().catch(() => []);
       if (ac.signal.aborted) throw new PasskeyError("CANCELLED", "Cancelled");
@@ -265,7 +268,8 @@ export const useSession = create<SessionState>()((set, get) => ({
       }
       set({ keys: derived });
       const client = await getHiveClient();
-      if (client.mode === "live") (client as LiveHiveClient).useSigner({ account: derived.owner, end: () => {} });
+      if (client.mode === "live") (client as LiveHiveClient).useSigner({ account: derived.owner, end: () => {} }, derived.encryptionKey);
+      void useFeed.getState().retryLocked();
       return derived;
     })().finally(() => {
       unlocking = null;
@@ -330,7 +334,19 @@ export const useSession = create<SessionState>()((set, get) => ({
     onStep?.("authorizing");
     await authorizeWithKeys(keys, agent);
     await useGraph.getState().refreshAgents().catch(() => {});
+    // Optional third transaction (ADR-028). The agent works without it, so a failure is left for the drawer's retry.
+    if (useGraph.getState().identityAvailable) {
+      onStep?.("identity");
+      await useGraph.getState().addIdentity(agent.agentId).catch(() => {});
+    }
     return agent.agentId;
+  },
+
+  async addAgentIdentity(agentId) {
+    if (!useGraph.getState().agents[agentId.toString()]) throw new Error("That agent is not on your canvas.");
+    await get().unlock();
+    const result = await useGraph.getState().addIdentity(agentId);
+    if (result.status === "failed") throw result.error;
   },
 
   async authorizeAgent(agentId) {

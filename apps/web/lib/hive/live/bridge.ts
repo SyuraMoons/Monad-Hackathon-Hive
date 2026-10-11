@@ -1,12 +1,15 @@
 import {
   type Address,
+  type ContentHash,
   HiveError,
+  type MemoryResponse,
   zAgentsResponse,
   zAuthChallengeResponse,
   zAuthVerifyResponse,
   zAuthorizeResponse,
   zErrorEnvelope,
   zHealthResponse,
+  zMemoryResponse,
   zOAuthApproveResponse,
 } from "@hive/shared";
 import type { HiveClient, Session } from "../types";
@@ -59,6 +62,8 @@ async function call<T>(method: string, path: string, opts: { body?: unknown; tok
 export function createBridgeApi(): Pick<HiveClient, "auth" | "agents" | "oauth"> & {
   health: HiveClient["status"]["health"];
   events: HiveClient["events"];
+  /** GET /v1/memory/:contentHash: one of the owner's memories as ciphertext. */
+  sealedMemory(contentHash: ContentHash): Promise<MemoryResponse>;
   /** Puts a saved session back after a reload. */
   resume(session: Session): void;
   /** The signed-in owner, known before the passkey is asked again. */
@@ -90,6 +95,7 @@ export function createBridgeApi(): Pick<HiveClient, "auth" | "agents" | "oauth">
       owner = session.owner;
     },
     owner: () => owner,
+    sealedMemory: (contentHash) => call("GET", `/v1/memory/${contentHash}`, { token: token(), schema: zMemoryResponse }),
     oauth,
     events: { subscribe: createEventStream({ baseUrl, token: () => userToken }) },
     auth: {
@@ -101,11 +107,17 @@ export function createBridgeApi(): Pick<HiveClient, "auth" | "agents" | "oauth">
         return { owner: body.owner, ...res };
       },
       // Sign out ends every agent's bridge session, so scoped keys leave the bridge's memory (rules §5.1).
+      // One call for all of them: an agent that never called a tool is not `connected` but holds keys all the same.
       async signOut(session) {
         userToken = session.userToken;
         try {
-          const list = await agents.list();
-          await Promise.allSettled(list.filter((a) => a.connected).map((a) => agents.disconnect(a.agentId)));
+          try {
+            await call("DELETE", "/v1/sessions", { token: token() });
+          } catch {
+            // A bridge that predates that route: end the sessions one by one, connected or not (the call is idempotent).
+            const list = await agents.list();
+            await Promise.allSettled(list.map((a) => agents.disconnect(a.agentId)));
+          }
         } finally {
           userToken = undefined;
           owner = undefined;

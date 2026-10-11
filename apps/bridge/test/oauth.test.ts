@@ -18,6 +18,8 @@ const SECRET = "s".repeat(40);
 const BASE = "https://bridge.example";
 const WEB = "https://app.example";
 const CLAUDE_CB = "https://claude.ai/api/mcp/auth_callback";
+const CHATGPT_CB = "https://chatgpt.com/connector_platform_oauth_redirect";
+const CHATGPT_CONNECTOR_CB = "https://chatgpt.com/connector/oauth/cb_abc-123_X";
 const owner = privateKeyToAccount(("0x" + "ab".repeat(32)) as Hex);
 const stranger = privateKeyToAccount(("0x" + "cd".repeat(32)) as Hex);
 const AGENT_KEY = ("0x" + "11".repeat(32)) as Hex;
@@ -117,6 +119,7 @@ describe("discovery", () => {
     expect(meta.registration_endpoint).toBe(`${BASE}/oauth/register`);
     expect(meta.code_challenge_methods_supported).toEqual(["S256"]);
     expect(meta.token_endpoint_auth_methods_supported).toEqual(["none"]);
+    expect(meta.authorization_response_iss_parameter_supported).toBe(true);
   });
 
   it("answers an unauthenticated /mcp call with a 401 that points at the metadata", async () => {
@@ -142,8 +145,25 @@ describe("POST /oauth/register", () => {
     expect(typeof res.body.client_id).toBe("string");
   });
 
+  it("registers ChatGPT's stable and per-connector callbacks", async () => {
+    const res = await request(app).post("/oauth/register").send({ redirect_uris: [CHATGPT_CB, CHATGPT_CONNECTOR_CB] });
+    expect(res.status).toBe(201);
+    expect(res.body.redirect_uris).toEqual([CHATGPT_CB, CHATGPT_CONNECTOR_CB]);
+  });
+
   it("refuses any other redirect URI", async () => {
-    for (const uri of ["https://evil.example/cb", "http://evil.example/cb", "https://claude.ai/other", "javascript:alert(1)", "http://localhost:1/cb#x"]) {
+    const lookalikes = [
+      "https://chatgpt.com/other",
+      "https://chatgpt.com/connector/oauth/a/b",
+      "https://chatgpt.com/connector/oauth/x?y=1",
+      "https://chatgpt.com/connector/oauth/x#y",
+      "https://chatgpt.com/connector/oauth/",
+      "https://chatgpt.com/connector_platform_oauth_redirect/extra",
+      "https://chatgpt.com.evil.example/connector_platform_oauth_redirect",
+      "https://evil.example/connector_platform_oauth_redirect",
+      "http://chatgpt.com/connector_platform_oauth_redirect",
+    ];
+    for (const uri of [...lookalikes, "https://evil.example/cb", "http://evil.example/cb", "https://claude.ai/other", "javascript:alert(1)", "http://localhost:1/cb#x"]) {
       const res = await request(app).post("/oauth/register").send({ redirect_uris: [uri] });
       expect(res.status, uri).toBe(400);
       expect(res.body.error).toBe("invalid_redirect_uri");
@@ -190,6 +210,7 @@ describe("GET /oauth/authorize", () => {
     expect(`${to.origin}${to.pathname}`).toBe(CLAUDE_CB);
     expect(to.searchParams.get("error")).toBe("invalid_request");
     expect(to.searchParams.get("state")).toBe("xyz");
+    expect(to.searchParams.get("iss")).toBe(BASE);
   });
 
   it("lets a loopback redirect use a different port than the one registered", async () => {
@@ -215,6 +236,7 @@ describe("POST /v1/oauth/approve", () => {
     const to = new URL(res.body.redirectTo);
     expect(to.searchParams.get("error")).toBe("access_denied");
     expect(to.searchParams.get("state")).toBe("xyz");
+    expect(to.searchParams.get("iss")).toBe(BASE);
     expect(to.searchParams.get("code")).toBeNull();
   });
 
@@ -244,6 +266,7 @@ describe("POST /v1/oauth/approve", () => {
     expect(`${to.origin}${to.pathname}`).toBe(CLAUDE_CB);
     expect(to.searchParams.get("code")).toMatch(/^[A-Za-z0-9_-]{40,}$/);
     expect(to.searchParams.get("state")).toBe("xyz");
+    expect(to.searchParams.get("iss")).toBe(BASE);
   });
 });
 
@@ -259,6 +282,23 @@ describe("POST /oauth/token", () => {
     const claims = await new TokenService(SECRET, now).verifyAgent(res.body.access_token);
     expect(claims.agentId).toBe(1n);
     expect(claims.owner.toLowerCase()).toBe(owner.address.toLowerCase());
+  });
+
+  it("completes the flow for ChatGPT's callbacks, including a resource parameter", async () => {
+    for (const cb of [CHATGPT_CB, CHATGPT_CONNECTOR_CB]) {
+      const auth = await signIn();
+      await authorizeAgent(1, auth);
+      const clientId = await register([cb]);
+      const authorize = await request(app).get("/oauth/authorize").query(params(clientId, { redirect_uri: cb, resource: `${BASE}/mcp` }));
+      expect(authorize.status, cb).toBe(302);
+      const approved = await approve(auth, clientId, {}, { redirect_uri: cb, resource: `${BASE}/mcp` });
+      const to = new URL(approved.body.redirectTo);
+      expect(`${to.origin}${to.pathname}`).toBe(cb);
+      const code = to.searchParams.get("code") as string;
+      const res = await exchange({ clientId, code, redirectUri: cb });
+      expect(res.status, cb).toBe(200);
+      expect(res.body.token_type).toBe("Bearer");
+    }
   });
 
   it("refuses a wrong verifier, a replayed code, another redirect URI and another client", async () => {

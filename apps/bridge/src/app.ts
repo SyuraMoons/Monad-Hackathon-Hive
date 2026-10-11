@@ -1,8 +1,9 @@
 import {
-  HiveError, zAgentId, zAgentType, zAgentsResponse, zAuthChallengeBody, zAuthVerifyBody, zAuthorizeBody, zCredentialId, zPutVaultBody, monadTestnet,
-  type VaultResponse, type AuthChallengeResponse, type AuthVerifyResponse, type AuthorizeResponse, type Hex, type HealthResponse,
+  ERC8004_REGISTRATION_TYPE, HiveError, hiveDeployment, zAgentId, zAgentType, zAgentsResponse, zAuthChallengeBody, zAuthVerifyBody, zAuthorizeBody, zContentHash, zCredentialId, zPutVaultBody, monadTestnet,
+  type AgentCardWire, type VaultResponse, type AuthChallengeResponse, type AuthVerifyResponse, type AuthorizeResponse, type Hex, type HealthResponse, type MemoryResponse,
 } from "@hive/shared";
 import type { z } from "zod";
+import { LATEST_PROTOCOL_VERSION } from "@modelcontextprotocol/sdk/types.js";
 import { privateKeyToAddress } from "viem/accounts";
 import express, { type ErrorRequestHandler, type Express, type Request, type RequestHandler, type Response } from "express";
 import swaggerUi from "swagger-ui-express";
@@ -152,6 +153,31 @@ export function createApp(deps: AppDeps): Express {
     }
   };
 
+  // Public on purpose: this is the file an agent's ERC-8004 URI points to (ADR-028). Built from AgentRegistry alone,
+  // which is public onchain (ADR-023): no session state, no keys, nothing from a memory. The path is `agentCardPath` in @hive/shared.
+  app.get("/agents/:id/card.json", wrap(async (req, res) => {
+    const id = zAgentId.safeParse(req.params.id);
+    if (!id.success) throw new HiveError("INVALID_INPUT", "Agent id must be a decimal integer.");
+    const agent = await readAgent(id.data);
+    const type = zAgentType.safeParse(agent.agentType);
+    const base = (deps.publicUrl ?? `${req.protocol}://${req.get("host")}`).replace(/\/+$/, "");
+    const card: AgentCardWire = {
+      type: ERC8004_REGISTRATION_TYPE,
+      name: agent.name.slice(0, 64) || `Agent ${id.data}`,
+      description: "Mindshare agent. It shares memory with other agents only along permission edges its owner signed on Monad testnet.",
+      services: [{ name: "MCP", endpoint: `${base}/mcp`, version: LATEST_PROTOCOL_VERSION }],
+      x402Support: false,
+      // An agent can write once its owner has set a writer key.
+      active: agent.writer.toLowerCase() !== ZERO,
+      registrations: [],
+      supportedTrust: [],
+      hive: { chainId: hiveDeployment.chainId, agentRegistry: hiveDeployment.agentRegistry, agentId: id.data.toString(), agentType: type.success ? type.data : "other", owner: agent.owner },
+    };
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Cache-Control", "public, max-age=60");
+    res.json(card);
+  }));
+
   app.get("/v1/agents", requireUser, wrap(async (_req, res) => {
     const user = res.locals.user as UserClaims;
     const agents = await deps.chain.agentsOf(user.owner as Hex).catch(() => {
@@ -207,6 +233,29 @@ export function createApp(deps: AppDeps): Express {
     if (session) events.publish(session.owner, { type: "agent.disconnected", data: { agentId: id.data.toString() } });
     res.sendStatus(204);
   });
+
+  // Sign-out: ends every session of the signed-in owner, those that never called a tool too, so no scoped key outlives it.
+  // A client that only knew the connected agents would leave the others valid for the token's whole life. Idempotent.
+  app.delete("/v1/sessions", requireUser, (_req, res) => {
+    const owner = (res.locals.user as UserClaims).owner;
+    for (const session of deps.sessions.listByOwner(owner)) events.publish(session.owner, { type: "agent.disconnected", data: { agentId: session.agentId.toString() } });
+    deps.sessions.deleteByOwner(owner);
+    res.sendStatus(204);
+  });
+
+  // The owner's own read: ciphertext only, decrypted in the browser with the key it already holds. A row of another owner looks the same as no row.
+  app.get("/v1/memory/:contentHash", requireUser, wrap(async (req, res) => {
+    const hash = zContentHash.safeParse(req.params.contentHash);
+    if (!hash.success) throw new HiveError("INVALID_INPUT", "Content hash must be 32-byte hex.");
+    const user = res.locals.user as UserClaims;
+    const row = await deps.store.getOwned(hash.data as Hex).catch(() => {
+      throw new HiveError("STORAGE_ERROR", "Could not read the memory store.");
+    });
+    if (!row || row.owner.toLowerCase() !== user.owner.toLowerCase()) throw new HiveError("NOT_FOUND", "No such memory.");
+    const out: MemoryResponse = { ciphertext: Buffer.from(row.ciphertext).toString("base64"), iv: Buffer.from(row.iv).toString("base64"), keyId: row.keyId };
+    res.setHeader("Cache-Control", "private, no-store");
+    res.json(out);
+  }));
 
   // EventSource can't send headers, so the user token travels in the query (docs/backend-handoff.md).
   app.get("/v1/events", wrap(async (req, res) => {

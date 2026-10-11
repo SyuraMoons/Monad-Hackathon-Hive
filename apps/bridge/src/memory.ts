@@ -1,6 +1,5 @@
-import { decrypt, encrypt } from "@hive/crypto";
+import { decrypt, encrypt, keyIdOf } from "@hive/crypto";
 import { HiveError, MEMORY_NOTICE, MEMORY_PAGE_DEFAULT, PREVIEW_CHARS, openDoc, sealDoc, zTxHash, type Hex, type ListMemoryOutput, type MemoryDoc, type MemoryKind, type MemoryMeta, type ReadMemoryOutput, type WriteMemoryOutput } from "@hive/shared";
-import { concatBytes, hexToBytes, keccak256, stringToBytes } from "viem";
 import { embedAfterWrite, type EmbeddingDeps } from "./embeddings.js";
 import { ownSlots, permittedSlots } from "./permissions.js";
 import type { DocCache } from "./sessions.js";
@@ -81,7 +80,7 @@ async function candidates(deps: ReadDeps, args: Scope): Promise<{ slots: ChainSl
  * Naming slots outright with `slotIds`, or `includeSuperseded`, shows them all.
  * `incomplete` is set when a batch could not be fetched, so a caller that must not skip anything knows to retry.
  */
-async function walk(deps: ReadDeps, args: Scope, stop: number) {
+export async function walk(deps: ReadDeps, args: Scope, stop: number) {
   const { slots: all, truncated } = await candidates(deps, args);
   const showAll = args.includeSuperseded === true || args.slotIds !== undefined;
   // "<sender>:<topic>:<slot>" of every slot a memory replaces. The key carries the claimant's own sender and topic, so a
@@ -112,10 +111,6 @@ async function walk(deps: ReadDeps, args: Scope, stop: number) {
   return { found: out, truncated, incomplete, newest: all[0] };
 }
 
-export async function visibleMemories(deps: ReadDeps, args: Scope, stop: number): Promise<Opened[]> {
-  return (await walk(deps, args, stop)).found;
-}
-
 /** Sender names, read once per sender. A sender whose lookup fails is left out, with the others kept. */
 export async function senderNames(deps: ReadDeps, slots: readonly ChainSlot[]): Promise<Map<bigint, string>> {
   const names = new Map<bigint, string>();
@@ -133,6 +128,13 @@ export async function senderNames(deps: ReadDeps, slots: readonly ChainSlot[]): 
 
 const cursorOf = (slot: ChainSlot) => `${slot.writtenAt}:${slot.id}`;
 
+// Fixed strings, never content. A failure must not look like "nothing shared" to the agent.
+const PARTIAL_NOTICE = "Some memories could not be loaded just now and are missing from this result. Call again to retry.";
+export const UNAVAILABLE_NOTICE = "Memories could not be read just now. That is not the same as nothing shared: call again to retry.";
+
+/** The notice of a read: the data warning when memories are shown, and a retry hint when a failure left some out. */
+export const noticeOf = (shown: number, partial: boolean): string | undefined => [shown > 0 ? MEMORY_NOTICE : "", partial ? PARTIAL_NOTICE : ""].filter(Boolean).join(" ") || undefined;
+
 /** What read, list and search all say about a memory. Only the fields the agent set are present. */
 export function memoryFields(slot: ChainSlot, name: string, doc: MemoryDoc) {
   return {
@@ -148,15 +150,21 @@ export function memoryFields(slot: ChainSlot, name: string, doc: MemoryDoc) {
   };
 }
 
-/** The newest `limit` visible memories, oldest first like a conversation, plus whether older ones were left out. */
+/**
+ * The newest `limit` visible memories, oldest first like a conversation, plus whether older ones were left out.
+ * `partial` is set when a failure dropped memories (a batch that did not load, a sender whose name did not resolve):
+ * `more` is then true too, so a short list never reads as "that is all".
+ */
 async function newestPage(deps: ReadDeps, args: Scope) {
   const limit = args.limit ?? MEMORY_PAGE_DEFAULT;
   if (args.cursor) return forwardPage(deps, args, limit);
-  const found = await visibleMemories(deps, args, limit + 1);
+  const { found, incomplete } = await walk(deps, args, limit + 1);
   const newest = found.slice(0, limit);
   const names = await senderNames(deps, newest.map((o) => o.slot));
-  const items = newest.filter((o) => names.has(o.slot.agentId)).reverse();
-  return { items, names, more: found.length > limit, cursor: items.length ? cursorOf(items[items.length - 1]!.slot) : undefined };
+  const named = newest.filter((o) => names.has(o.slot.agentId));
+  const items = named.reverse();
+  const partial = incomplete || named.length < newest.length;
+  return { items, names, more: found.length > limit || partial, partial, cursor: items.length ? cursorOf(items[items.length - 1]!.slot) : undefined };
 }
 
 /**
@@ -170,16 +178,17 @@ async function newestPage(deps: ReadDeps, args: Scope) {
 async function forwardPage(deps: ReadDeps, args: Scope, limit: number) {
   const { found, truncated, incomplete, newest } = await walk(deps, args, Infinity);
   const noNames = new Map<bigint, string>();
-  if (incomplete) return { items: [] as Opened[], names: noNames, more: true, cursor: undefined };
+  if (incomplete) return { items: [] as Opened[], names: noNames, more: true, partial: true, cursor: undefined };
   const oldestFirst = found.reverse();
   const page = oldestFirst.slice(0, limit);
   const names = await senderNames(deps, page.map((o) => o.slot));
   const cut = page.findIndex((o) => !names.has(o.slot.agentId));
   const items = cut === -1 ? page : page.slice(0, cut);
   const more = items.length < oldestFirst.length || truncated;
+  const partial = cut !== -1;
   // A whole window with nothing visible still has to move the cursor, or the next call would look at it again.
   const cursor = items.length ? cursorOf(items[items.length - 1]!.slot) : oldestFirst.length === 0 && truncated && newest ? cursorOf(newest) : undefined;
-  return { items, names, more, cursor };
+  return { items, names, more, partial, cursor };
 }
 
 /**
@@ -226,12 +235,13 @@ async function loadDocs(deps: ReadDeps, slots: readonly ChainSlot[]): Promise<{ 
  */
 export async function readMemory(deps: ReadDeps, args: Scope): Promise<ReadMemoryOutput> {
   try {
-    const { items, names, more, cursor } = await newestPage(deps, args);
+    const { items, names, more, partial, cursor } = await newestPage(deps, args);
     const memories = items.map(({ slot, doc }) => ({ ...memoryFields(slot, names.get(slot.agentId)!, doc), content: doc.content }));
-    return { memories, more, ...(cursor && { cursor }), ...(memories.length && { notice: MEMORY_NOTICE }) };
+    const notice = noticeOf(memories.length, partial);
+    return { memories, more, ...(cursor && { cursor }), ...(notice && { notice }) };
   } catch (e) {
     deps.onError?.("permission-check", e);
-    return { memories: [], more: false };
+    return { memories: [], more: true, notice: UNAVAILABLE_NOTICE };
   }
 }
 
@@ -241,12 +251,13 @@ export const bytesOf = (content: string) => new TextEncoder().encode(content).le
 /** `hive_list_memory`: the same selection and permission checks as a read, but each memory is a short preview and a size. */
 export async function listMemory(deps: ReadDeps, args: Omit<Scope, "slotIds">): Promise<ListMemoryOutput> {
   try {
-    const { items, names, more, cursor } = await newestPage(deps, args);
+    const { items, names, more, partial, cursor } = await newestPage(deps, args);
     const memories = items.map(({ slot, doc }) => ({ ...memoryFields(slot, names.get(slot.agentId)!, doc), bytes: bytesOf(doc.content), preview: previewOf(doc.content) }));
-    return { memories, more, ...(cursor && { cursor }), ...(memories.length && { notice: MEMORY_NOTICE }) };
+    const notice = noticeOf(memories.length, partial);
+    return { memories, more, ...(cursor && { cursor }), ...(notice && { notice }) };
   } catch (e) {
     deps.onError?.("permission-check", e);
-    return { memories: [], more: false };
+    return { memories: [], more: true, notice: UNAVAILABLE_NOTICE };
   }
 }
 
@@ -267,9 +278,6 @@ export type WriteDeps = {
   /** Reports a failure without any memory content. */
   onError?: (stage: string, error: unknown) => void;
 };
-
-/** Which key sealed a row, without revealing it: a short domain-separated hash. */
-export const keyIdOf = (key: Hex) => `hive-key:${keccak256(concatBytes([stringToBytes("hive/key-id"), hexToBytes(key)])).slice(0, 18)}`;
 
 // One transaction at a time per agent key, or two parallel writes race for the same nonce.
 const queues = new Map<string, Promise<unknown>>();

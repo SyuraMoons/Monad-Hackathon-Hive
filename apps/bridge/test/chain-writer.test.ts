@@ -53,16 +53,28 @@ describe("ViemChainWriter", () => {
     expect((await writer.write(args)).propagatedTo).toEqual([2n]);
   });
 
-  it("sets an explicit gas limit: estimate plus 25%, within 100k to 2M", async () => {
+  it("sets an explicit gas limit: estimate plus 25%, within 100k to 2M, never below the estimate", async () => {
     const mid = setup({ estimate: 200_000n });
     await mid.writer.write(args);
     expect(mid.seen.gas).toBe(250_000n);
     const low = setup({ estimate: 10_000n });
     await low.writer.write(args);
     expect(low.seen.gas).toBe(100_000n);
-    const high = setup({ estimate: 9_000_000n });
+    // The margin no longer fits but the estimate does: the cap still covers what the call needs.
+    const high = setup({ estimate: 1_700_000n });
     await high.writer.write(args);
     expect(high.seen.gas).toBe(2_000_000n);
+    const edge = setup({ estimate: 2_000_000n });
+    await edge.writer.write(args);
+    expect(edge.seen.gas).toBe(2_000_000n);
+  });
+
+  it("does not send a write whose estimate is above the cap: it would revert and still be charged in full", async () => {
+    const { writer, seen } = setup({ estimate: 2_000_001n });
+    const err = await writer.write(args).catch((e) => e);
+    expect(err).toBeInstanceOf(HiveError);
+    expect(err).toMatchObject({ code: "CHAIN_ERROR", message: "This memory write needs more gas than the bridge allows, so nothing was sent." });
+    expect(seen.calls).toBe(0);
   });
 
   it("a reverted transaction is a CHAIN_ERROR", async () => {

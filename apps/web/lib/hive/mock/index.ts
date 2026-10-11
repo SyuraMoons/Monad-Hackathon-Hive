@@ -11,6 +11,7 @@ import {
   zGraphSnapshot,
   zHealthResponse,
   zHiveEvent,
+  zOwnerStats,
   zProvenance,
   zSlotId,
   zTopic,
@@ -58,7 +59,7 @@ export function createMockClient(): MockHiveClient {
   const sessions = new Map<string, { lastCallAt: number; tokenExpiresAt: number }>();
   const listeners = new Set<(e: HiveEventWire) => void>();
   const nonces = new Map<string, string>();
-  let seq = 0, nextSlot = 1, nextEdge = 2, nextAgent = graph.agents.length + 1, writeIdx = 0;
+  let seq = 0, nextSlot = 1, nextEdge = 2, nextAgent = graph.agents.length + 1, nextIdentity = 2142, writeIdx = 0;
   let owner: Address = MOCK_OWNER;
   const demoAgents = graph.agents.length;
 
@@ -224,6 +225,22 @@ export function createMockClient(): MockHiveClient {
           propagations: s.propagatedTo.map((to) => ({ slotId: s.slotId, from: s.agentId, to, contentHash: s.contentHash, topic: s.topic, txHash: s.txHash, at: s.writtenAt })),
         });
       },
+      // The mock has no indexer: an identity added in this tab is remembered by the graph store.
+      async identities() {
+        return {};
+      },
+      async ownerStats() {
+        await latency();
+        // The mock only delivers along active edges, so there is never a delivery to flag.
+        return zOwnerStats.parse({
+          agents: graph.agents.length,
+          edgesAdded: graph.edges.length,
+          edgesRevoked: graph.edges.filter((e) => e.removedTx).length,
+          memories: slots.length,
+          propagations: slots.reduce((n, s) => n + s.propagatedTo.length, 0),
+          violations: 0,
+        });
+      },
     },
 
     events: {
@@ -286,11 +303,21 @@ export function createMockClient(): MockHiveClient {
         if (mockFlag("bridge-offline")) throw offline();
         const text = memory[contentHash];
         if (text === undefined) throw new HiveError("NOT_FOUND", "No memory with that content hash.");
-        return text;
+        return { content: text };
       },
     },
 
+    identity: {
+      cardUrl: (agentId) => `https://bridge.mock.example/agents/${agentId}/card.json`,
+    },
+
     tx: {
+      registerIdentity(agentId) {
+        return tx(() => {
+          if (!graph.agents.some((a) => a.agentId === String(agentId))) return new HiveError("CHAIN_ERROR", "No such agent.");
+          return { erc8004Id: BigInt(nextIdentity++) };
+        });
+      },
       registerAgent({ name, agentType, agentKey }) {
         return tx(() => {
           if (graph.agents.some((a) => a.agentKey.toLowerCase() === agentKey.toLowerCase())) return new HiveError("CHAIN_ERROR", "That agent key is already registered.");

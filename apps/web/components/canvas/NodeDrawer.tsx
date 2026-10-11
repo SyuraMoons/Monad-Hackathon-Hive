@@ -1,38 +1,23 @@
 "use client";
 
-import type { ContentHash } from "@hive/shared";
 import Image from "next/image";
-import { useEffect, useRef, useState, type MouseEvent } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from "react";
 import { zeroAddress } from "viem";
 import { removeAgent } from "@/lib/agentActions";
+import { agentConnection, CONNECTION_TEXT } from "@/lib/agentStatus";
 import { cn } from "@/lib/cn";
 import { explorerAddress, explorerTx } from "@/lib/explorer";
 import { longDate, shortHash } from "@/lib/format";
-import { pageOf } from "@/lib/pagination";
-import { deepseekRunner, gptSnippet } from "@/lib/hive/commands";
-import type { MemoryHistoryRow } from "@/lib/hive/types";
-import { useFeed, type FeedRow } from "@/lib/stores/feed";
+import { historyEntries } from "@/lib/hive/memoryHistory";
+import { useFeed } from "@/lib/stores/feed";
 import { displayName, useGraph, type AgentNode, type EdgeView } from "@/lib/stores/graph";
 import { useSession } from "@/lib/stores/session";
 import { useUi } from "@/lib/stores/ui";
 import { topicColor, topicLabel } from "@/lib/topics";
-import { agentTypeIcon } from "@/lib/hive/agentTypes";
+import { agentTypeIcon, hasGuide, PRODUCT } from "@/lib/hive/agentTypes";
+import { AllHistory, MemoryDetail, MemoryList, button, eyebrow, section } from "./MemoryHistory";
 
-const eyebrow = "font-mono text-[14px] tracking-[0.08em] whitespace-pre text-ink-3";
-const section = "flex flex-col gap-2.5 border-t border-line px-6 py-[18px]";
 const HISTORY_PAGE_SIZE = 5;
-
-type Entry = { slotId: bigint; topic: string; contentHash: ContentHash; at: number; propagatedTo?: bigint[] };
-
-/** Chain history and this session's live writes, one row per slot, newest first. Live rows know who the write reached. */
-function historyEntries(past: MemoryHistoryRow[] | "loading" | "error" | undefined, rows: FeedRow[], agentId: bigint): Entry[] {
-  const bySlot = new Map<string, Entry>();
-  if (Array.isArray(past)) for (const h of past) bySlot.set(h.slotId.toString(), { slotId: h.slotId, topic: h.topic, contentHash: h.contentHash, at: h.writtenAt });
-  for (const r of rows) {
-    if (r.kind === "written" && r.agentId === agentId) bySlot.set(r.slotId.toString(), { slotId: r.slotId, topic: r.topic, contentHash: r.contentHash, at: r.at, propagatedTo: r.propagatedTo });
-  }
-  return [...bySlot.values()].sort((a, b) => b.at - a.at || (b.slotId > a.slotId ? 1 : -1));
-}
 
 function scopeKey(expiresAt: number | null): string {
   if (!expiresAt) return "not issued · connect this agent first";
@@ -41,17 +26,12 @@ function scopeKey(expiresAt: number | null): string {
   return s >= 3600 ? `expires in ${Math.floor(s / 3600)}h` : `expires in ${Math.max(1, Math.floor(s / 60))}m`;
 }
 
-const button = "min-h-9 cursor-pointer rounded-chip border border-ink px-3.5 text-[14px] font-medium text-ink hover:bg-paper-2 disabled:cursor-default disabled:opacity-50";
-
 // Reconnect after a bridge restart or an expired token; Disconnect ends the bridge session. Both act on the signed-in owner's agent.
 function ConnectionSection({ agent }: { agent: AgentNode }) {
-  const id = agent.agentId.toString();
-  const authorization = useSession((s) => s.authorizations[id]);
   const authorizeAgent = useSession((s) => s.authorizeAgent);
   const disconnectAgent = useSession((s) => s.disconnectAgent);
   const [busy, setBusy] = useState<"reconnect" | "disconnect">();
   const [error, setError] = useState<string>();
-  const [copied, setCopied] = useState(false);
   const live = agent.tokenExpiresAt !== null && agent.tokenExpiresAt > Math.floor(Date.now() / 1000);
   const unfinished = agent.agentKey === zeroAddress;
 
@@ -67,17 +47,6 @@ function ConnectionSection({ agent }: { agent: AgentNode }) {
     }
   }
 
-  async function copyCommand(command: (url: string, token: string) => string) {
-    if (!authorization) return;
-    try {
-      await navigator.clipboard.writeText(command(authorization.mcpUrl, authorization.agentToken));
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch {
-      setError("Could not copy. Open Connect to select the command.");
-    }
-  }
-
   return (
     <section className={section} aria-label="Connection">
       <p className={eyebrow}>CONNECTION</p>
@@ -87,7 +56,9 @@ function ConnectionSection({ agent }: { agent: AgentNode }) {
           : live
           ? agent.connected
             ? `${agent.name} is connected.`
-            : "Authorized. A token under 24h old works again: run /mcp in Claude Code to reconnect."
+            : agent.agentType === "claude"
+            ? "Authorized. A token under 24h old works again: run /mcp in Claude Code to reconnect."
+            : "Authorized. Its token works until it expires: restart the agent or app that uses it to reconnect."
           : `${agent.name} has no session on the bridge. This happens after a bridge restart. Reconnect gives it its keys again.`}
       </p>
       <div className="flex flex-wrap gap-2.5">
@@ -99,24 +70,60 @@ function ConnectionSection({ agent }: { agent: AgentNode }) {
             {busy === "disconnect" ? "Disconnecting…" : "Disconnect"}
           </button>
         )}
-        {authorization && agent.agentType === "gpt" && (
-          <button type="button" className={button} onClick={() => void copyCommand(gptSnippet)}>
-            {copied ? "Copied" : "Copy GPT config"}
-          </button>
-        )}
-        {authorization && agent.agentType === "deepseek" && (
-          <button type="button" className={button} onClick={() => void copyCommand(deepseekRunner)}>
-            {copied ? "Copied" : "Copy DeepSeek command"}
-          </button>
-        )}
-        {agent.agentType === "claude" && !unfinished && (
+        {hasGuide(agent.agentType) && !unfinished && (
           <button type="button" className={button} onClick={() => useUi.getState().set({ connectAgent: agent.agentId })}>
-            Connect to Claude…
+            Connect to {PRODUCT[agent.agentType]}…
           </button>
         )}
       </div>
       {error && <p role="alert" className="text-[14px] leading-[1.45] text-status-revoked">{error}</p>}
     </section>
+  );
+}
+
+// ADR-028: a public ERC-8004 identity for the agent. It is a listing, not a permission, and the copy says so.
+function Erc8004Row({ agent }: { agent: AgentNode }) {
+  const identity = useGraph((s) => s.identities[agent.agentId.toString()]);
+  const available = useGraph((s) => s.identityAvailable);
+  const addAgentIdentity = useSession((s) => s.addAgentIdentity);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string>();
+
+  async function add() {
+    setBusy(true);
+    setError(undefined);
+    try {
+      await addAgentIdentity(agent.agentId);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Something went wrong. Try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (identity) {
+    return (
+      <p className="text-[14px] leading-[1.45] text-ink-2">
+        ERC-8004 identity{" "}
+        <a href={explorerTx(identity.txHash)} target="_blank" rel="noreferrer" className="font-mono text-ink underline underline-offset-2">#{identity.erc8004Id}</a>
+        . A public listing on Monad testnet. It does not change what this agent can read.
+      </p>
+    );
+  }
+  if (agent.agentKey === zeroAddress) return null;
+  if (!available) return <p className="text-[14px] leading-[1.45] text-ink-3">No ERC-8004 identity found. Adding one needs a bridge on a public https URL.</p>;
+  return (
+    <>
+      <p className="text-[14px] leading-[1.45] text-ink-2">
+        No ERC-8004 identity found. Adding one is one transaction: it lists the agent’s name, type and owner in the public registry on Monad testnet. It does not change what this agent can read.
+      </p>
+      <div>
+        <button type="button" className={button} disabled={busy} onClick={() => void add()}>
+          {busy ? "Adding…" : "Add ERC-8004 identity"}
+        </button>
+      </div>
+      {error && <p role="alert" className="text-[14px] leading-[1.45] text-status-revoked">{error}</p>}
+    </>
   );
 }
 
@@ -160,12 +167,17 @@ export function NodeDrawer({ agentId }: { agentId: string }) {
   const labels = useGraph((s) => s.labels);
   const edges = useGraph((s) => s.edges);
   const rows = useFeed((s) => s.rows);
-  const previews = useFeed((s) => s.previews);
   const past = useFeed((s) => s.history[agentId]);
   const loadHistory = useFeed((s) => s.loadHistory);
+  const view = useUi((s) => s.drawerView);
   const setUi = useUi((s) => s.set);
   const closeRef = useRef<HTMLButtonElement>(null);
   const [historyPage, setHistoryPage] = useState(0);
+  const [allPage, setAllPage] = useState(0);
+  const writes = historyEntries(past, rows, BigInt(agentId));
+
+  // Another agent, or a closed drawer, starts again on the agent view. Before paint, so the next drawer never shows this one's view.
+  useLayoutEffect(() => () => useUi.getState().set({ drawerView: "agent" }), []);
 
   useEffect(() => {
     void loadHistory(BigInt(agentId));
@@ -182,9 +194,10 @@ export function NodeDrawer({ agentId }: { agentId: string }) {
   const live = Object.values(edges).filter((e) => e.state === "signed" || e.state === "revoking" || e.state === "pending");
   const outgoing = live.filter((e) => e.from === agent.agentId);
   const incoming = live.filter((e) => e.to === agent.agentId);
-  const writes = historyEntries(past, rows, agent.agentId);
-  const history = pageOf(writes, historyPage, HISTORY_PAGE_SIZE);
   const icon = agentTypeIcon(agent.agentType);
+  const shownName = displayName(agent, labels);
+  const opened = typeof view === "object" ? writes.find((w) => w.slotId.toString() === view.slotId) : undefined;
+  const covered = view === "history" || opened !== undefined;
 
   function revoke(e: EdgeView, ev: MouseEvent<HTMLButtonElement>) {
     // anchor the confirm card to the left of the drawer, level with the row
@@ -219,17 +232,19 @@ export function NodeDrawer({ agentId }: { agentId: string }) {
   );
 
   return (
+    <>
     <aside
       role="dialog"
       aria-labelledby="drawer-title"
+      inert={covered}
       className="hive-drawer absolute inset-0 z-20 flex flex-col overflow-y-auto border-l border-ink bg-paper shadow-[-8px_0_24px_rgb(0_0_0/0.12)]"
     >
       <div className="flex items-center gap-3 px-6 pt-[22px] pb-[18px]">
         {icon ? <Image src={icon} alt="" width={28} height={28} /> : <span aria-hidden="true" className="size-7 rounded-full border border-dashed border-clay" />}
         <div className="min-w-0 flex-1">
-          <h2 id="drawer-title" className="truncate font-display text-[26px] leading-tight text-ink">{displayName(agent, labels)}</h2>
+          <h2 id="drawer-title" className="truncate font-display text-[26px] leading-tight text-ink">{shownName}</h2>
           <p className={cn("truncate font-mono text-[14px] whitespace-pre", agent.connected ? "text-status-active" : "text-ink-3")}>
-            agent #{agent.agentId.toString()}  ·  {agent.connected ? "active" : "not connected"}
+            agent #{agent.agentId.toString()}  ·  {CONNECTION_TEXT[agentConnection(agent, Math.floor(Date.now() / 1000))]}
           </p>
           {labels[agentId] && <p className="truncate font-mono text-[14px] text-ink-3">registered as {agent.name}</p>}
         </div>
@@ -250,6 +265,7 @@ export function NodeDrawer({ agentId }: { agentId: string }) {
           <dt className="text-ink-3">scope key</dt>
           <dd className="font-mono text-ink">{scopeKey(agent.tokenExpiresAt)}</dd>
         </dl>
+        <Erc8004Row agent={agent} />
       </section>
 
       <ConnectionSection agent={agent} />
@@ -273,35 +289,16 @@ export function NodeDrawer({ agentId }: { agentId: string }) {
         {past === "error" && <p className="text-[14px] leading-[1.45] text-ink-3">Couldn’t read the history from Monad. New writes still appear here.</p>}
         {past === "loading" && !writes.length && <p className="text-[15px] leading-[1.5] text-ink-2">Loading history from Monad…</p>}
         {writes.length ? (
-          <ul className="flex flex-col gap-3">
-            {history.items.map((w) => {
-              const p = previews[w.contentHash];
-              const text = p && p !== "loading" && p !== "error" ? p : null;
-              return (
-                <li key={w.slotId.toString()} className="flex flex-col gap-1">
-                  <p className="text-[15px] leading-[1.45] break-words text-ink">
-                    {text ?? <span className="font-mono text-[14px] text-ink-3">content {shortHash(w.contentHash)}  ·  encrypted</span>}
-                  </p>
-                  <p className="flex items-center gap-2 font-mono text-[14px] whitespace-pre text-ink-2">
-                    <span aria-hidden="true" className="h-[3px] w-3.5" style={{ background: topicColor(w.topic) }} />
-                    {w.topic}  ·  {longDate(w.at).replace(/ \d{4}$/, "")}
-                    {w.propagatedTo ? `  ·  ${w.propagatedTo.length ? `→ ${w.propagatedTo.map(name).join(", ")}` : "stayed here"}` : ""}
-                  </p>
-                </li>
-              );
-            })}
-          </ul>
+          <>
+            <MemoryList entries={writes} page={historyPage} onPage={setHistoryPage} pageSize={HISTORY_PAGE_SIZE} from="agent" />
+            <div>
+              <button type="button" onClick={() => setUi({ drawerView: "history" })} className="min-h-9 cursor-pointer text-[15px] font-medium whitespace-pre text-ink underline underline-offset-2 hover:text-ink-2">
+                See all {writes.length}  →
+              </button>
+            </div>
+          </>
         ) : (
           past !== "loading" && past !== "error" && <p className="text-[15px] leading-[1.5] text-ink-2">No writes yet.</p>
-        )}
-        {history.pages > 1 && (
-          <nav aria-label="Memory history pages" className="flex items-center justify-between gap-3 pt-1">
-            <p aria-live="polite" className="font-mono text-[14px] whitespace-pre text-ink-3">{history.from}–{history.to} of {history.total}</p>
-            <div className="flex gap-2">
-              <button type="button" className={button} aria-label="Newer writes" disabled={history.page === 0} onClick={() => setHistoryPage(history.page - 1)}>Prev</button>
-              <button type="button" className={button} aria-label="Older writes" disabled={history.page >= history.pages - 1} onClick={() => setHistoryPage(history.page + 1)}>Next</button>
-            </div>
-          </nav>
         )}
       </section>
 
@@ -313,5 +310,8 @@ export function NodeDrawer({ agentId }: { agentId: string }) {
         </a>
       </div>
     </aside>
+    {view === "history" && <AllHistory agentName={shownName} entries={writes} page={allPage} onPage={setAllPage} />}
+    {opened && typeof view === "object" && <MemoryDetail key={view.slotId} agentName={shownName} entry={opened} back={view.from} name={name} />}
+    </>
   );
 }

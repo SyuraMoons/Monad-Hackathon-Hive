@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseConsentRequest, requesterName } from "./oauthRequest";
+import { parseConsentRequest, requesterName, requesterType } from "./oauthRequest";
 
 const base = {
   response_type: "code",
@@ -28,5 +28,16 @@ describe("consent request", () => {
     expect(requesterName("http://localhost:3118/callback")).toBe("Claude Code on this computer");
     expect(requesterName("http://127.0.0.1:5000/callback")).toBe("Claude Code on this computer");
     expect(requesterName("https://other.example/cb")).toBe("other.example");
+  });
+
+  it("names ChatGPT and asks for a GPT agent, and Claude's callers for a Claude agent", () => {
+    const stable = "https://chatgpt.com/connector_platform_oauth_redirect";
+    expect(requesterName(stable)).toContain("ChatGPT");
+    expect(requesterType(stable)).toBe("gpt");
+    expect(requesterType("https://chatgpt.com/connector/oauth/abc")).toBe("gpt");
+    expect(requesterType("https://claude.ai/api/mcp/auth_callback")).toBe("claude");
+    expect(requesterType("http://localhost:3118/callback")).toBe("claude");
+    expect(parseConsentRequest(query({ redirect_uri: stable }))?.type).toBe("gpt");
+    expect(parseConsentRequest(query())?.type).toBe("claude");
   });
 });

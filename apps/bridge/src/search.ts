@@ -1,6 +1,6 @@
-import { MEMORY_NOTICE, SEARCH_LIMIT_DEFAULT, type MemoryDoc, type SearchMemoryOutput } from "@hive/shared";
+import { SEARCH_LIMIT_DEFAULT, type MemoryDoc, type SearchMemoryOutput } from "@hive/shared";
 import { dot, queryVector, vectorsFor } from "./embeddings.js";
-import { bytesOf, memoryFields, previewOf, senderNames, visibleMemories, type ReadDeps, type Scope } from "./memory.js";
+import { UNAVAILABLE_NOTICE, bytesOf, memoryFields, noticeOf, previewOf, senderNames, walk, type ReadDeps, type Scope } from "./memory.js";
 
 // Search ranks inside the bridge, after the permission filter, over memories it already decrypted for this reader (ADR-022).
 // Nothing here is stored, and nothing in a log or an error carries a query or a memory.
@@ -127,10 +127,11 @@ function ranks(scores: readonly (number | undefined)[], keep: (score: number) =>
 export async function searchMemory(deps: ReadDeps, args: SearchArgs): Promise<SearchMemoryOutput> {
   const none: SearchMemoryOutput = { memories: [], mode: "lexical" };
   try {
-    const found = await visibleMemories(deps, args, Infinity);
-    if (found.length === 0) return none;
+    const { found, incomplete } = await walk(deps, args, Infinity);
+    if (found.length === 0) return incomplete ? { ...none, notice: noticeOf(0, true) } : none;
     const names = await senderNames(deps, found.map((o) => o.slot));
     const readable = found.filter((o) => names.has(o.slot.agentId));
+    const partial = incomplete || readable.length < found.length;
     const now = Number(deps.now());
     const lexical = lexicalScores(args.query, readable.map((o) => o.doc));
 
@@ -160,9 +161,10 @@ export async function searchMemory(deps: ReadDeps, args: SearchArgs): Promise<Se
       score: Math.round(final * 1000) / 1000,
       matched: [...(lex.text ? (["text"] as const) : []), ...(lex.entity ? (["entity"] as const) : []), ...(meaning ? (["meaning"] as const) : [])],
     }));
-    return { memories, mode: hybrid ? "hybrid" : "lexical", ...(pending > 0 && { pending }), ...(memories.length && { notice: MEMORY_NOTICE }) };
+    const notice = noticeOf(memories.length, partial);
+    return { memories, mode: hybrid ? "hybrid" : "lexical", ...(pending > 0 && { pending }), ...(notice && { notice }) };
   } catch (e) {
     deps.onError?.("permission-check", e);
-    return none;
+    return { ...none, notice: UNAVAILABLE_NOTICE };
   }
 }

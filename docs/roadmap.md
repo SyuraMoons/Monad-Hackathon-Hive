@@ -78,6 +78,19 @@ Two local measurements for ADR-022. Neither touched testnet or Railway.
 
 Not checked: a live write and search from two agents, the `memory_embedding` table on Supabase (the live test is gated by `HIVE_VECTOR_TABLE=1`), model load time and memory on Railway, and the result on real memories instead of fixtures.
 
+### 11 Oct 2026 — indexer handlers replayed over the real testnet history (no database, no GraphQL)
+Envio's test indexer fetched blocks 69814735 to 70000445 of chain 10143 through HyperSync (with `ENVIO_API_TOKEN`) and ran the `packages/indexer` handlers in memory. It processed 22 events in 20 blocks:
+
+- 7 agents for 2 owners, each with its writer key set.
+- 4 edges, all all-topics (`*`) and active, none revoked.
+- 2 memory slots from agent 4 on topic `general`, each with `propagatedCount` 1.
+- 2 propagations `4 → 5`, each joined to its slot and credited to edge 3 (`propagationCount` 2). So `Propagate` does fire on an all-topics edge on the redeployed contracts.
+- 15 audit rows, owner and topic counters consistent with the above, and 0 policy violations.
+
+The same day `envio dev` ran the indexer with Postgres and Hasura in Docker and synced to head with the same counts.
+
+Not checked: Envio Cloud, an `EdgeRemoved` on real data (none exists yet), and the `/audit` page in a browser.
+
 ## P0 features (required)
 
 | # | Feature | Owner | Status |
@@ -87,11 +100,11 @@ Not checked: a live write and search from two agents, the `memory_embedding` tab
 | P0.3 | MemorySlots + PropagationEngine | P1 | ✅ deployed to testnet, source and tests in #76 |
 | P0.4 | Passkey auth via Mera | P2 | 🚧 real passkey ceremony and key derivation (ADR-005); `/smoke` can sign with the passkey (#79), but that path is untested |
 | P0.5 | Encrypted storage (Supabase) | P2 | ✅ ciphertext-only table, bridge store (#66, #69) |
-| P0.6 | MCP bridge server | P2 | 🚧 MCP read/write, authorize, gas top-up, chain reader (#71–#77); SSE `/v1/events` built (`agent.connected`, `memory.written`, `memory.read`, `agent.disconnected`); `session.expiring` and `GET /v1/memory/:hash` are planned |
-| P0.7 | Visual canvas (React Flow) | P3 | 🚧 canvas, audit and connect screens on the mock client. In live mode the live client reads agents and registers them from `/connect` (unit-tested, not yet run against testnet) and reads the bridge's event stream (unit-tested, not yet run in the browser); edges are read and signed on-chain (not yet run on testnet); audit and memory preview are still stubs |
+| P0.6 | MCP bridge server | P2 | 🚧 MCP read/write, authorize, gas top-up, chain reader (#71–#77); SSE `/v1/events` built (`agent.connected`, `memory.written`, `memory.read`, `agent.disconnected`); `GET /v1/memory/:contentHash` (the owner's own ciphertext read) is built; `session.expiring` is planned |
+| P0.7 | Visual canvas (React Flow) | P3 | 🚧 canvas, audit and connect screens on the mock client. In live mode the live client reads agents and registers them from `/connect` (unit-tested, not yet run against testnet) and reads the bridge's event stream (unit-tested, not yet run in the browser); edges are read and signed on-chain (not yet run on testnet); audit and provenance read the Envio indexer (unit-tested, and the queries were run against a local synced indexer on 11 Oct; not yet seen in a browser); the agent drawer reads memory text through `GET /v1/memory/:contentHash` and decrypts it on this device (unit-tested, not yet run in a browser, ADR-024) |
 | P0.8 | Live propagation animation | P3 | ⏳ |
 | P0.9 | 2 mock chatbots | P4 | ⏳ placeholder only |
-| P0.10 | Envio indexer (audit trail) | P2 | ⏳ |
+| P0.10 | Envio indexer (audit trail) | P2 | 🚧 `packages/indexer`: schema, handlers and derived stats (policy check, per-edge counts), tested with simulated events. Synced locally against testnet on 11 Oct (see _Verified runs_); not deployed to Envio Cloud. The web reads it in live mode (queries confirmed against the local indexer) |
 | P0.11 | Demo script + rehearsal | P4 | ⏳ |
 
 P1 nice-to-haves, only after all P0 items are done: Claude Desktop MCP integration, colored isolation zones, provenance view, time-travel replay, ChatGPT integration.
@@ -111,7 +124,13 @@ We build one layer at a time. Tick each step off here when it's done.
   - [x] Code and unit tests with fake chain deps
   - [x] Run against testnet with a passkey-signed owner and a real `claude --mcp-config` terminal, 10 Oct (see _Verified runs_). Done from the canvas sidebar; `/connect` itself was not run
 - [ ] Wire edge creation → contract tx (CP1). Works from `/smoke` (dev signer, 3 Oct); the live client now sends `addEdge` / `removeEdge` and reads edges from `KnowledgeGraph` (unit-tested, built but not yet run on testnet), so this stays open until it is
-- [ ] Envio indexer
+- [ ] Envio indexer (`packages/indexer`)
+  - [x] Config for the four contracts from block 69814735, schema, handlers, derived stats and the policy check. Unit-tested with Envio's test indexer and simulated events
+  - [x] Handlers replayed over the real testnet history with the test indexer, 11 Oct (see _Verified runs_)
+  - [x] Full local run with Postgres and Hasura (`envio dev`), 11 Oct: synced to head, 7 agents, 4 edges, 2 slots, 2 propagations, 0 violations, and the GraphQL API answers without a secret
+  - [ ] Deploy to Envio Cloud (public GraphQL URL)
+  - [x] Web: `graph.auditEvents` and `graph.provenance` read the indexer in live mode (`NEXT_PUBLIC_ENVIO_URL`). Unit-tested, and run against the local indexer on 11 Oct: all 10 rows of one owner passed the shared schemas, provenance and stats matched. Not yet seen in a browser
+  - [x] Web: stats strip on `/audit` (counters and the "deliveries without an active edge" check from `OwnerStats`). Unit-tested for wording and queries, and the stats query was run against the local indexer; not yet seen in a browser
 - [x] Bridge: MCP tools `write_memory` / `read_memory`, plus SSE `/events`
   - [x] MCP `hive_write_memory` / `hive_read_memory` / `hive_whoami`, live chain reads, `authorize` with gas top-up, encrypted write to `MemorySlots` (#71, #74, #75, #77). A live write from Claude Code returned a receipt on 5 Oct (see _Verified runs_)
   - [x] SSE `/v1/events`: bridge route and web client, tested against a real port and a fake `EventSource`. Not yet seen turning the Connect page green in a browser. `session.expiring` is planned
@@ -129,21 +148,35 @@ We build one layer at a time. Tick each step off here when it's done.
   - [x] Bridge: encrypted embeddings (off by default; the `memory_embedding` migration is written but not applied to the shared Supabase project)
   - [x] Shared agent instructions and context-size measurement (a seeded fixture, see _Verified runs_)
   - [ ] Live run: two Claude Code terminals on the deployed bridge, `HIVE_EMBEDDINGS=on`
-- [x] Memory history in the agent drawer: past writes read from `MemorySlots.slotsSince` (topic, time and content hash, no content). Not yet tried in a browser
+- [x] Memory history in the agent drawer: past writes read from `MemorySlots.slotsSince` (topic, time and content hash). The text of each memory is fetched as ciphertext from the bridge and decrypted in the browser (the drawer lists numbered rows; a row opens the memory in the panel, and "See all" opens the whole history; locked until the passkey is touched after a reload, ADR-024). Not yet tried in a browser
 - [x] Remove an agent from the canvas: hidden in this browser, bridge session ended, refused while it has edges (ADR-012). The registry has no delete. Not yet tried in a browser
 - [x] One terminal per agent: `claude --mcp-config` command on Connect and in the drawer, so several agents share one folder. Not yet tried against a real Claude Code
 - [x] Create agents from the canvas, keep agent tokens across a reload, and "Finish setup" for a registration that stopped halfway. Not yet run in a browser
+- [x] Both directions in the edge editor: one click signs `A → B` and `B → A` as two edges (ADR-026). A pair is drawn as two parallel arrows. Unit-tested, not yet run in a browser or against testnet. "Revoke both" is planned
 - [ ] claude.ai / Claude Desktop connector (OAuth, ADR-019)
   - [x] Bridge: metadata, DCR, authorize redirect, `/v1/oauth/approve`, token and refresh, `WWW-Authenticate` on `/mcp` 401s. Tested with supertest and the SDK client against a real port, not yet run against claude.ai
   - [x] Web consent page `/oauth/authorize` and the claude.ai steps in the Connect popup (unit-tested, not yet run in a browser)
   - [ ] Run against a deployed bridge (`BRIDGE_WEB_URL` set) from claude.ai and Claude Desktop
+- [ ] ChatGPT connector and a connect guide per agent type
+  - [x] Bridge accepts ChatGPT's OAuth callbacks and returns `iss` (ADR-019). Tested with supertest, not yet run against ChatGPT
+  - [x] One guide per type, shared by the Connect page and the canvas: Claude (Code, Desktop, claude.ai), ChatGPT (connector, Codex CLI, OpenAI API) and DeepSeek (Claude Code CLI, Hive runner, MCP app). The consent page lists GPT agents for ChatGPT. Unit-tested for commands and requester naming, not yet tried in a browser
+  - [ ] Add the connector in a real ChatGPT against a deployed bridge, and check the menu names in the guide
+  - [ ] DeepSeek guide stays planned until the runner has a live run (ADR-020)
+  - [ ] Codex CLI sign-in through OAuth instead of a saved token (planned: needs bridge discovery routes the local bridge does not serve yet)
+- [ ] ERC-8004 identity for every agent (ADR-028)
+  - [x] Shared: registry ABI and address, `hiveAgentId` encoding, agent card schema. Unit-tested; selectors and topics checked against the deployed bytecode. No transaction sent yet
+  - [x] Bridge: public agent card at `/agents/:id/card.json`, built from `AgentRegistry` only. Tested with supertest, and served from Railway on 11 Oct (`/agents/1/card.json` answered with the card of agent 1)
+  - [x] Web: `createAgent` sends the third transaction when the bridge URL is `https`, and the agent drawer shows the identity or an "Add ERC-8004 identity" button. The id is remembered in this browser only until the indexer answers it. Unit-tested, and the calldata was simulated against the deployed registry with `cast call` (id returned, about 311k gas). No transaction sent yet, not yet seen in a browser. Agents registered from `/connect` get it from the drawer button
+  - [x] Indexer: a fifth contract, `Registered` and `MetadataSet`, joined to `Agent.erc8004Id` after the owner check. Tested with simulated events, and replayed over real testnet history on 11 Oct: 35 identities of other projects, none joined yet. Not deployed to Envio Cloud
+  - [x] Web: the graph load also asks the indexer for the owner's joined identities, so the drawer shows one added from another browser. Unit-tested, and the query was run against the local indexer on 11 Oct (35 identities indexed, none joined, so it returned an empty list). Not yet seen in a browser
+  - [ ] Live run: one agent created from the deployed web app, its card fetched from the URI onchain, and the join seen in the indexer
 - [ ] Propagation animation (CP2)
 - [ ] Demo script and rehearsal (CP3)
 
 ## Open questions (from the PRD)
 
 - Does Mera PRF work under Next.js 15? The smoke test answers this. _Still open 3 Oct — only the dev-signer path has been run._
-- Is an ERC-8004 registry deployed on Monad testnet?
+- ~~Is an ERC-8004 registry deployed on Monad testnet?~~ Yes: the Identity Registry answers at `0x8004A818BFB912233c491871b3d84c89A494BD9e` (checked with `cast` on 11 Oct, ADR-028).
 - Does the MCP TypeScript SDK support our custom server setup?
 - Can React Flow handle 20+ nodes with animation?
 - ~~Final product name~~: decided, Mindshare (ADR-008). The rename PR is still to do.

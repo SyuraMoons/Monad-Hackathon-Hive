@@ -3,8 +3,6 @@ import {
   explorerAddressUrl,
   explorerTxUrl,
   HiveError,
-  topicFromBytes32,
-  topicToBytes32,
   zAddress,
   zAgentId,
   zContentHash,
@@ -34,13 +32,6 @@ describe("ids", () => {
     for (const bad of ["", "Work", "per sonal", "a".repeat(32), "émoji"]) {
       expect(zTopic.safeParse(bad).success, bad).toBe(false);
     }
-  });
-
-  it("round-trips a topic through bytes32", () => {
-    const t = zTopic.parse("research");
-    const b = topicToBytes32(t);
-    expect(b).toMatch(/^0x[0-9a-f]{64}$/);
-    expect(topicFromBytes32(b)).toBe("research");
   });
 
   it("normalises content hashes to lowercase and rejects wrong lengths", () => {

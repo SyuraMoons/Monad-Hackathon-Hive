@@ -27,6 +27,34 @@ const desktopEntry = (url: string, token: string) => ({
 export const claudeDesktopConfig = (url: string, token: string, name: string) =>
   JSON.stringify({ mcpServers: { [`hive-${nameSlug(name)}`]: desktopEntry(url, token) } }, null, 2);
 
+/** The same `mcpServers` block for any desktop MCP client that only runs stdio servers (the DeepSeek "MCP app" tab). */
+export const mcpClientConfig = claudeDesktopConfig;
+
+/** For a client that speaks HTTP MCP directly: what to enter in its server form. */
+export const mcpHttpDetails = (url: string, token: string) => [`url:    ${url}`, `header: Authorization: Bearer ${token}`].join("\n");
+
+/**
+ * The block `codex mcp add` cannot write: Codex has no flag for a static header, and `mcp add` erases one on an existing entry.
+ * A static header (not a token variable) works from any terminal, because the shared Codex background server never sees a
+ * shell's `export`.
+ */
+export const codexConfig = (url: string, token: string, name: string) =>
+  [
+    `[mcp_servers.hive-${nameSlug(name)}]`,
+    `url = ${JSON.stringify(url)}`,
+    `http_headers = { Authorization = ${JSON.stringify(`Bearer ${token}`)} }`,
+  ].join("\n");
+
+/** One paste: drop any old entry of the same name, then append the block, so the same paste also reconnects. */
+export const codexCommand = (url: string, token: string, name: string) =>
+  [
+    `codex mcp remove hive-${nameSlug(name)} >/dev/null 2>&1`,
+    `cat >> ~/.codex/config.toml <<'EOF'`,
+    ``,
+    codexConfig(url, token, name),
+    `EOF`,
+  ].join("\n");
+
 /**
  * One prompt to paste into an AI that has shell or file access (Claude Code, Cursor, Codex, Gemini CLI, ...). It carries the
  * url and token and tells the AI to register Hive in whichever client it is. A chat-only AI cannot run it: those use the connector.
@@ -68,7 +96,7 @@ export const aiDesktopPrompt = (url: string, token: string, name: string) => {
 export const connectorUrl = (mcpUrl: string | undefined, bridgeUrl: string | undefined) =>
   mcpUrl || (bridgeUrl ? `${bridgeUrl.replace(/\/+$/, "")}/mcp` : "");
 
-/** Anthropic's servers call the connector, so a localhost or private address can never work. */
+/** Anthropic's and OpenAI's servers call the connector, so a localhost or private address can never work. */
 export const isLocalUrl = (url: string) => /^https?:\/\/(localhost|127\.|10\.|192\.168\.|\[::1\])/i.test(url);
 
 // OpenAI Responses API with a remote MCP tool (rules O7 option b, design D11). The model comes from the env, never hardcoded.
@@ -84,8 +112,18 @@ export const gptSnippet = (url: string, token: string) =>
     `});`,
   ].join("\n");
 
-export const gptRunner = (token: string) => `HIVE_TOKEN_GPT=${token} pnpm --filter @hive/agents gpt --chat`;
-
 // DeepSeek has no remote-MCP tool, so a local runner calls the bridge for it (ADR-020). Key and model come from .env.
 export const deepseekRunner = (url: string, token: string) =>
   [`HIVE_MCP_URL=${url} \\`, `HIVE_TOKEN_DEEPSEEK=${token} \\`, `pnpm --filter @hive/agents deepseek --chat`].join("\n");
+
+/**
+ * Claude Code pointed at DeepSeek's Anthropic-compatible endpoint: no repo to clone, and Hive rides along as an MCP config.
+ * The key and model stay in the user's shell, so the paste carries neither.
+ */
+export const deepseekClaudeCommand = (url: string, token: string, name: string) =>
+  [
+    `ANTHROPIC_BASE_URL=https://api.deepseek.com/anthropic \\`,
+    `ANTHROPIC_AUTH_TOKEN=$DEEPSEEK_API_KEY \\`,
+    `ANTHROPIC_MODEL=$DEEPSEEK_MODEL \\`,
+    claudeTerminalCommand(url, token, name),
+  ].join("\n");

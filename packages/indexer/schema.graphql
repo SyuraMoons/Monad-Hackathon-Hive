@@ -1,0 +1,130 @@
+# Ids are decimal strings (uint256 does not fit JSON numbers). Times are unix seconds.
+# Every entity carries `owner` (lowercase address) so the web filters one user's history.
+
+type Agent {
+  id: ID!
+  owner: String! @index
+  name: String!
+  agentType: String!
+  writer: String
+  registeredAt: Int!
+  registeredTx: String!
+  # The agent's ERC-8004 identity (ADR-028): the first one whose owner is this agent's owner. Display only.
+  erc8004Id: String
+}
+
+# An identity in the public ERC-8004 registry, registered since the start block (ADR-028). Most belong to other projects.
+# `hiveAgentId` is set only when its `hiveAgentId` metadata names our AgentRegistry and an agent of the same owner.
+type Erc8004Identity {
+  id: ID!
+  owner: String! @index
+  agentURI: String!
+  registeredAt: Int!
+  registeredTx: String!
+  hiveAgentId: String @index
+}
+
+type Edge {
+  id: ID!
+  owner: String! @index
+  fromAgent: String! @index
+  toAgent: String! @index
+  topic: String!
+  expiresAt: Int!
+  active: Boolean!
+  addedTx: String!
+  removedTx: String
+  addedAt: Int!
+  removedAt: Int
+  # Derived: memories that travelled along this edge, and how long it lived once revoked.
+  propagationCount: Int!
+  lifetimeSeconds: Int
+}
+
+type MemorySlot {
+  id: ID!
+  owner: String! @index
+  agentId: String! @index
+  contentHash: String! @index
+  topic: String!
+  txHash: String! @index
+  writtenAt: Int!
+  propagatedCount: Int!
+}
+
+type Propagation {
+  id: ID!
+  owner: String! @index
+  slotId: String
+  fromAgent: String! @index
+  toAgent: String! @index
+  contentHash: String! @index
+  topic: String!
+  edgeId: String
+  txHash: String! @index
+  at: Int!
+}
+
+# One row per Audit page line, flat so the page needs a single query. Fields not used by a kind stay null.
+type AuditEvent {
+  id: ID!
+  owner: String! @index
+  kind: String!
+  at: Int!
+  block: Int!
+  logIndex: Int!
+  txHash: String!
+  agentId: String
+  name: String
+  agentType: String
+  edgeId: String
+  fromAgent: String
+  toAgent: String
+  topic: String
+  expiresAt: Int
+  slotId: String
+  contentHash: String
+  propagatedCount: Int
+}
+
+# A Propagate that no active, unexpired edge in the indexed state explains. Should stay empty.
+type PolicyViolation {
+  id: ID!
+  owner: String! @index
+  reason: String!
+  fromAgent: String!
+  toAgent: String!
+  topic: String!
+  contentHash: String!
+  txHash: String!
+  at: Int!
+}
+
+type AgentStats {
+  id: ID!
+  owner: String! @index
+  writes: Int!
+  received: Int!
+  edgesOut: Int!
+  edgesIn: Int!
+  lastActiveAt: Int!
+}
+
+type TopicStats {
+  id: ID!
+  owner: String! @index
+  topic: String!
+  edges: Int!
+  writes: Int!
+  propagations: Int!
+}
+
+type OwnerStats {
+  id: ID!
+  agents: Int!
+  edgesAdded: Int!
+  edgesRevoked: Int!
+  memories: Int!
+  propagations: Int!
+  violations: Int!
+}

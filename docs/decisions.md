@@ -144,14 +144,14 @@ Short architecture decision records. To add one, append the next number and don'
 **Consequences.** A label does not follow the owner to another browser and nothing about it goes onchain or to the bridge. The same menu offers "Take off canvas" (drops the saved position) and "Hide agent…", which is the ADR-012 hide. There is still no real delete.
 
 
-## ADR-019: The bridge is its own OAuth authorization server for claude.ai connectors
+## ADR-019: The bridge is its own OAuth authorization server for claude.ai and ChatGPT connectors
 **Date:** 2026-10-10 · **Status:** proposed
 
 **Context.** claude.ai, Claude Desktop and mobile call a custom connector from Anthropic's servers, so a command with a pasted token cannot reach the bridge. For a personal account a connector authenticates with OAuth (DCR or CIMD), no auth, or a static header that is a beta for organization Owners only and carries one shared key, which cannot say which agent is calling. No auth would let anyone with the URL act as an agent.
 
-**Decision.** The bridge serves OAuth 2.1 itself, on the same origin as `/mcp`: protected-resource and authorization-server metadata under `/.well-known/`, `POST /oauth/register` (DCR), `GET /oauth/authorize`, `POST /oauth/token`. PKCE S256 is required and there are no client secrets. Only Claude's callback (`https://claude.ai/api/mcp/auth_callback`) and loopback URLs (Claude Code, any port) are accepted as redirect URIs. A registered client id is a signed token that carries its redirect URIs, so registering stores nothing. The consent step is the existing agent authorization: `/oauth/authorize` sends the owner to the web app's `/oauth/authorize`, the owner signs in with the passkey, picks an agent and the web app calls `/v1/agents/:id/authorize` (keys into `SessionStore`) and then `POST /v1/oauth/approve`, which mints a 60-second single-use code for that live session. The access token is the same agent JWT as before, so identity still comes from the token. Refresh tokens rotate and work only while the agent's session lives, so a refresh never extends the 24 h session. Every 401 on `/mcp` carries `WWW-Authenticate: Bearer resource_metadata=…`, which is what makes Claude start sign-in. It is on only when `BRIDGE_PUBLIC_URL` and `BRIDGE_WEB_URL` are both set.
+**Decision.** The bridge serves OAuth 2.1 itself, on the same origin as `/mcp`: protected-resource and authorization-server metadata under `/.well-known/`, `POST /oauth/register` (DCR), `GET /oauth/authorize`, `POST /oauth/token`. PKCE S256 is required and there are no client secrets. Only Claude's callback (`https://claude.ai/api/mcp/auth_callback`), ChatGPT's (`https://chatgpt.com/connector_platform_oauth_redirect`, or `https://chatgpt.com/connector/oauth/<id>` with one path segment and no query) and loopback URLs (Claude Code, any port) are accepted as redirect URIs. Every authorization response, success or error, carries `iss` (RFC 9207) and the metadata sets `authorization_response_iss_parameter_supported`, which ChatGPT requires to use its stable callback. A registered client id is a signed token that carries its redirect URIs, so registering stores nothing. The consent step is the existing agent authorization: `/oauth/authorize` sends the owner to the web app's `/oauth/authorize`, the owner signs in with the passkey, picks an agent and the web app calls `/v1/agents/:id/authorize` (keys into `SessionStore`) and then `POST /v1/oauth/approve`, which mints a 60-second single-use code for that live session. The access token is the same agent JWT as before, so identity still comes from the token. Refresh tokens rotate and work only while the agent's session lives, so a refresh never extends the 24 h session. Every 401 on `/mcp` carries `WWW-Authenticate: Bearer resource_metadata=…`, which is what makes Claude start sign-in. It is on only when `BRIDGE_PUBLIC_URL` and `BRIDGE_WEB_URL` are both set.
 
-**Consequences.** Codes and refresh tokens are in memory like sessions, so a bridge restart or 24 h means the owner signs in again, and the bridge must run as one instance. One connector is one agent: to use another agent, remove the connector in Claude and connect again. CIMD is not offered, so Claude falls back to DCR and the bridge never fetches a client-supplied URL. The `resource` parameter is accepted and ignored: tokens only work on this bridge. The web consent page (`/oauth/authorize`) and the claude.ai tab of the Connect popup use it. Not yet run against a real claude.ai.
+**Consequences.** Codes and refresh tokens are in memory like sessions, so a bridge restart or 24 h means the owner signs in again, and the bridge must run as one instance. One connector is one agent: to use another agent, remove the connector in Claude and connect again. CIMD is not offered, so Claude falls back to DCR and the bridge never fetches a client-supplied URL. The `resource` parameter is accepted and ignored: tokens only work on this bridge. The web consent page (`/oauth/authorize`) and the claude.ai tab of the Connect popup use it. Not yet run against a real claude.ai or ChatGPT.
 
 
 ## ADR-020: DeepSeek is a third agent type, connected through a local runner
@@ -203,3 +203,73 @@ Short architecture decision records. To add one, append the next number and don'
 - Only the onchain permission graph decides what an agent may read, checked in deterministic code on live chain state before any fetch, decrypt or ranking. Models (LLMs, embeddings) and fields an agent wrote may only rank or hide memories inside the permitted set, and one agent's fields never affect another sender's memories.
 
 **Consequences.** Hard rules 2 and 3 in AGENTS.md and the trust model in `docs/architecture.md` are reworded to match. No contract, gas or API change. Making topics private would need a contract that stores only a topic hash in `MemorySlots`, which means a redeploy (ADR-021); not planned.
+
+## ADR-024: The owner reads their own memories in the browser, through the bridge as a ciphertext relay
+**Date:** 2026-10-11 · **Status:** proposed
+
+**Context.** The canvas lists what each agent wrote, but only as a topic, a time and a content hash: the owner could not read their own memories. Memory text is AES-GCM ciphertext in Supabase, and the owner's browser already holds the key (the HKDF `hive/encrypt` key from the passkey phrase). The only read path was MCP, which is for agents.
+
+**Decision.**
+- `GET /v1/memory/:contentHash` (user token only) returns `{ ciphertext, iv, keyId }` for a memory whose stored `owner` is the caller. Another owner's memory is a 404, the same as a missing one, so the route does not reveal which hashes exist. The bridge never decrypts on this path.
+- The browser checks `keyId`, checks that `keccak256(iv ‖ ciphertext)` is the hash it asked for, decrypts with the key from the passkey, and unwraps the `hive-memory/v1` envelope.
+- Decrypted text lives in browser memory only (never localStorage), is dropped on sign-out, and a decrypt that finishes after sign-out is discarded. After a reload the keys are locked until one passkey touch, and the drawer says so.
+- This is not an agent read, so it is not checked against the permission graph: the owner reads what they own, with their own key. Rule 3 is about what an agent may read and is unchanged.
+
+**Consequences.** No contract or gas change. The drawer shows only what the agent itself wrote, not what other agents shared into it (that needs a permission-aware path and is not planned). Built and unit-tested, not yet run in a browser or against testnet (rule 8).
+
+## ADR-025: Envio indexes history for the audit page; it never decides access
+**Date:** 2026-10-11 · **Status:** proposed
+
+**Context.** The audit page and the provenance card need the event history, but the public RPC allows `eth_getLogs` over about 100 blocks (see gotchas), and three events lack what the page shows: `EdgeRemoved` has no from, to or topic, `Propagate` has no slot id, and `MemoryWritten` has no propagated count.
+
+**Decision.**
+- `packages/indexer` (Envio HyperIndex 3, chain 10143) indexes `AgentRegistered`, `AgentWriterSet`, `EdgeAdded`, `EdgeRemoved`, `MemoryWritten` and `Propagate` from the AgentRegistry deploy block. Addresses and ABIs are copied from `@hive/shared` by `pnpm --filter @hive/indexer sync`, and a test fails if they drift.
+- Handlers fill the gaps by joining: `EdgeRemoved` reads the stored `Edge`; `Propagate` is joined to its slot by tx hash, sender and content hash (`MemorySlots.write` emits `MemoryWritten` before it calls the engine); the propagated count is the number of `Propagate` logs.
+- Derived entities: `Edge.propagationCount` and `lifetimeSeconds`, `AgentStats`, `TopicStats`, `OwnerStats`, and `PolicyViolation`, a `Propagate` that no active, unexpired edge in the indexed state explains. It is expected to stay empty.
+- Everything indexed is already public onchain (names, topic text, content hashes). No plaintext reaches the indexer.
+- The indexer is for history and display only. Permission checks still read live chain state (rule 3), so a lagging or wrong index can never widen what an agent reads.
+
+**Consequences.** HyperSync needs an API token. A topic name appears only if the edge or slot was written after the start block. Tested with simulated events; not yet synced against testnet or deployed, so docs and UI call it built, not verified (rule 8).
+
+## ADR-026: A mutual connection is two ordinary edges, signed one after the other
+**Date:** 2026-10-11 · **Status:** accepted
+
+**Context.** Edges are directed. To let two agents read each other the owner drew an edge, filled the editor, signed, then did the whole thing again the other way. The two edges were also drawn on the same line with their labels on top of each other.
+
+**Decision.**
+- The edge editor gets a Direction choice. "Both directions" signs `A → B` and then `B → A` with the same topic and expiry. One direction stays the default, so sharing both ways is always an explicit choice.
+- It is two `KnowledgeGraph.addEdge` calls from one unlock, not a new contract call: the deployed contracts have no pair or batch entry point and are not redeployed (ADR-021). Each leg declares its own gas (rule 5). The legs run sequentially, because they share one sending account.
+- The second leg is not sent if the first fails. If the second fails, the first stays a valid one-way edge and the toast names which direction is missing.
+- Nothing changes in the bridge, the shared schema or the permission check. Each direction is its own edge with its own expiry, revoke and tx link, so revoking one side leaves the other.
+- The canvas draws a pair as two parallel arrows, each with its own label.
+
+**Consequences.** Two transactions cost two gas payments and about one extra confirmation of waiting. The pair is not atomic. An atomic pair would need a redeploy and is not planned. "Revoke both" in the edge menu is not built.
+
+## ADR-027: Updating an edge replaces it; `setExpiry` is in the contract source and waits for a redeploy
+**Date:** 2026-10-11 · **Status:** accepted for the web, proposed for the contract
+
+**Context.** The edge editor offered "Update with passkey" and promised that signing "updates its expiry instead of adding a second one". Nothing did: `KnowledgeGraph.addEdge` appends, there is no uniqueness check and no expiry setter. So shortening an expiry left the old edge granting access, revoking one edge left its twin granting access, and every update added one more entry to `_fromList`, which `PropagationEngine.onMemoryWritten` loops over on every write.
+
+**Decision.**
+- Web: updating an edge revokes the live edge or edges with the same from, to and topic, then adds the new one. Two transactions from one unlock, revoke first, so a failure in between leaves no access (fail closed), and the toast says which step failed.
+- Web: revoking an edge revokes every live edge with the same from, to and topic, so duplicates left by the old behaviour go with it.
+- Contract: `KnowledgeGraph.setExpiry(edgeId, expiresAt)` (owner of `from`, edge active, expiry in the future) emits `EdgeExpiryChanged`. It is in the source, tested and in the ABI in `@hive/shared`, but the deployed contracts do not have it. The web does not call it.
+
+**Consequences.** Until a redeploy, an update costs two transactions and adds one entry to `_fromList` per update. A redeploy resets testnet state (ADR-021) and the indexer needs a handler for `EdgeExpiryChanged`; when that lands the web switches the update step to `setExpiry`, and this ADR is updated. Edges left over from before this change are cleaned up one revoke at a time.
+
+## ADR-028: Every agent also gets an ERC-8004 identity; it never decides access
+**Date:** 2026-10-11 · **Status:** accepted. Shared contract, bridge card and web transaction are built and unit-tested, with no transaction sent yet. The indexer join is built and replayed over real history, where no agent has an identity yet
+
+**Context.** Our `AgentRegistry` is private to this project: nothing outside Hive can find an agent in it. ERC-8004 is a public identity registry for agents, and one is deployed on Monad testnet at `0x8004A818BFB912233c491871b3d84c89A494BD9e` (`AgentIdentity`, version 2.0.0, about 2,100 agents on 11 Oct). Its `register(string,(string,bytes)[])`, `getMetadata`, `tokenURI` and `ownerOf` selectors and its `Registered` and `MetadataSet` topics were found in the deployed bytecode, and `register` was simulated with `cast call` (about 311k gas with one metadata entry). No transaction has been sent to it yet.
+
+**Decision.**
+- After `register` and `setAgentWriter`, the owner sends a third transaction: `register(agentURI, [("hiveAgentId", abi.encode(agentRegistry, agentId))])` on the ERC-8004 registry. The owner's EOA pays (ADR-006) and declares the gas (rule 5).
+- The link is the `hiveAgentId` metadata entry, not the URL. It carries our `AgentRegistry` address, so ids from an older deploy (ADR-021) cannot be confused with current ones. It is a claim: a reader accepts it only if the ERC-8004 owner is also the owner of that Hive agent. The key is onchain and is never renamed.
+- `agentURI` is `<bridge>/agents/<hiveAgentId>/card.json`. The bridge builds the card from `AgentRegistry` alone: name, type, owner, the MCP endpoint and the Hive id. All of that is already public (ADR-023). No memory content, key or token goes into it.
+- The third transaction is optional. If it fails, the agent works as before and the owner can retry later; the same retry covers agents created before this ADR. The web does not send it when the bridge URL is not `https`, so a local run does not write `localhost` links into a public registry.
+- The web remembers the ERC-8004 id in this browser (`localStorage`, per registry deploy and owner) and also asks the indexer for the owner's joined identities on load. Without a reachable indexer, another browser offers to add the identity again, which would mint a second one.
+- Envio indexes `Registered` and `MetadataSet` and joins them to `Agent` after the owner check. It keeps the owner from registration and does not follow transfers of the identity token. The join adds no audit row and no counter.
+- Permissions do not change. They read our `AgentRegistry` and `KnowledgeGraph` on live chain state (rule 3). An ERC-8004 identity, its metadata or its card never widen or narrow what an agent reads. No contract is redeployed.
+- The ABI, the address, the metadata encoding and the card schema live in `@hive/shared` (`erc8004.ts`). The ABI is hand-written, because the registry is not built from `packages/contracts`.
+
+**Consequences.** Creating an agent costs a third transaction, about 0.03 MON at the gas price seen on 10 Oct. The card's `registrations` list stays empty: the ERC-8004 id does not exist when the URI is written, and the registry has no lookup from our id back to its id. Filling it from the indexer is planned. If the bridge moves to another domain the stored URIs go stale until the owner updates them, which is not built. We use the Identity Registry only. Reputation and validation are not used, and docs and UI must say "ERC-8004 identity", nothing wider (rule 8).

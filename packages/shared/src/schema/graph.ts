@@ -57,6 +57,10 @@ export const zAuditEvent = z.discriminatedUnion("kind", [
   audit("memory.propagated", { slotId: zSlotId, from: zAgentId, to: zAgentId, contentHash: zContentHash, topic: zTopic }),
 ]);
 
+/** Counters for the Audit page strip, derived by the indexer. `violations` counts deliveries no active, unexpired edge explains and should be 0. */
+const zCount = z.number().int().nonnegative();
+export const zOwnerStats = z.object({ agents: zCount, edgesAdded: zCount, edgesRevoked: zCount, memories: zCount, propagations: zCount, violations: zCount });
+
 /** Where one memory came from and where it went, looked up by content hash. */
 export const zProvenance = z.object({ slot: zMemorySlot, propagations: z.array(zPropagation) });
 
@@ -67,4 +71,5 @@ export type Propagation = z.infer<typeof zPropagation>;
 export type GraphSnapshot = z.infer<typeof zGraphSnapshot>;
 export type GraphSnapshotWire = z.input<typeof zGraphSnapshot>;
 export type AuditEvent = z.infer<typeof zAuditEvent>;
+export type OwnerStats = z.infer<typeof zOwnerStats>;
 export type Provenance = z.infer<typeof zProvenance>;
