@@ -1,6 +1,6 @@
 import {
-  HiveError, zAgentId, zAgentType, zAgentsResponse, zAuthChallengeBody, zAuthVerifyBody, zAuthorizeBody, zCredentialId, zPutVaultBody, monadTestnet,
-  type VaultResponse, type AuthChallengeResponse, type AuthVerifyResponse, type AuthorizeResponse, type Hex, type HealthResponse,
+  HiveError, zAgentId, zAgentType, zAgentsResponse, zAuthChallengeBody, zAuthVerifyBody, zAuthorizeBody, zContentHash, zCredentialId, zPutVaultBody, monadTestnet,
+  type VaultResponse, type AuthChallengeResponse, type AuthVerifyResponse, type AuthorizeResponse, type Hex, type HealthResponse, type MemoryResponse,
 } from "@hive/shared";
 import type { z } from "zod";
 import { privateKeyToAddress } from "viem/accounts";
@@ -207,6 +207,20 @@ export function createApp(deps: AppDeps): Express {
     if (session) events.publish(session.owner, { type: "agent.disconnected", data: { agentId: id.data.toString() } });
     res.sendStatus(204);
   });
+
+  // The owner's own read: ciphertext only, decrypted in the browser with the key it already holds. A row of another owner looks the same as no row.
+  app.get("/v1/memory/:contentHash", requireUser, wrap(async (req, res) => {
+    const hash = zContentHash.safeParse(req.params.contentHash);
+    if (!hash.success) throw new HiveError("INVALID_INPUT", "Content hash must be 32-byte hex.");
+    const user = res.locals.user as UserClaims;
+    const row = await deps.store.getOwned(hash.data as Hex).catch(() => {
+      throw new HiveError("STORAGE_ERROR", "Could not read the memory store.");
+    });
+    if (!row || row.owner.toLowerCase() !== user.owner.toLowerCase()) throw new HiveError("NOT_FOUND", "No such memory.");
+    const out: MemoryResponse = { ciphertext: Buffer.from(row.ciphertext).toString("base64"), iv: Buffer.from(row.iv).toString("base64"), keyId: row.keyId };
+    res.setHeader("Cache-Control", "private, no-store");
+    res.json(out);
+  }));
 
   // EventSource can't send headers, so the user token travels in the query (docs/backend-handoff.md).
   app.get("/v1/events", wrap(async (req, res) => {

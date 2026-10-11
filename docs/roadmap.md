@@ -87,7 +87,7 @@ Not checked: a live write and search from two agents, the `memory_embedding` tab
 | P0.3 | MemorySlots + PropagationEngine | P1 | ✅ deployed to testnet, source and tests in #76 |
 | P0.4 | Passkey auth via Mera | P2 | 🚧 real passkey ceremony and key derivation (ADR-005); `/smoke` can sign with the passkey (#79), but that path is untested |
 | P0.5 | Encrypted storage (Supabase) | P2 | ✅ ciphertext-only table, bridge store (#66, #69) |
-| P0.6 | MCP bridge server | P2 | 🚧 MCP read/write, authorize, gas top-up, chain reader (#71–#77); SSE `/v1/events` built (`agent.connected`, `memory.written`, `memory.read`, `agent.disconnected`); `session.expiring` and `GET /v1/memory/:hash` are planned |
+| P0.6 | MCP bridge server | P2 | 🚧 MCP read/write, authorize, gas top-up, chain reader (#71–#77); SSE `/v1/events` built (`agent.connected`, `memory.written`, `memory.read`, `agent.disconnected`); `GET /v1/memory/:contentHash` (the owner's own ciphertext read) is built; `session.expiring` is planned |
 | P0.7 | Visual canvas (React Flow) | P3 | 🚧 canvas, audit and connect screens on the mock client. In live mode the live client reads agents and registers them from `/connect` (unit-tested, not yet run against testnet) and reads the bridge's event stream (unit-tested, not yet run in the browser); edges are read and signed on-chain (not yet run on testnet); audit and memory preview are still stubs |
 | P0.8 | Live propagation animation | P3 | ⏳ |
 | P0.9 | 2 mock chatbots | P4 | ⏳ placeholder only |
