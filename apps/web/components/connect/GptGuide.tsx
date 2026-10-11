@@ -1,6 +1,6 @@
 "use client";
 
-import { codexConfig, codexEnv, connectorUrl, gptSnippet } from "@/lib/hive/commands";
+import { codexCommand, codexConfig, connectorUrl, gptSnippet } from "@/lib/hive/commands";
 import { ConnectorUrl, Fine, Prose, Steps, type GuideBodyProps } from "./parts";
 
 export const GPT_TABS = [
@@ -33,14 +33,14 @@ export function GptGuide({ name, url, token, tab, card }: GuideBodyProps) {
     return (
       <>
         <Steps>
-          <li>Add this block to <code className="font-mono">~/.codex/config.toml</code> (create the file if it doesn’t exist).</li>
-          <li>In the terminal where you run Codex, set the token below, then start <code className="font-mono">codex</code> from that same terminal. Codex loads MCP servers at startup.</li>
+          <li>Paste this in the terminal where you run Codex.</li>
+          <li>Start <code className="font-mono">codex</code> from that same terminal. Codex loads MCP servers at startup.</li>
         </Steps>
         {card(
           "codex",
-          codexConfig(url, name),
-          "The file holds only the name of the token variable, never the token. The token is scoped to this agent and expires in 24h: after Reconnect, export it again and restart Codex.",
-          token ? { caption: "then, in that terminal", command: codexEnv(token, name) } : undefined,
+          codexCommand(url, token, name),
+          "Codex saves only the name of the token variable, never the token. The token is scoped to this agent and expires in 24h: after Reconnect, paste the new command and restart Codex.",
+          { caption: "older Codex without --url: add this to ~/.codex/config.toml instead", command: codexConfig(url, name) },
         )}
       </>
     );
