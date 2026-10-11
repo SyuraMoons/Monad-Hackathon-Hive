@@ -148,7 +148,7 @@ We build one layer at a time. Tick each step off here when it's done.
   - [x] Bridge: encrypted embeddings (off by default; the `memory_embedding` migration is written but not applied to the shared Supabase project)
   - [x] Shared agent instructions and context-size measurement (a seeded fixture, see _Verified runs_)
   - [ ] Live run: two Claude Code terminals on the deployed bridge, `HIVE_EMBEDDINGS=on`
-- [x] Memory history in the agent drawer: past writes read from `MemorySlots.slotsSince` (topic, time and content hash). The text of each memory is fetched as ciphertext from the bridge and decrypted in the browser (summary first, full text on click; locked until the passkey is touched after a reload, ADR-024). Not yet tried in a browser
+- [x] Memory history in the agent drawer: past writes read from `MemorySlots.slotsSince` (topic, time and content hash). The text of each memory is fetched as ciphertext from the bridge and decrypted in the browser (the drawer lists numbered rows; a row opens the memory in the panel, and "See all" opens the whole history; locked until the passkey is touched after a reload, ADR-024). Not yet tried in a browser
 - [x] Remove an agent from the canvas: hidden in this browser, bridge session ended, refused while it has edges (ADR-012). The registry has no delete. Not yet tried in a browser
 - [x] One terminal per agent: `claude --mcp-config` command on Connect and in the drawer, so several agents share one folder. Not yet tried against a real Claude Code
 - [x] Create agents from the canvas, keep agent tokens across a reload, and "Finish setup" for a registration that stopped halfway. Not yet run in a browser

@@ -11,11 +11,15 @@ export type ToastItem = {
   link?: { href: string; label: string };
 };
 
+/** What the open agent drawer shows: the agent, its whole memory history, or one memory (and where it was opened from). */
+export type DrawerView = "agent" | "history" | { slotId: string; from: "agent" | "history" };
+
 /** Canvas-relative position (px) where a popover opens. */
 export type Anchor = { x: number; y: number };
 
 type UiState = {
   drawerAgentId: AgentId | null;
+  drawerView: DrawerView;
   /** `topic` preselects a topic when editing an existing edge. */
   edgeEditor: { from: AgentId; to: AgentId; topic?: string } | null;
   edgeMenu: { key: string; at: Anchor } | null;
@@ -43,6 +47,7 @@ let toastSeq = 0;
 
 export const useUi = create<UiState>()((set, get) => ({
   drawerAgentId: null,
+  drawerView: "agent",
   edgeEditor: null,
   edgeMenu: null,
   revokeEdge: null,
@@ -57,12 +62,13 @@ export const useUi = create<UiState>()((set, get) => ({
   set: (patch) => set(patch),
   closeLayers() {
     const s = get();
-    // innermost first: confirm → menu → wallet → drawer
+    // innermost first: confirm → menu → wallet → drawer view → drawer
     if (s.hideAgent) return set({ hideAgent: null }), true;
     if (s.agentMenu) return set({ agentMenu: null }), true;
     if (s.revokeEdge) return set({ revokeEdge: null }), true;
     if (s.edgeMenu) return set({ edgeMenu: null }), true;
     if (s.walletMenu) return set({ walletMenu: false }), true;
+    if (s.drawerAgentId !== null && s.drawerView !== "agent") return set({ drawerView: s.drawerView === "history" ? "agent" : s.drawerView.from }), true;
     if (s.drawerAgentId !== null) return set({ drawerAgentId: null }), true;
     return false;
   },
