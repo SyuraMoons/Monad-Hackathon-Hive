@@ -244,8 +244,8 @@ Why not roll your own: a revoke takes effect on the next read, the permission hi
 | Envio indexer | **Live** on Envio Cloud, synced to head on 11 Oct |
 | ERC-8004 identity | **Run on testnet**, 11 Oct: four agents registered and joined in the indexer |
 | Memory key in its own PRF namespace | **Live**. Signed in on two devices with one passkey and one prompt on 11 Oct; a decrypt on the second device not recorded |
-| Memory search and structured memory | **Built**, measured on fixtures. No live run |
-| claude.ai, Claude Desktop and ChatGPT connectors (OAuth) | **Built**. The Claude connector was added from an iPad on 11 Oct and connected an agent; a tool call through it was not recorded. ChatGPT and Claude Desktop not run |
+| Memory search and structured memory | **Built**, measured on fixtures. The live bridge reports its embedding model as ready (health check, 11 Oct); no search run is recorded |
+| claude.ai, Claude Desktop and ChatGPT connectors (OAuth) | **Built**. On 11 Oct the Claude connector was added from an iPad and connected an agent, and the team reports Claude Desktop and Codex CLI working. Which tools were called was not recorded. The ChatGPT connector itself has not been run |
 | DeepSeek runner, propagation animation | Planned |
 
 Every run we checked, and what each one did not check, is in [docs/roadmap.md](docs/roadmap.md).

@@ -122,6 +122,8 @@ After ADR-029 reached production (web `936d2a5` on Vercel, deployed 09:34 UTC; t
 - **A write after the change:** agent 10 wrote slot 9 on topic `general`, `0x3e390fdc…8216` (block 70084418, 10:12 UTC, status success, sent by the agent's writer key `0x6518…5917`). The receipt has `MemoryWritten` and two `Propagate` events, to agents 11 and 12. Checked with `cast receipt`; `slotsSince(10, 0)` returns slots 6, 8 and 9.
 - **An agent read of older memories:** agent 10, connected through the hosted bridge, read its slot 6 and the memory agent 11 shared with it, both sealed before ADR-029. Seen as the agent's own output.
 - **A connector on the second device:** adding the bridge as a custom connector from the iPad reached the consent page and connected the agent. The page kept showing its waiting state after the Claude app opened (fixed in #175).
+- **Other clients (reported, 11 Oct):** Claude Desktop and Codex CLI were connected to the hosted bridge and worked. Not recorded: which tools were called, and the transactions or slots they touched. The ChatGPT connector (not Codex) was not run.
+- **Search on the hosted bridge:** `/health` answered `"embeddings":"ready"` on 11 Oct, so the model is loaded there. No `hive_search_memory` call is recorded.
 
 Not checked:
 - The prompt count on the Mac.
