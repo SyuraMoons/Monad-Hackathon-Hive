@@ -13,6 +13,7 @@ import { StatusDot } from "@/components/ui/StatusDot";
 import { Tabs } from "@/components/ui/Tabs";
 import { cn } from "@/lib/cn";
 import type { GuideType } from "@/lib/hive/agentTypes";
+import { getHiveClient } from "@/lib/hive/client";
 import { useGraph, visibleAgents } from "@/lib/stores/graph";
 import { useSession, type Connection } from "@/lib/stores/session";
 
@@ -94,6 +95,20 @@ export default function ConnectPage() {
   useEffect(() => {
     if (graphReady && !locked) void connectAgent(AGENTS[tab].type, AGENTS[tab].name);
   }, [graphReady, locked, tab, connectAgent]);
+
+  // A new account has no MON yet, so the first attempt stops there. Watch the balance and go on when the MON arrives.
+  const waitingForGas = (() => {
+    const c = connections[AGENTS[tab].type];
+    return c?.phase === "error" && !!c.needsGas;
+  })();
+  useEffect(() => {
+    if (!waitingForGas || locked) return;
+    const timer = setInterval(async () => {
+      const balance = await (await getHiveClient()).status.balance().catch(() => undefined);
+      if (balance && !balance.low) void connectAgent(AGENTS[tab].type, AGENTS[tab].name);
+    }, 3000);
+    return () => clearInterval(timer);
+  }, [waitingForGas, locked, tab, connectAgent]);
 
   const ofType = (t: AgentType) => Object.values(agents).filter((a) => a.agentType === t).sort((a, b) => Number(a.agentId - b.agentId));
   const all = [...ofType("claude"), ...ofType("gpt"), ...ofType("deepseek")];
@@ -217,7 +232,7 @@ export default function ConnectPage() {
                       ? `${selected?.name} was registered, but its setup stopped halfway. Finishing is one transaction.`
                       : `${selected?.name} has no token in this tab. Authorize it to show the command.`
                     : conn?.phase === "error"
-                      ? conn.message
+                      ? conn.needsGas ? `${conn.message} This page goes on by itself when it arrives.` : conn.message
                       : undefined),
               retryLabel: !graphError && needsUnlock ? "Unlock with passkey" : needsAuthorize ? (unfinished ? "Finish setup" : "Authorize") : undefined,
               onRetry: () =>

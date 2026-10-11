@@ -12,6 +12,7 @@ import type { HiveMode } from "@/lib/hive/types";
 import { useFeed } from "./feed";
 import { useGraph, type AgentNode } from "./graph";
 import type { LiveHiveClient } from "@/lib/hive/live";
+import { NoGasError } from "@/lib/hive/live/registry";
 import type { MockHiveClient } from "@/lib/hive/mock";
 import { getPasskeyService, PasskeyError, type HiveKeys, type PasskeyErrorCode } from "@/lib/passkey";
 
@@ -72,7 +73,7 @@ export type CreateStep = "registering" | "loading" | "authorizing" | "identity";
 export type Connection =
   | { phase: "registering" | "authorizing" }
   | { phase: "ready"; agentId: AgentId; agentToken: string; mcpUrl: string; expiresAt: number }
-  | { phase: "error"; message: string };
+  | { phase: "error"; message: string; needsGas?: boolean };
 
 /** The token the bridge issued for one agent, by agent id. Memory only: it is a bearer secret. */
 export type Authorization = { agentToken: string; mcpUrl: string; expiresAt: number };
@@ -312,7 +313,7 @@ export const useSession = create<SessionState>()((set, get) => ({
       const res = await authorizeWithKeys(keys, agent);
       setConn({ phase: "ready", agentId: agent.agentId, agentToken: res.agentToken, mcpUrl: res.mcpUrl, expiresAt: res.expiresAt });
     } catch (e) {
-      setConn({ phase: "error", message: e instanceof Error ? e.message : String(e) });
+      setConn({ phase: "error", message: e instanceof Error ? e.message : String(e), needsGas: e instanceof NoGasError });
     }
   },
 

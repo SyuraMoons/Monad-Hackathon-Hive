@@ -1,7 +1,7 @@
 import { HiveError } from "@hive/shared";
 import { BaseError, InsufficientFundsError, zeroAddress, type Address, type Hex } from "viem";
 import { describe, expect, it, vi } from "vitest";
-import { registerAndBind, toAgent, type ChainAgent, type RegistryDeps } from "./registry";
+import { MIN_GAS_BALANCE, NoGasError, registerAndBind, toAgent, type ChainAgent, type RegistryDeps } from "./registry";
 
 const OWNER: Address = "0x6AC6951B0a53d7a059A121494691A84b5403dF5A";
 const OTHER: Address = "0x00000000000000000000000000000000000000b2";
@@ -18,6 +18,7 @@ function fake(rows: ChainAgent[], over: Partial<RegistryDeps> = {}): RegistryDep
     agentsOf: vi.fn(async (owner: Address) => rows.filter((r) => r.owner.toLowerCase() === owner.toLowerCase())),
     register: vi.fn(async () => ({ agentId: BigInt(rows.length + 1), txHash: HASH })),
     setWriter: vi.fn(async () => HASH),
+    balanceOf: vi.fn(async () => BigInt(0)),
     ...over,
   } as RegistryDeps;
 }
@@ -82,7 +83,7 @@ describe("registerAndBind", () => {
     const rpc = new BaseError("insufficient funds for 0xSECRET", { cause: new InsufficientFundsError() });
     const deps = fake([], { register: vi.fn().mockRejectedValue(rpc) });
     const err = await registerAndBind(deps, input).catch((e: unknown) => e);
-    expect(err).toBeInstanceOf(HiveError);
+    expect(err).toBeInstanceOf(NoGasError);
     expect((err as HiveError).code).toBe("CHAIN_ERROR");
     expect((err as HiveError).message).toMatch(/no MON for gas/);
     expect((err as HiveError).message).toContain(`${input.owner.slice(0, 6)}…${input.owner.slice(-4)}`);
@@ -94,6 +95,21 @@ describe("registerAndBind", () => {
     const deps = fake([], { register: vi.fn().mockRejectedValue(rpc) });
     const err = await registerAndBind(deps, input).catch((e: unknown) => e);
     expect((err as HiveError).message).toMatch(/no MON for gas/);
+  });
+
+  it("does not say the account is empty when it holds MON", async () => {
+    const rpc = new BaseError("Missing or invalid parameters.", { details: "Signer had insufficient balance" });
+    const deps = fake([], { register: vi.fn().mockRejectedValue(rpc), balanceOf: vi.fn(async () => MIN_GAS_BALANCE * BigInt(20)) });
+    const err = await registerAndBind(deps, input).catch((e: unknown) => e);
+    expect(err).not.toBeInstanceOf(NoGasError);
+    expect((err as HiveError).message).toMatch(/holds 1\.0000 MON/);
+    expect((err as HiveError).message).not.toMatch(/no MON for gas/);
+  });
+
+  it("falls back to the no-MON message when the balance can't be read", async () => {
+    const rpc = new BaseError("Missing or invalid parameters.", { details: "Signer had insufficient balance" });
+    const deps = fake([], { register: vi.fn().mockRejectedValue(rpc), balanceOf: vi.fn().mockRejectedValue(new Error("rpc down")) });
+    await expect(registerAndBind(deps, input)).rejects.toBeInstanceOf(NoGasError);
   });
 
   it("hides any other failure behind a fixed message", async () => {
