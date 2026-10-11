@@ -173,7 +173,7 @@ What the split changes:
 | User token (24 h) | `localStorage` | It can list agents and end sessions. It cannot sign or decrypt |
 | Agent tokens (24 h) | `sessionStorage` | Until the tab closes or sign-out |
 
-Both namespaces are deterministic, so the same passkey on a second device gives the same address and the same memory key. On 11 Oct the same Google Password Manager passkey signed in on a Mac and on an iPad and gave the same address ([roadmap](docs/roadmap.md)). Not recorded yet: whether that took one prompt or two, Safari with iCloud Keychain and 1Password, and opening a memory sealed under the new key on the second device.
+Both namespaces are deterministic, so the same passkey on a second device gives the same address and the same memory key. On 11 Oct the same Google Password Manager passkey signed in on a Mac and on an iPad and gave the same address ([roadmap](docs/roadmap.md)). On the iPad it took one passkey prompt. Not recorded yet: Safari with iCloud Keychain and 1Password, and opening a memory sealed under the new key on the second device.
 
 ## For the bounties
 
@@ -194,7 +194,7 @@ Both namespaces are deterministic, so the same passkey on a second device gives 
 | Nothing sensitive persisted | See the table under [Keys](#keys-mera). No key is stored; two 24 h tokens are |
 | Cross-device | Both namespaces are deterministic, so a synced passkey gives the same address and the same memory key. Run on 11 Oct, Mac and iPad with Google Password Manager: same address on both. Decrypting a memory on the second device is not recorded |
 
-Two honest limits. Inside the account namespace the owner key and the agent keys still come from one salt and are separated by derivation path, not by one salt each. And for the two-salt prompt we have a working sign-in on one authenticator, Google Password Manager, without the prompt count; the others are not run.
+Two honest limits. Inside the account namespace the owner key and the agent keys still come from one salt and are separated by derivation path, not by one salt each. And the two-salt prompt has run on one authenticator only, Google Password Manager, where it took one prompt; the others are not run.
 
 ## Indexer (Envio)
 
@@ -227,7 +227,7 @@ Why not roll your own: a revoke takes effect on the next read, the permission hi
 ## What comes next
 
 - Run the claude.ai, Claude Desktop and ChatGPT connectors against the hosted bridge. The OAuth server for them is built ([ADR-019](docs/decisions.md)).
-- The two-salt prompt recorded on Safari with iCloud Keychain and on 1Password, with the prompt count, and a memory opened on the second device.
+- The two-salt prompt recorded on Safari with iCloud Keychain and on 1Password, and a memory opened on the second device.
 - Publish `@hive/mcp-client` to npm, so building on the bridge does not need this repo.
 - A contract redeploy that carries what is waiting in the source: `setExpiry`, so an edge's expiry changes in place ([ADR-027](docs/decisions.md)).
 - The rename from Hive to Mindshare in code, as one scripted change ([ADR-008](docs/decisions.md)).
@@ -243,7 +243,7 @@ Why not roll your own: a revoke takes effect on the next read, the permission hi
 | Bridge on Railway, web on Vercel | **Live** |
 | Envio indexer | **Live** on Envio Cloud, synced to head on 11 Oct |
 | ERC-8004 identity | **Run on testnet**, 11 Oct: four agents registered and joined in the indexer |
-| Memory key in its own PRF namespace | **Live**. Signed in on two devices with one passkey on 11 Oct; prompt count and a decrypt on the second device not recorded |
+| Memory key in its own PRF namespace | **Live**. Signed in on two devices with one passkey and one prompt on 11 Oct; a decrypt on the second device not recorded |
 | Memory search and structured memory | **Built**, measured on fixtures. No live run |
 | claude.ai, Claude Desktop and ChatGPT connectors (OAuth) | **Built**, not yet run against those clients |
 | DeepSeek runner, propagation animation | Planned |
