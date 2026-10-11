@@ -49,7 +49,7 @@ export function EdgeEditorModal({ from, to, initialTopic, onClose, onSign, retur
   /** Preselects this topic when editing an existing edge from the edge menu. */
   initialTopic?: string;
   onClose(): void;
-  onSign(draft: EdgeDraft & { update: boolean }): void;
+  onSign(draft: EdgeDraft & { update: boolean; both: boolean }): void;
   returnFocus?: RefObject<HTMLElement | null>;
 }) {
   const agents = useGraph((s) => s.agents);
@@ -61,6 +61,8 @@ export function EdgeEditorModal({ from, to, initialTopic, onClose, onSign, retur
   const liveEdges = useMemo(() => Object.values(edges).filter((e) => e.state !== "revoked"), [edges]);
   const topics = useMemo(() => [...new Set([...SUGGESTED, ...liveEdges.map((e) => e.topic).filter((t) => t !== UNKNOWN_TOPIC && t !== ALL_TOPICS), ...(initialTopic && initialTopic !== ALL_TOPICS ? [initialTopic] : [])])], [liveEdges, initialTopic]);
 
+  // Default: one direction. "Both directions" signs the reverse edge too, with the same topic and expiry.
+  const [both, setBoth] = useState(false);
   // Default: the edge covers every topic. "Only one topic" is the opt-in restriction.
   const [onlyOne, setOnlyOne] = useState(!!initialTopic && initialTopic !== ALL_TOPICS);
   const [topic, setTopic] = useState<string>(initialTopic && initialTopic !== ALL_TOPICS ? initialTopic : topics[0]);
@@ -84,7 +86,13 @@ export function EdgeEditorModal({ from, to, initialTopic, onClose, onSign, retur
   const existing = topicCheck.success
     ? liveEdges.find((e) => e.from === from && e.to === to && e.topic === topicCheck.data)
     : undefined;
-  const pendingSame = existing?.state === "pending" || existing?.state === "revoking";
+  const existingBack = topicCheck.success
+    ? liveEdges.find((e) => e.from === to && e.to === from && e.topic === topicCheck.data)
+    : undefined;
+  const isPending = (e?: { state: string }) => e?.state === "pending" || e?.state === "revoking";
+  const pendingSame = isPending(existing) || (both && isPending(existingBack));
+  // "Update" only when every edge this click signs already exists.
+  const isUpdate = !!existing && (!both || !!existingBack);
 
   // "…and Therapy Bot stays out": agents that stay isolated after this edge, from the graph.
   const linked = new Set(liveEdges.filter((e) => e.state !== "pending").flatMap((e) => [e.from.toString(), e.to.toString()]));
@@ -98,11 +106,19 @@ export function EdgeEditorModal({ from, to, initialTopic, onClose, onSign, retur
   return (
     <Modal labelledBy="edge-editor-title" onClose={onClose} returnFocus={returnFocus}>
       <div className="flex flex-col gap-1.5">
-        <p className="font-mono text-[14px] tracking-[0.1em] text-ink-3">{existing ? "UPDATE EDGE" : "NEW EDGE"}</p>
+        <p className="font-mono text-[14px] tracking-[0.1em] text-ink-3">{isUpdate ? "UPDATE EDGE" : "NEW EDGE"}{both ? "S" : ""}</p>
         <h2 id="edge-editor-title" className="font-display text-[32px] leading-tight whitespace-pre text-ink">
-          {fromName}  →  {toName}
+          {fromName}  {both ? "↔" : "→"}  {toName}
         </h2>
       </div>
+
+      <fieldset className="flex flex-col gap-2.5">
+        <legend className="mb-2.5 text-[15px] font-medium text-ink">Direction</legend>
+        <div className="flex flex-wrap gap-2">
+          <OptionChip selected={!both} onClick={() => setBoth(false)}>{fromName} → {toName} only</OptionChip>
+          <OptionChip selected={both} onClick={() => setBoth(true)}>Both directions</OptionChip>
+        </div>
+      </fieldset>
 
       <fieldset className="flex flex-col gap-2.5">
         <legend className="mb-2.5 text-[15px] font-medium text-ink">Topic</legend>
@@ -167,14 +183,18 @@ export function EdgeEditorModal({ from, to, initialTopic, onClose, onSign, retur
         {topicCheck.success && expiryValid ? (
           <>
             <p className="text-ink">
-              {fromName} can push {topicText} memory to {toName} until {longDate(expiresAt)}.
+              {both
+                ? `${fromName} and ${toName} can each push ${topicText} memory to the other until ${longDate(expiresAt)}.`
+                : `${fromName} can push ${topicText} memory to ${toName} until ${longDate(expiresAt)}.`}
             </p>
             <p className="text-ink-2">
-              {existing
-                ? pendingSame
-                  ? "This edge is already being signed. Wait for it to confirm."
-                  : `This edge already exists (${expiresIn(existing.expiresAt)}). Signing updates its expiry instead of adding a second one.`
-                : `One direction only: ${toName} can’t write back${outsideText}.`}
+              {pendingSame
+                ? "An edge here is already being signed. Wait for it to confirm."
+                : both
+                  ? `Two edges, one per direction, signed one after the other with one passkey prompt. Each can be revoked on its own${outsideText}.`
+                  : existing
+                    ? `This edge already exists (${expiresIn(existing.expiresAt)}). Signing updates its expiry instead of adding a second one.`
+                    : `One direction only: ${toName} can’t write back${outsideText}.`}
             </p>
           </>
         ) : (
@@ -202,13 +222,13 @@ export function EdgeEditorModal({ from, to, initialTopic, onClose, onSign, retur
           )}
           <PillButton
             disabled={!canSign}
-            onClick={() => topicCheck.success && onSign({ from, to, topic: topicCheck.data as Topic, expiresAt, update: !!existing })}
+            onClick={() => topicCheck.success && onSign({ from, to, topic: topicCheck.data as Topic, expiresAt, update: !!existing, both })}
           >
-            {existing ? "Update with passkey" : "Sign with passkey"}
+            {both ? (isUpdate ? "Update both with passkey" : "Sign both with passkey") : existing ? "Update with passkey" : "Sign with passkey"}
           </PillButton>
         </div>
       </div>
-      <p className="font-mono text-[14px] whitespace-pre-wrap text-ink-3">KnowledgeGraph.addEdge()  ·  Monad testnet</p>
+      <p className="font-mono text-[14px] whitespace-pre-wrap text-ink-3">KnowledgeGraph.addEdge(){both ? " × 2" : ""}  ·  Monad testnet</p>
     </Modal>
   );
 }
