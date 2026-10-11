@@ -60,7 +60,8 @@ Port `4000`. JSON everywhere, validated with the shared zod schemas. Allow the w
 | `POST /v1/auth/verify` | `zAuthVerifyBody` → `zAuthVerifyResponse` | Rebuild the text with `authMessage(owner, nonce)`, check with viem `verifyMessage` (handles ERC-1271/6492). HS256 JWT, 24 h, `{ sub: owner, typ: "user" }` |
 | `GET /v1/agents` | → `zAgentsResponse` | The owner's agents with `connected`, `lastCallAt`, `tokenExpiresAt` |
 | `POST /v1/agents/:id/authorize` | `zAuthorizeBody` → `zAuthorizeResponse` | Both keys are `0x` + 64 hex. Reject unless `agents(id).owner == token owner` and `address(agentPrivateKey) == agents(id).agentKey`. Keys live in memory only |
-| `DELETE /v1/agents/:id/session` | → `204` | Web calls it for every agent on Sign out |
+| `DELETE /v1/agents/:id/session` | → `204` | One agent. The owner's "disconnect" |
+| `DELETE /v1/sessions` | → `204` | **Built.** Sign out: ends every session of the token's owner, agents that never called a tool included, and publishes `agent.disconnected` for each. Idempotent |
 | `GET /v1/memory/:contentHash` | → `zMemoryResponse` | **Built.** User token only. base64 `ciphertext`, `iv` and `keyId`; the web decrypts locally with the same key. Someone else's memory is a 404, the same as a missing one. `Cache-Control: private, no-store` |
 | `GET /v1/events?token=` | SSE, each `data:` is a `zHiveEvent` | **Built.** `EventSource` can't send headers, so the user token is in the query. `Last-Event-ID` replays up to the last 100 events per owner. Events live in memory only: a bridge restart drops them |
 | `POST /mcp` | MCP over Streamable HTTP, `Authorization: Bearer <agentToken>` | Tools and shapes in `schema/mcp.ts`. The caller's agent comes from the token, never from an argument |
@@ -69,7 +70,7 @@ Events the canvas needs (status of the bridge side):
 - `memory.written` with `propagatedTo` taken from the receipt's propagation logs. Each target draws a pulse, and `[]` shows "stayed with Claude". **Built.**
 - `memory.read` when an agent reads (reads are offchain, so only the bridge knows). **Built**, sent only when the read returned at least one memory.
 - `agent.connected` on a token's first MCP call. This turns the Connect page green. **Built.** Authorizing the same agent again for the same owner keeps its first-call time, so a page reload doesn't make it look new.
-- `agent.disconnected` when the owner ends the session (`DELETE /v1/agents/:id/session`). **Built.**
+- `agent.disconnected` when the owner ends a session (`DELETE /v1/agents/:id/session`, or `DELETE /v1/sessions` for all of them). **Built.**
 - `session.expiring`. **Planned**, not sent yet.
 
 Encryption format the web decrypts: AES-256-GCM with the delegated `encryptionKey`, a 12-byte IV, and the 16-byte tag appended to the ciphertext (WebCrypto's default). `contentHash = keccak256(iv ‖ ciphertext)`. Never a hash of plaintext. Plaintext never goes to Supabase, logs, SSE or errors.

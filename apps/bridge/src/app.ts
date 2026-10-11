@@ -208,6 +208,15 @@ export function createApp(deps: AppDeps): Express {
     res.sendStatus(204);
   });
 
+  // Sign-out: ends every session of the signed-in owner, those that never called a tool too, so no scoped key outlives it.
+  // A client that only knew the connected agents would leave the others valid for the token's whole life. Idempotent.
+  app.delete("/v1/sessions", requireUser, (_req, res) => {
+    const owner = (res.locals.user as UserClaims).owner;
+    for (const session of deps.sessions.listByOwner(owner)) events.publish(session.owner, { type: "agent.disconnected", data: { agentId: session.agentId.toString() } });
+    deps.sessions.deleteByOwner(owner);
+    res.sendStatus(204);
+  });
+
   // The owner's own read: ciphertext only, decrypted in the browser with the key it already holds. A row of another owner looks the same as no row.
   app.get("/v1/memory/:contentHash", requireUser, wrap(async (req, res) => {
     const hash = zContentHash.safeParse(req.params.contentHash);
