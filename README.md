@@ -143,16 +143,26 @@ query ($owner: String!) {
 
 ## Keys (Mera)
 
-One passkey produces every key. Nothing secret is stored on a server or on disk.
+One passkey, two PRF namespaces, one prompt. The passkey is asked for two salts in the same ceremony and returns two outputs that share nothing. The first is the account. The second does no account work: it only encrypts memory. Nothing secret is stored on a server or on disk ([ADR-029](docs/decisions.md)).
 
 ```
-passkey PRF output (32 bytes, Mera's default salt)
-  └─ 24-word BIP-39 recovery phrase
-       └─ seed
-            ├─ m/44'/60'/0'/0/0      owner key: signs agents and edges
-            ├─ m/44'/60'/0'/0/{n}    agent key n: sends that agent's memory writes
-            └─ HKDF("hive/encrypt")  AES-256-GCM key for memory content   ← not account work
+passkey
+  ├─ PRF, Mera's default salt                    account namespace
+  │    └─ 24-word BIP-39 recovery phrase
+  │         └─ seed
+  │              ├─ m/44'/60'/0'/0/0      owner key: signs agents and edges
+  │              └─ m/44'/60'/0'/0/{n}    agent key n: sends that agent's memory writes
+  │
+  └─ PRF, salt sha256("hive/prf/memory/v1")      memory namespace   ← not account work
+       └─ HKDF("hive/memory-key/v1")      AES-256-GCM key for memory content
 ```
+
+What the split changes:
+
+- **The recovery phrase is not the memory key.** Someone who learns the phrase controls the account but cannot decrypt a memory written under the memory namespace. Reading needs the passkey itself.
+- **The account keys say nothing about the memory key**, and the other way round. Neither output can be computed from the other.
+- **One prompt.** Our WebAuthn client sends both salts in one request. An authenticator that answers only the first is asked again through Mera with the memory salt, which is a second prompt. If both outputs come back equal, sign-in is refused.
+- **Older memories still open.** Memories sealed before the split used a key taken from the seed (`HKDF("hive/encrypt")`). That key is kept for decrypting only and nothing new is sealed with it.
 
 | Secret | Where it lives | For how long |
 | --- | --- | --- |
@@ -161,7 +171,7 @@ passkey PRF output (32 bytes, Mera's default salt)
 | User token (24 h) | `localStorage` | It can list agents and end sessions. It cannot sign or decrypt |
 | Agent tokens (24 h) | `sessionStorage` | Until the tab closes or sign-out |
 
-The same passkey on a second device derives the same phrase, so the same address and the same decryption key. A recorded cross-device run is still to do. All keys come from one PRF salt and are separated by derivation path and HKDF info, not by one salt per key.
+Both namespaces are deterministic, so the same passkey on a second device gives the same address and the same memory key. Two things are not recorded yet: the two-salt prompt on each authenticator (it is unit-tested against a fake one), and a cross-device run.
 
 ## For the bounties
 
@@ -174,15 +184,15 @@ The same passkey on a second device derives the same phrase, so the same address
 | Something that consumes it | [`apps/web/lib/hive/live/audit.ts`](apps/web/lib/hive/live/audit.ts): the four queries the web app sends |
 | Depth | Five contracts, eight events, three joins the contracts do not give, derived stats, a policy check, and a join to a registry that is not ours |
 
-**Mera.** The passkey is not used as a wallet key. Its PRF output is the root of every key, and one of them does no account work at all: the AES-256-GCM key that encrypts memory content ([`apps/web/lib/passkey/keys.ts`](apps/web/lib/passkey/keys.ts)). The same output also gives one key per agent, which the owner hands to the bridge for a session.
+**Mera.** One passkey, two PRF namespaces. Mera's default salt gives the account: the recovery phrase, the owner key and one key per agent, which the owner hands to the bridge for a session. A second salt, `sha256("hive/prf/memory/v1")`, gives a key that does no account work at all: the AES-256-GCM key that encrypts memory content ([`apps/web/lib/passkey/keys.ts`](apps/web/lib/passkey/keys.ts)). Both are read in one passkey prompt ([`webauthn.ts`](apps/web/lib/passkey/webauthn.ts), [`mera.ts`](apps/web/lib/passkey/mera.ts)).
 
 | Asked for | Where |
 | --- | --- |
-| A PRF namespace doing non-account work | The `hive/encrypt` key: memory is encrypted with it and the owner decrypts their own memories in the browser with it ([ADR-024](docs/decisions.md)) |
+| A PRF namespace doing non-account work | The memory namespace, under its own salt: memory is encrypted with its key and the owner decrypts their own memories in the browser with it ([ADR-029](docs/decisions.md), [ADR-024](docs/decisions.md)) |
 | Nothing sensitive persisted | See the table under [Keys](#keys-mera). No key is stored; two 24 h tokens are |
-| Cross-device | The derivation is deterministic, so a synced passkey gives the same keys. Not yet recorded as a run |
+| Cross-device | Both namespaces are deterministic, so a synced passkey gives the same address and the same memory key. Not yet recorded as a run |
 
-One honest limit: all keys come from Mera's default PRF salt and are separated afterwards by derivation path and HKDF info. We do not use one PRF salt per key.
+Two honest limits. Inside the account namespace the owner key and the agent keys still come from one salt and are separated by derivation path, not by one salt each. And the two-salt prompt is unit-tested but not yet recorded on a real authenticator.
 
 ## Indexer (Envio)
 
@@ -199,7 +209,7 @@ The web app's audit page, provenance card and stats strip read it. Status: deplo
 
 | | |
 | --- | --- |
-| **You own** | The passkey, the recovery phrase and the encryption key. The phrase opens the same account in any BIP-39 wallet |
+| **You own** | The passkey, the recovery phrase and the encryption key. The phrase opens the same account in any BIP-39 wallet, but not the memories: those need the passkey |
 | **Public by design** | Agent names and types, edges, topic names and content hashes. Do not put anything sensitive in a topic or an agent name |
 | **Trusted today** | The bridge operator, during an agent session: the bridge holds the keys of authorized agents and decrypted memories in process memory. Supabase, for availability only: it holds ciphertext |
 | **Outside our control** | An authorized read hands the text to the reading agent and so to its model provider |
@@ -215,7 +225,7 @@ Why not roll your own: a revoke takes effect on the next read, the permission hi
 ## What comes next
 
 - Run the claude.ai, Claude Desktop and ChatGPT connectors against the hosted bridge. The OAuth server for them is built ([ADR-019](docs/decisions.md)).
-- A recorded run with the same passkey on a second device.
+- A recorded run of the two-salt prompt on each authenticator, and one with the same passkey on a second device.
 - Publish `@hive/mcp-client` to npm, so building on the bridge does not need this repo.
 - A contract redeploy that carries what is waiting in the source: `setExpiry`, so an edge's expiry changes in place ([ADR-027](docs/decisions.md)).
 - The rename from Hive to Mindshare in code, as one scripted change ([ADR-008](docs/decisions.md)).
@@ -231,6 +241,7 @@ Why not roll your own: a revoke takes effect on the next read, the permission hi
 | Bridge on Railway, web on Vercel | **Live** |
 | Envio indexer | **Live** on Envio Cloud, synced to head on 11 Oct |
 | ERC-8004 identity | **Run on testnet**, 11 Oct: four agents registered and joined in the indexer |
+| Memory key in its own PRF namespace | **Built**, unit-tested. Not yet recorded on a real authenticator |
 | Memory search and structured memory | **Built**, measured on fixtures. No live run |
 | claude.ai, Claude Desktop and ChatGPT connectors (OAuth) | **Built**, not yet run against those clients |
 | DeepSeek runner, propagation animation | Planned |
