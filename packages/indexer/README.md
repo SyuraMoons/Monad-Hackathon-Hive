@@ -26,19 +26,21 @@ Needs Node 22.15 or newer (Envio 3). Docker is only for running it locally.
 pnpm --filter @hive/shared build      # the sync script and the drift test read its build
 pnpm --filter @hive/indexer sync      # abis/*.json from @hive/shared, checks config.yaml addresses
 pnpm --filter @hive/indexer test      # envio codegen, then vitest (no database, no token)
-pnpm --filter @hive/indexer dev       # local Postgres + Hasura + indexer; needs Docker and a token
+pnpm --filter @hive/indexer dev:local # local Postgres + Hasura + indexer; needs Docker and a token
 ```
 
 Local run:
 
 1. Create a HyperSync token at <https://envio.dev/app/api-tokens>.
 2. Put it in `packages/indexer/.env` as `ENVIO_API_TOKEN=...`. Envio reads `.env` from the indexer folder, not the repo root, and the file is gitignored.
-3. Start Docker, then `pnpm --filter @hive/indexer dev`. Hasura opens at <http://localhost:8080> (password `testing`).
+3. Start Docker, then `pnpm --filter @hive/indexer dev:local`. Hasura opens at <http://localhost:8080> (password `testing`).
 4. After a change to `config.yaml`, `schema.graphql` or an ABI, restart with `pnpm --filter @hive/indexer exec envio dev -r` to re-index from `start_block`.
+
+The script is `dev:local`, not `dev`, so the root `pnpm dev` does not start the indexer: it needs Docker and a token, and the web and the bridge run without it.
 
 `ENVIO_TUI=false` turns the terminal UI off (it is off by default in CI).
 
-If something else already listens on port 5433, Envio takes it for its own Postgres, starts none, and hangs at "Waiting for Hasura". Pick another port: `ENVIO_PG_PORT=5439 pnpm --filter @hive/indexer dev`.
+If something else already listens on port 5433, Envio takes it for its own Postgres, starts none, and hangs at "Waiting for Hasura". Pick another port: `ENVIO_PG_PORT=5439 pnpm --filter @hive/indexer dev:local`.
 
 ## Why nothing here imports the workspace
 
