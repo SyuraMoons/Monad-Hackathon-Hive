@@ -57,12 +57,12 @@ export function buildOpenApi(version = "0.0.0"): Json {
   return {
     openapi: "3.1.0",
     info: {
-      title: "Mindshare Bridge API",
+      title: "Hive Bridge API",
       version,
       description: [
         "HTTP API of the bridge: sign-in, agent sessions, the encrypted vault, a live event stream and the MCP endpoint that AI clients call.",
         "",
-        "Generated from the zod schemas in `@hive/shared`, so it follows the code. The product is Mindshare; the code still says Hive (ADR-008).",
+        "Generated from the zod schemas in `@hive/shared`, so it follows the code.",
         "",
         "- **Errors** are always `{ \"error\": { \"code\", \"message\" } }`. Messages are fixed strings and never contain request bodies, keys or memory content.",
         "- **uint256 values** (`agentId`, `slotId`) are decimal strings on the wire. **Timestamps** are unix seconds.",

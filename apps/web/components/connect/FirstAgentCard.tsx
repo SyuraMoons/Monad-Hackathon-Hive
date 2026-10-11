@@ -11,7 +11,8 @@ type Balance = { mon: string; low: boolean } | "error" | null;
 
 /**
  * Shown on the Connect page while the owner has no agent of the open type. A new account holds no MON, so nothing is
- * registered from here: it names the account to fund, watches the balance, then sends the user to the canvas to create the agent.
+ * registered from here: it names the account to fund, shows the balance, and sends the user to the canvas to create the agent.
+ * The button is never locked on the balance: a read that lags behind the faucet must not block a funded account.
  */
 export function FirstAgentCard({ agentName, owner }: { agentName: string; owner: string }) {
   const router = useRouter();
@@ -78,7 +79,6 @@ export function FirstAgentCard({ agentName, owner }: { agentName: string; owner:
           You have no {agentName} agent yet. Create it on the canvas. After that, this page shows the command that connects it.
         </p>
         <PillButton
-          disabled={waiting}
           onClick={() => {
             useUi.getState().set({ newAgent: true });
             router.push("/canvas");
@@ -86,7 +86,7 @@ export function FirstAgentCard({ agentName, owner }: { agentName: string; owner:
         >
           Create on the canvas
         </PillButton>
-        {waiting && <p className="text-[14px] leading-[1.5] text-ink-3">This button turns on when the MON arrives. You can open the canvas below in the meantime.</p>}
+        {waiting && <p className="text-[14px] leading-[1.5] text-ink-3">The balance above still reads as too low for gas. If you already sent MON, go ahead: creating the agent only fails if the account is really empty.</p>}
       </div>
     </div>
   );

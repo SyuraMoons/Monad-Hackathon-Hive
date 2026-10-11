@@ -1,11 +1,10 @@
-# Mindshare
+# Hive
 
 **An onchain permission layer for AI agent memory.** An agent can read another agent's memory only if the owner signed a permission edge for it on Monad. With no edge, nothing is shared. Memory content is encrypted with a key derived from the owner's passkey and is never put onchain.
 
 It is built for developers to build on: four contracts, an MCP server any agent can call, a typed client, and an indexer that audits the whole history. The canvas in `apps/web` is the reference client, where the owner draws the edges.
 
 > Monad Metropolis Hackathon · Track 4 (Trust, Identity & AI) · also entered for the Envio and Mera bounties.
-> The product is Mindshare. The code still says Hive (`@hive/*`, `hive_*`) until one rename ([ADR-008](docs/decisions.md)).
 
 ## Live
 
@@ -33,7 +32,7 @@ Contracts on Monad testnet (chain 10143):
 There is no test account: the login is a passkey you create yourself, and it is the only key.
 
 1. Open the [app](https://monad-hackathon-eta.vercel.app) in Safari with iCloud Keychain, or in Chrome with Google Password Manager, or with 1Password. A passkey saved locally in desktop Chrome cannot produce the key material and fails ([gotchas](docs/gotchas.md)).
-2. Create a passkey. The wallet menu shows your address.
+2. Create a passkey. The Connect page and the wallet menu show your address.
 3. Send testnet MON to that address from https://faucet.monad.xyz. Your address pays its own gas ([ADR-006](docs/decisions.md)).
 4. Create two agents from the canvas sidebar, then drag from one to the other and sign the edge with the passkey.
 5. Open an agent's drawer and copy its `claude --mcp-config` command into a terminal with Claude Code. Do the same for the second agent in a second terminal.
@@ -53,6 +52,7 @@ Everything below is on Monad testnet and can be checked without us. It was made 
 | An agent writes a memory and it propagates | Slot 6 from agent 10 (type `claude`), sent by its own key [`0x6518…5917`](https://testnet.monadscan.com/address/0x6518E5a12F9F78ceF988e9c48c41d761E6fD5917), [write](https://testnet.monadscan.com/tx/0xac8240fbc370275f729dd95bf04b3593d76d39ae6ad1544b9c31c3c84abdfd9e): `MemoryWritten`, then `Propagate` to agent 11 along edge 12 |
 | The other agent writes back | Slot 7 from agent 11 (type `gpt`), sent by its own key [`0x1Fe8…387c`](https://testnet.monadscan.com/address/0x1Fe8563Be900a9532e5Cdd1e9E020DCB5f32387c), [write](https://testnet.monadscan.com/tx/0xa5c28839840be3a856306429a373db1e2760ff3ab76a84edc61de03a9274d3ee): `Propagate` to agent 10 along edge 11 |
 | A later save shows up without anyone touching the indexer | Slot 8 from agent 10, [write](https://testnet.monadscan.com/tx/0x38aa295715acc45f80cd165a2eeea787b3599002ea3775f3cb9235f6c3dd6f92), topic `general`: `Propagate` to agent 11 along edge 12. The indexer returned the slot and its propagation when queried right after |
+| A save from ChatGPT reaches the Claude agents | Slot 10 from agent 11 (type `gpt`), sent by its own key, [write](https://testnet.monadscan.com/tx/0x27163bf07c4c69a314022de73e3d72d46979005052165df4d9e3b435962bbbfd) at 12:02 UTC on 11 Oct: `Propagate` to agents 10 and 12, both type `claude`. That the save was made in chatgpt.com through the connector, and that Claude then read it, is reported by the team; a read leaves nothing onchain |
 | The indexer has all of it | The [GraphQL endpoint](https://indexer.dev.hyperindex.xyz/5a8ecda/v1/graphql) returns these agents, edges, slots and propagations, joins the four identities to their agents, and reports 0 policy violations |
 
 The owner's address sent the registrations and the edges; each write was sent by the writing agent's own key, which the owner derived from the passkey and the bridge holds only for the session. Only the content hash and the topic name are in those transactions. The memory text is ciphertext in Supabase.
@@ -95,9 +95,35 @@ Not shown by these links: a revoke on this owner's edges (none has been revoked 
 
 More detail: [docs/architecture.md](docs/architecture.md).
 
+## Where it is in the code
+
+Each claim above, the file that implements it and the test that covers it.
+
+| Claim | Code | Test |
+| --- | --- | --- |
+| A permission is an edge the owner signed, per pair and per topic, with an expiry | [`KnowledgeGraph.sol`](packages/contracts/src/KnowledgeGraph.sol): `addEdge`, `removeEdge`, `hasPermission` | [`KnowledgeGraph.t.sol`](packages/contracts/test/KnowledgeGraph.t.sol) |
+| Only the owner registers an agent and names the key that may write for it | [`AgentRegistry.sol`](packages/contracts/src/AgentRegistry.sol): `register`, `setAgentWriter` | [`AgentRegistry.t.sol`](packages/contracts/test/AgentRegistry.t.sol) |
+| A write puts a content hash and a topic onchain, nothing else | [`MemorySlots.sol`](packages/contracts/src/MemorySlots.sol): `write` | [`MemorySlots.t.sol`](packages/contracts/test/MemorySlots.t.sol) |
+| A write is delivered only along edges that allow it | [`PropagationEngine.sol`](packages/contracts/src/PropagationEngine.sol): `onMemoryWritten` emits `Propagate` | [`PropagationEngine.t.sol`](packages/contracts/test/PropagationEngine.t.sol), [`Integration.t.sol`](packages/contracts/test/Integration.t.sol) |
+| The bridge checks the edge before it fetches or decrypts anything | [`permissions.ts`](apps/bridge/src/permissions.ts): `edgeAllows`, `permittedSlots`, called first by `candidates` in [`memory.ts`](apps/bridge/src/memory.ts) | [`permissions.test.ts`](apps/bridge/test/permissions.test.ts), including "a revoked edge denies immediately" |
+| A failed chain read is an error, never "nothing shared" | [`memory.ts`](apps/bridge/src/memory.ts) | [`read-failures.test.ts`](apps/bridge/test/read-failures.test.ts) |
+| Permissions are read from the chain, not from the indexer | [`chain.ts`](apps/bridge/src/chain.ts): `ViemChainReader` | [`chain.test.ts`](apps/bridge/test/chain.test.ts) |
+| Six MCP tools, identity taken from the token | [`mcp.ts`](apps/bridge/src/mcp.ts), shapes in [`schema/mcp.ts`](packages/shared/src/schema/mcp.ts) | [`mcp.test.ts`](apps/bridge/test/mcp.test.ts), [`write.test.ts`](apps/bridge/test/write.test.ts) |
+| Content is AES-256-GCM, and the hash onchain is of the ciphertext | [`packages/crypto`](packages/crypto/src/index.ts): `encrypt`, `decryptBytes`, `contentHash` | [`crypto.test.ts`](packages/crypto/test/crypto.test.ts) |
+| The database holds ciphertext only | [`store.ts`](apps/bridge/src/store.ts), tables in [`supabase/migrations`](supabase/migrations) | [`store.test.ts`](apps/bridge/test/store.test.ts) |
+| Search ranks inside the permitted set, and its vectors are stored encrypted | [`search.ts`](apps/bridge/src/search.ts), [`embeddings.ts`](apps/bridge/src/embeddings.ts) | [`search.test.ts`](apps/bridge/test/search.test.ts), [`embeddings.test.ts`](apps/bridge/test/embeddings.test.ts) |
+| Agent keys live in bridge memory for a session, not on disk | [`sessions.ts`](apps/bridge/src/sessions.ts) | [`sessions.test.ts`](apps/bridge/test/sessions.test.ts) |
+| The bridge tops up an agent key's gas, with caps | [`funder.ts`](apps/bridge/src/funder.ts) | [`funder.test.ts`](apps/bridge/test/funder.test.ts) |
+| OAuth for the claude.ai and ChatGPT connectors | [`oauth.ts`](apps/bridge/src/oauth.ts), consent page in [`apps/web/app/oauth`](apps/web/app/oauth) | [`oauth.test.ts`](apps/bridge/test/oauth.test.ts) |
+| One passkey gives the account keys and a separate memory key | [`keys.ts`](apps/web/lib/passkey/keys.ts), [`webauthn.ts`](apps/web/lib/passkey/webauthn.ts), [`mera.ts`](apps/web/lib/passkey/mera.ts) | [`keys.test.ts`](apps/web/lib/passkey/keys.test.ts), [`webauthn.test.ts`](apps/web/lib/passkey/webauthn.test.ts), [`mera.test.ts`](apps/web/lib/passkey/mera.test.ts) |
+| The owner signs agents and edges in the browser, with explicit gas | [`account.ts`](apps/web/lib/hive/account.ts), [`gas.ts`](apps/web/lib/hive/gas.ts), [`live/edges.ts`](apps/web/lib/hive/live/edges.ts), [`live/registry.ts`](apps/web/lib/hive/live/registry.ts) | [`edges.test.ts`](apps/web/lib/hive/live/edges.test.ts), [`registry.test.ts`](apps/web/lib/hive/live/registry.test.ts) |
+| ERC-8004 identity and the agent card | [`erc8004.ts`](packages/shared/src/erc8004.ts), [`live/identity.ts`](apps/web/lib/hive/live/identity.ts), the `/agents/:id/card.json` route in [`app.ts`](apps/bridge/src/app.ts) | [`erc8004.test.ts`](packages/shared/test/erc8004.test.ts), [`identity.test.ts`](apps/web/lib/hive/live/identity.test.ts), [`agent-card.test.ts`](apps/bridge/test/agent-card.test.ts) |
+| The indexer rebuilds what events leave out and flags any delivery no edge explains | [`handlers`](packages/indexer/src/handlers), the check is in [`propagation.ts`](packages/indexer/src/handlers/propagation.ts) | [`handlers.test.ts`](packages/indexer/test/handlers.test.ts) |
+| The canvas, the audit page and the connect guides | [`components/canvas`](apps/web/components/canvas), [`app/(app)/audit`](<apps/web/app/(app)/audit/page.tsx>), [`app/(app)/connect`](<apps/web/app/(app)/connect/page.tsx>) | |
+
 ## Build on it
 
-**From an MCP client.** Any client that speaks MCP over HTTP can connect with an agent token. The tools:
+**From an MCP client.** Any client that speaks MCP over HTTP can connect with an agent token. The tools, registered in [`apps/bridge/src/mcp.ts`](apps/bridge/src/mcp.ts):
 
 | Tool | What it does |
 | --- | --- |
@@ -141,7 +167,7 @@ query ($owner: String!) {
 | **ERC-8004 agent identity** | Every agent can also be registered in the public ERC-8004 Identity Registry, with a `hiveAgentId` metadata entry and an agent card served by the bridge. Four agents have one on testnet, identities 2144 to 2147, and the indexer joins each to its agent ([ADR-028](docs/decisions.md)). We use the identity registry only, not reputation or validation. |
 | **P256 precompile** | Not used. The passkey is used for its PRF output, from which secp256k1 keys are derived, so no passkey signature is verified onchain. |
 | **BTX encrypted mempool** | Not used. |
-| **Gas model** | Every transaction declares an explicit `gas`, because Monad charges the declared limit. |
+| **Gas model** | Every transaction declares an explicit `gas`, because Monad charges the declared limit: an estimate with a buffer in the browser ([`gas.ts`](apps/web/lib/hive/gas.ts)) and a clamped estimate in the bridge ([`chain.ts`](apps/bridge/src/chain.ts)). |
 
 ## Keys (Mera)
 
@@ -200,10 +226,10 @@ Two honest limits. Inside the account namespace the owner key and the agent keys
 
 [`packages/indexer`](packages/indexer) is an Envio HyperIndex over five contracts and eight events. It does more than mirror events:
 
-- **Joins that close contract gaps.** `EdgeRemoved` carries no from, to or topic, `Propagate` carries no slot id, and `MemoryWritten` carries no propagated count. The handlers rebuild all three.
-- **Derived entities.** Per-edge propagation counts and lifetimes, and stats per agent, per topic and per owner.
-- **A policy check.** `PolicyViolation` records any `Propagate` that no active, unexpired edge explains. It is expected to stay empty, so the indexer audits the protocol.
-- **A cross-registry join.** ERC-8004 identities are joined to our agents, but only after checking that both have the same owner.
+- **Joins that close contract gaps.** `EdgeRemoved` carries no from, to or topic, `Propagate` carries no slot id, and `MemoryWritten` carries no propagated count. The handlers rebuild all three ([`graph.ts`](packages/indexer/src/handlers/graph.ts), [`propagation.ts`](packages/indexer/src/handlers/propagation.ts), [`memory.ts`](packages/indexer/src/handlers/memory.ts)).
+- **Derived entities.** Per-edge propagation counts and lifetimes, and stats per agent, per topic and per owner ([`stats.ts`](packages/indexer/src/stats.ts)).
+- **A policy check.** `PolicyViolation` records any `Propagate` that no active, unexpired edge explains ([`propagation.ts`](packages/indexer/src/handlers/propagation.ts)). It is expected to stay empty, so the indexer audits the protocol.
+- **A cross-registry join.** ERC-8004 identities are joined to our agents, but only after checking that both have the same owner ([`identity.ts`](packages/indexer/src/handlers/identity.ts)).
 
 The web app's audit page, provenance card and stats strip read it. Status: deployed on Envio Cloud and synced to the chain head when queried on 11 Oct: 11 agents, 12 edges, 7 memory slots, 10 propagations, 40 audit rows, 0 violations, and 45 ERC-8004 identities of which 4 are joined to our agents.
 
@@ -226,11 +252,10 @@ Why not roll your own: a revoke takes effect on the next read, the permission hi
 
 ## What comes next
 
-- Run the claude.ai, Claude Desktop and ChatGPT connectors against the hosted bridge. The OAuth server for them is built ([ADR-019](docs/decisions.md)).
+- A recorded run of the claude.ai, Claude Desktop and ChatGPT connectors. They were used against the hosted bridge on 11 Oct, but that is the team's report: the chain shows a write, not which client made it ([ADR-019](docs/decisions.md)).
 - The two-salt prompt recorded on Safari with iCloud Keychain and on 1Password, and a memory opened on the second device.
 - Publish `@hive/mcp-client` to npm, so building on the bridge does not need this repo.
 - A contract redeploy that carries what is waiting in the source: `setExpiry`, so an edge's expiry changes in place ([ADR-027](docs/decisions.md)).
-- The rename from Hive to Mindshare in code, as one scripted change ([ADR-008](docs/decisions.md)).
 
 ## What is real
 
@@ -244,8 +269,8 @@ Why not roll your own: a revoke takes effect on the next read, the permission hi
 | Envio indexer | **Live** on Envio Cloud, synced to head on 11 Oct |
 | ERC-8004 identity | **Run on testnet**, 11 Oct: four agents registered and joined in the indexer |
 | Memory key in its own PRF namespace | **Live**. Signed in on two devices with one passkey and one prompt on 11 Oct; a decrypt on the second device not recorded |
-| Memory search and structured memory | **Built**, measured on fixtures. No live run |
-| claude.ai, Claude Desktop and ChatGPT connectors (OAuth) | **Built**, not yet run against those clients |
+| Memory search and structured memory | **Run** on the hosted bridge, 11 Oct: `hive_search_memory` for "ERC-8004 registration status" answered `mode: "hybrid"` and ranked the ERC-8004 memory (slot 6) first, matched on text, entity and meaning. One query on three memories; ranking quality is otherwise measured on fixtures |
+| claude.ai, Claude Desktop and ChatGPT connectors (OAuth) | **Run**, 11 Oct, as reported by the team: the Claude connector added from an iPad, Claude Desktop, Codex CLI, and a save from chatgpt.com that a Claude agent read ([slot 10](https://testnet.monadscan.com/tx/0x27163bf07c4c69a314022de73e3d72d46979005052165df4d9e3b435962bbbfd)). The chain shows the write and its propagation, not which client made it |
 | DeepSeek runner, propagation animation | Planned |
 
 Every run we checked, and what each one did not check, is in [docs/roadmap.md](docs/roadmap.md).

@@ -164,7 +164,7 @@ export function createApp(deps: AppDeps): Express {
     const card: AgentCardWire = {
       type: ERC8004_REGISTRATION_TYPE,
       name: agent.name.slice(0, 64) || `Agent ${id.data}`,
-      description: "Mindshare agent. It shares memory with other agents only along permission edges its owner signed on Monad testnet.",
+      description: "Hive agent. It shares memory with other agents only along permission edges its owner signed on Monad testnet.",
       services: [{ name: "MCP", endpoint: `${base}/mcp`, version: LATEST_PROTOCOL_VERSION }],
       x402Support: false,
       // An agent can write once its owner has set a writer key.
@@ -280,7 +280,7 @@ export function createApp(deps: AppDeps): Express {
   app.get("/openapi.json", (_req, res) => {
     res.json(spec);
   });
-  app.use("/docs", swaggerUi.serve, swaggerUi.setup(spec, { customSiteTitle: "Mindshare Bridge API" }));
+  app.use("/docs", swaggerUi.serve, swaggerUi.setup(spec, { customSiteTitle: "Hive Bridge API" }));
 
   // Off unless both URLs are known: the metadata must name the public URL exactly, and consent lives on the web app.
   const oauthBase = deps.publicUrl && deps.webUrl ? deps.publicUrl.replace(/\/+$/, "") : undefined;
