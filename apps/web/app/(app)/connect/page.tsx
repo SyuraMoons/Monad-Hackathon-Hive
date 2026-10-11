@@ -7,18 +7,18 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { NewAgentForm } from "@/components/app/NewAgentForm";
-import { InstallCard } from "@/components/ui/InstallCard";
+import { ConnectGuide } from "@/components/connect/ConnectGuide";
 import { PillButton } from "@/components/ui/Pill";
 import { StatusDot } from "@/components/ui/StatusDot";
 import { Tabs } from "@/components/ui/Tabs";
 import { cn } from "@/lib/cn";
-import { claudeCommand, claudeTerminalCommand, deepseekRunner, gptRunner, gptSnippet } from "@/lib/hive/commands";
+import type { GuideType } from "@/lib/hive/agentTypes";
 import { useGraph, visibleAgents } from "@/lib/stores/graph";
 import { useSession, type Connection } from "@/lib/stores/session";
 
 type Tab = "claude" | "gpt" | "deepseek";
 
-const AGENTS: Record<Tab, { name: string; type: AgentType; icon?: string }> = {
+const AGENTS: Record<Tab, { name: string; type: GuideType; icon?: string }> = {
   claude: { name: "Claude", type: "claude", icon: "/agents/claude.png" },
   gpt: { name: "GPT", type: "gpt", icon: "/agents/gpt.png" },
   deepseek: { name: "DeepSeek", type: "deepseek", icon: "/agents/deepseek.png" },
@@ -137,12 +137,12 @@ export default function ConnectPage() {
           first <em className="text-amber-strong">two</em> agents.
         </h1>
         <p className="max-w-[500px] text-[18px] leading-[1.55] text-ink-2">
-          Hive is one MCP server. Add it to Claude and GPT once, and memory moves between them only along the edges you sign.
+          Hive is one MCP server. Add it to Claude and ChatGPT once, and memory moves between them only along the edges you sign.
         </p>
         <ol className="flex flex-col gap-3.5">
           <Step badge="1" done>Your passkey is verified</Step>
           <Step badge="2" active={connectedCount < 2} done={connectedCount >= 2}>
-            Run the command for each agent{connectedCount > 0 ? `  ·  ${connectedCount} connected` : ""}
+            Connect each agent{connectedCount > 0 ? `  ·  ${connectedCount} connected` : ""}
           </Step>
           <Step badge="3">Draw an edge on the canvas</Step>
         </ol>
@@ -165,7 +165,7 @@ export default function ConnectPage() {
           items={[
             { key: "claude", label: "Claude", icon: AGENTS.claude.icon },
             { key: "gpt", label: "GPT", icon: AGENTS.gpt.icon },
-            { key: "deepseek", label: "DeepSeek" },
+            { key: "deepseek", label: "DeepSeek", icon: AGENTS.deepseek.icon },
           ]}
         />
 
@@ -195,51 +195,40 @@ export default function ConnectPage() {
           />
         )}
 
-        <div id="connect-panel" role="tabpanel" aria-labelledby={`connect-tab-${tab}`} className="w-full">
-          <InstallCard
-            tab={tab}
-            command={tab === "claude" ? claudeTerminalCommand(url, token, selected?.name ?? agent.name) : tab === "deepseek" ? deepseekRunner(url, token) : gptSnippet(url, token)}
+        <div id="connect-panel" role="tabpanel" aria-labelledby={`connect-tab-${tab}`} className="flex w-full flex-col gap-4">
+          <ConnectGuide
+            key={tab}
+            type={agent.type}
+            name={selected?.name ?? agent.name}
+            url={url}
             token={token}
-            pending={token || graphError || needsUnlock || needsAuthorize || allHidden ? undefined : pendingText(agent.name, conn, graphReady)}
-            error={
-              graphError ??
-              actionError ??
-              (needsUnlock
-                ? `Unlock with your passkey to set up ${selected?.name ?? agent.name}.`
-                : allHidden
-                  ? `All your ${agent.name} agents are hidden. Show one again from the canvas sidebar.`
-                  : needsAuthorize
-                  ? unfinished
-                    ? `${selected?.name} was registered, but its setup stopped halfway. Finishing is one transaction.`
-                    : `${selected?.name} has no token in this tab. Authorize it to show the command.`
-                  : conn?.phase === "error"
-                    ? conn.message
-                    : undefined)
-            }
-            retryLabel={!graphError && needsUnlock ? "Unlock with passkey" : needsAuthorize ? (unfinished ? "Finish setup" : "Authorize") : undefined}
-            onRetry={() =>
-              void (graphError && owner
-                ? useGraph.getState().load(owner)
-                : needsUnlock
-                  ? unlock().then(() => setActionError(undefined), (e: unknown) => fail(e, "Could not unlock with the passkey."))
-                  : needsAuthorize && selected
-                    ? authorizeAgent(selected.agentId).then(() => setActionError(undefined), (e: unknown) => fail(e, "Could not authorize the agent."))
-                    : connectAgent(agent.type, agent.name))
-            }
-            secondary={
-              token && tab !== "deepseek"
-                ? tab === "gpt"
-                  ? { caption: "or run Hive’s GPT agent (planned: apps/agents)", command: gptRunner(token) }
-                  : { caption: "or save it for the whole folder: every Claude Code session in it becomes this agent", command: claudeCommand(url, token) }
-                : undefined
-            }
-            note={
-              tab === "deepseek"
-                ? "Run this from the repo, with DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL and DEEPSEEK_MODEL in .env. The runner calls the bridge for DeepSeek, so a local bridge works. Memories this agent reads are sent to DeepSeek’s API. Planned: not yet run against testnet."
-                : tab === "claude"
-                ? "Run this in your project folder. Only that terminal is this agent, so several agents can share one folder, one terminal each. The token is scoped to this agent and expires in 24h. Don’t also save it for the folder: run claude mcp remove hive first."
-                : "A separate token from Claude’s, so one leak can’t act as the other. OpenAI calls the bridge from its servers, so this URL must be public."
-            }
+            idPrefix="connect-guide"
+            status={{
+              pending: token || graphError || needsUnlock || needsAuthorize || allHidden ? undefined : pendingText(agent.name, conn, graphReady),
+              error:
+                graphError ??
+                actionError ??
+                (needsUnlock
+                  ? `Unlock with your passkey to set up ${selected?.name ?? agent.name}.`
+                  : allHidden
+                    ? `All your ${agent.name} agents are hidden. Show one again from the canvas sidebar.`
+                    : needsAuthorize
+                    ? unfinished
+                      ? `${selected?.name} was registered, but its setup stopped halfway. Finishing is one transaction.`
+                      : `${selected?.name} has no token in this tab. Authorize it to show the command.`
+                    : conn?.phase === "error"
+                      ? conn.message
+                      : undefined),
+              retryLabel: !graphError && needsUnlock ? "Unlock with passkey" : needsAuthorize ? (unfinished ? "Finish setup" : "Authorize") : undefined,
+              onRetry: () =>
+                void (graphError && owner
+                  ? useGraph.getState().load(owner)
+                  : needsUnlock
+                    ? unlock().then(() => setActionError(undefined), (e: unknown) => fail(e, "Could not unlock with the passkey."))
+                    : needsAuthorize && selected
+                      ? authorizeAgent(selected.agentId).then(() => setActionError(undefined), (e: unknown) => fail(e, "Could not authorize the agent."))
+                      : connectAgent(agent.type, agent.name)),
+            }}
           />
         </div>
 

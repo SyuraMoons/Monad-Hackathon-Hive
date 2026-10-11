@@ -27,6 +27,20 @@ const desktopEntry = (url: string, token: string) => ({
 export const claudeDesktopConfig = (url: string, token: string, name: string) =>
   JSON.stringify({ mcpServers: { [`hive-${nameSlug(name)}`]: desktopEntry(url, token) } }, null, 2);
 
+/** The same `mcpServers` block for any desktop MCP client that only runs stdio servers (the DeepSeek "MCP app" tab). */
+export const mcpClientConfig = claudeDesktopConfig;
+
+/** For a client that speaks HTTP MCP directly: what to enter in its server form. */
+export const mcpHttpDetails = (url: string, token: string) => [`url:    ${url}`, `header: Authorization: Bearer ${token}`].join("\n");
+
+const tokenVar = (name: string) => `HIVE_TOKEN_${nameSlug(name).toUpperCase().replace(/-/g, "_")}`;
+
+/** Codex reads the token from an environment variable that config.toml names, so the file never holds the secret. */
+export const codexConfig = (url: string, name: string) =>
+  [`[mcp_servers.hive-${nameSlug(name)}]`, `url = ${JSON.stringify(url)}`, `bearer_token_env_var = "${tokenVar(name)}"`].join("\n");
+
+export const codexEnv = (token: string, name: string) => `export ${tokenVar(name)}=${token}`;
+
 /**
  * One prompt to paste into an AI that has shell or file access (Claude Code, Cursor, Codex, Gemini CLI, ...). It carries the
  * url and token and tells the AI to register Hive in whichever client it is. A chat-only AI cannot run it: those use the connector.
@@ -68,7 +82,7 @@ export const aiDesktopPrompt = (url: string, token: string, name: string) => {
 export const connectorUrl = (mcpUrl: string | undefined, bridgeUrl: string | undefined) =>
   mcpUrl || (bridgeUrl ? `${bridgeUrl.replace(/\/+$/, "")}/mcp` : "");
 
-/** Anthropic's servers call the connector, so a localhost or private address can never work. */
+/** Anthropic's and OpenAI's servers call the connector, so a localhost or private address can never work. */
 export const isLocalUrl = (url: string) => /^https?:\/\/(localhost|127\.|10\.|192\.168\.|\[::1\])/i.test(url);
 
 // OpenAI Responses API with a remote MCP tool (rules O7 option b, design D11). The model comes from the env, never hardcoded.
@@ -83,8 +97,6 @@ export const gptSnippet = (url: string, token: string) =>
     `  input: "What do you remember about my work?",`,
     `});`,
   ].join("\n");
-
-export const gptRunner = (token: string) => `HIVE_TOKEN_GPT=${token} pnpm --filter @hive/agents gpt --chat`;
 
 // DeepSeek has no remote-MCP tool, so a local runner calls the bridge for it (ADR-020). Key and model come from .env.
 export const deepseekRunner = (url: string, token: string) =>
