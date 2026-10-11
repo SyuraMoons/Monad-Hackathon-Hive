@@ -245,7 +245,7 @@ Why not roll your own: a revoke takes effect on the next read, the permission hi
 | Envio indexer | **Live** on Envio Cloud, synced to head on 11 Oct |
 | ERC-8004 identity | **Run on testnet**, 11 Oct: four agents registered and joined in the indexer |
 | Memory key in its own PRF namespace | **Live**. Signed in on two devices with one passkey and one prompt on 11 Oct; a decrypt on the second device not recorded |
-| Memory search and structured memory | **Run** on the hosted bridge, 11 Oct, as reported by the agent: `hive_search_memory` returned slots 9, 6 and 8, all agent 10's onchain, and the agent said the result was `hybrid` (words and meaning). We did not capture the raw JSON. Ranking quality is measured on fixtures only |
+| Memory search and structured memory | **Run** on the hosted bridge, 11 Oct: `hive_search_memory` for "ERC-8004 registration status" answered `mode: "hybrid"` and ranked the ERC-8004 memory (slot 6) first, matched on text, entity and meaning. One query on three memories; ranking quality is otherwise measured on fixtures |
 | claude.ai, Claude Desktop and ChatGPT connectors (OAuth) | **Run**, 11 Oct, as reported by the team: the Claude connector added from an iPad, Claude Desktop, Codex CLI, and a save from chatgpt.com that a Claude agent read ([slot 10](https://testnet.monadscan.com/tx/0x27163bf07c4c69a314022de73e3d72d46979005052165df4d9e3b435962bbbfd)). The chain shows the write and its propagation, not which client made it |
 | DeepSeek runner, propagation animation | Planned |
 
