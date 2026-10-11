@@ -35,11 +35,16 @@ export const mcpHttpDetails = (url: string, token: string) => [`url:    ${url}`,
 
 const tokenVar = (name: string) => `HIVE_TOKEN_${nameSlug(name).toUpperCase().replace(/-/g, "_")}`;
 
-/** Codex reads the token from an environment variable that config.toml names, so the file never holds the secret. */
+/**
+ * Codex takes the name of a token variable, never the token itself, so the paste is two lines: set the variable, then
+ * register the server. `codex mcp add` replaces an entry of the same name, so the same paste also reconnects.
+ */
+export const codexCommand = (url: string, token: string, name: string) =>
+  [`export ${tokenVar(name)}=${token}`, `codex mcp add hive-${nameSlug(name)} --url ${url} \\`, `  --bearer-token-env-var ${tokenVar(name)}`].join("\n");
+
+/** What `codex mcp add` writes to ~/.codex/config.toml, for a Codex too old to have `--url`. */
 export const codexConfig = (url: string, name: string) =>
   [`[mcp_servers.hive-${nameSlug(name)}]`, `url = ${JSON.stringify(url)}`, `bearer_token_env_var = "${tokenVar(name)}"`].join("\n");
-
-export const codexEnv = (token: string, name: string) => `export ${tokenVar(name)}=${token}`;
 
 /**
  * One prompt to paste into an AI that has shell or file access (Claude Code, Cursor, Codex, Gemini CLI, ...). It carries the
@@ -101,3 +106,15 @@ export const gptSnippet = (url: string, token: string) =>
 // DeepSeek has no remote-MCP tool, so a local runner calls the bridge for it (ADR-020). Key and model come from .env.
 export const deepseekRunner = (url: string, token: string) =>
   [`HIVE_MCP_URL=${url} \\`, `HIVE_TOKEN_DEEPSEEK=${token} \\`, `pnpm --filter @hive/agents deepseek --chat`].join("\n");
+
+/**
+ * Claude Code pointed at DeepSeek's Anthropic-compatible endpoint: no repo to clone, and Hive rides along as an MCP config.
+ * The key and model stay in the user's shell, so the paste carries neither.
+ */
+export const deepseekClaudeCommand = (url: string, token: string, name: string) =>
+  [
+    `ANTHROPIC_BASE_URL=https://api.deepseek.com/anthropic \\`,
+    `ANTHROPIC_AUTH_TOKEN=$DEEPSEEK_API_KEY \\`,
+    `ANTHROPIC_MODEL=$DEEPSEEK_MODEL \\`,
+    claudeTerminalCommand(url, token, name),
+  ].join("\n");

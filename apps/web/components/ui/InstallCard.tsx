@@ -12,7 +12,7 @@ const BAR_LABEL: Record<InstallTab, string> = {
   desktop: "claude_desktop_config.json",
   gpt: "OpenAI API · for developers",
   deepseek: "Terminal · DeepSeek runner",
-  codex: "~/.codex/config.toml",
+  codex: "Terminal · Codex CLI",
   mcp: "MCP client config",
 };
 

@@ -158,7 +158,7 @@ We build one layer at a time. Tick each step off here when it's done.
   - [ ] Run against a deployed bridge (`BRIDGE_WEB_URL` set) from claude.ai and Claude Desktop
 - [ ] ChatGPT connector and a connect guide per agent type
   - [x] Bridge accepts ChatGPT's OAuth callbacks and returns `iss` (ADR-019). Tested with supertest, not yet run against ChatGPT
-  - [x] One guide per type, shared by the Connect page and the canvas: Claude (Code, Desktop, claude.ai), ChatGPT (connector, Codex CLI, OpenAI API) and DeepSeek (Hive runner, MCP app). The consent page lists GPT agents for ChatGPT. Unit-tested for commands and requester naming, not yet tried in a browser
+  - [x] One guide per type, shared by the Connect page and the canvas: Claude (Code, Desktop, claude.ai), ChatGPT (connector, Codex CLI, OpenAI API) and DeepSeek (Claude Code CLI, Hive runner, MCP app). The consent page lists GPT agents for ChatGPT. Unit-tested for commands and requester naming, not yet tried in a browser
   - [ ] Add the connector in a real ChatGPT against a deployed bridge, and check the menu names in the guide
   - [ ] DeepSeek guide stays planned until the runner has a live run (ADR-020)
 - [ ] Propagation animation (CP2)
