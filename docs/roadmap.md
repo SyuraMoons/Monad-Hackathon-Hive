@@ -78,6 +78,17 @@ Two local measurements for ADR-022. Neither touched testnet or Railway.
 
 Not checked: a live write and search from two agents, the `memory_embedding` table on Supabase (the live test is gated by `HIVE_VECTOR_TABLE=1`), model load time and memory on Railway, and the result on real memories instead of fixtures.
 
+### 11 Oct 2026 — indexer handlers replayed over the real testnet history (no database, no GraphQL)
+Envio's test indexer fetched blocks 69814735 to 70000445 of chain 10143 through HyperSync (with `ENVIO_API_TOKEN`) and ran the `packages/indexer` handlers in memory. It processed 22 events in 20 blocks:
+
+- 7 agents for 2 owners, each with its writer key set.
+- 4 edges, all all-topics (`*`) and active, none revoked.
+- 2 memory slots from agent 4 on topic `general`, each with `propagatedCount` 1.
+- 2 propagations `4 → 5`, each joined to its slot and credited to edge 3 (`propagationCount` 2). So `Propagate` does fire on an all-topics edge on the redeployed contracts.
+- 15 audit rows, owner and topic counters consistent with the above, and 0 policy violations.
+
+Not checked: a Postgres-backed run (`envio dev`), the GraphQL API the web queries, Envio Cloud, an `EdgeRemoved` on real data (none exists yet), and the `/audit` page against any of it.
+
 ## P0 features (required)
 
 | # | Feature | Owner | Status |
@@ -113,7 +124,8 @@ We build one layer at a time. Tick each step off here when it's done.
 - [ ] Wire edge creation → contract tx (CP1). Works from `/smoke` (dev signer, 3 Oct); the live client now sends `addEdge` / `removeEdge` and reads edges from `KnowledgeGraph` (unit-tested, built but not yet run on testnet), so this stays open until it is
 - [ ] Envio indexer (`packages/indexer`)
   - [x] Config for the four contracts from block 69814735, schema, handlers, derived stats and the policy check. Unit-tested with Envio's test indexer and simulated events
-  - [ ] Live sync against Monad testnet (needs `ENVIO_API_TOKEN` and Docker)
+  - [x] Handlers replayed over the real testnet history with the test indexer, 11 Oct (see _Verified runs_)
+  - [ ] Full local run with Postgres and GraphQL (`envio dev`, needs Docker)
   - [ ] Deploy to Envio Cloud (public GraphQL URL)
   - [ ] Web: `graph.auditEvents` and `graph.provenance` read the indexer
   - [ ] Web: stats strip on `/audit`
