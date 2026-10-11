@@ -147,6 +147,13 @@ export const useGraph = create<GraphState>()((set, get) => ({
       }
       hiddenOwner = owner;
       set({ status: "ready", agents: mergeStatus(agents, statuses), edges, hidden: Object.fromEntries(loadHidden(owner).map((id) => [id, true as const])), labels: loadAgentLabels(owner), identities: loadIdentities(hiveDeployment.agentRegistry, owner), identityAvailable: client.identity.cardUrl(BigInt(0)) !== null });
+      // The indexer knows identities added from another browser. It is optional: without it the local record stands.
+      void client.graph.identities(owner).then((indexed) => {
+        if (hiddenOwner !== owner || !Object.keys(indexed).length) return;
+        const identities = { ...get().identities, ...indexed };
+        set({ identities });
+        saveIdentities(hiveDeployment.agentRegistry, owner, identities);
+      }, () => {});
     } catch (e) {
       set({ status: "error", error: e instanceof Error ? e.message : String(e) });
     }

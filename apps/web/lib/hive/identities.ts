@@ -1,14 +1,15 @@
 import { z } from "zod";
 
-// The ERC-8004 identity this browser registered for an agent (ADR-028). The registry has no lookup from a Hive agent id
-// to its ERC-8004 id, so until the indexer answers that, the record lives here. It is public data: an id and a tx hash.
+// The ERC-8004 identity of an agent (ADR-028). The registry has no lookup from a Hive agent id to its ERC-8004 id, so the
+// record is kept here: written when this browser registers one, and filled from the indexer when it knows more. It is
+// public data: an id and a tx hash.
 // localStorage can be missing or full, so every access is guarded.
 
 /** One record per AgentRegistry deploy and owner: agent ids start again after a redeploy (ADR-021). */
 const keyFor = (agentRegistry: string, owner: string) => `hive:erc8004:${agentRegistry.toLowerCase()}:${owner.toLowerCase()}`;
 
 const zId = z.string().regex(/^(0|[1-9]\d*)$/);
-const zIdentity = z.object({ erc8004Id: zId, txHash: z.string().regex(/^0x[0-9a-fA-F]{64}$/) });
+export const zIdentity = z.object({ erc8004Id: zId, txHash: z.string().regex(/^0x[0-9a-fA-F]{64}$/) });
 const zIdentities = z.record(zId, zIdentity);
 
 /** `erc8004Id` is a decimal string: it goes through JSON. */
