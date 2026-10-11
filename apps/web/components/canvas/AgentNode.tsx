@@ -5,6 +5,7 @@ import Image from "next/image";
 import { memo } from "react";
 import { StatusDot } from "@/components/ui/StatusDot";
 import { cn } from "@/lib/cn";
+import { agentConnection, CONNECTION_TEXT } from "@/lib/agentStatus";
 import { agentLabel } from "@/lib/format";
 import { useGraph } from "@/lib/stores/graph";
 import { agentTypeIcon } from "@/lib/hive/agentTypes";
@@ -24,8 +25,7 @@ function AgentNodeImpl({ id, data, selected }: NodeProps<AgentFlowNode>) {
   const { isolated, revoked } = data;
   const icon = agentTypeIcon(agent.agentType);
   const status = revoked ? "revoked" : agent.connected ? "active" : "idle";
-  const authorized = !agent.connected && agent.tokenExpiresAt !== null && agent.tokenExpiresAt > Math.floor(Date.now() / 1000);
-  const statusText = revoked ? "revoked" : agent.connected ? "connected" : authorized ? "waiting for its first call" : "not connected";
+  const statusText = revoked ? "revoked" : CONNECTION_TEXT[agentConnection(agent, Math.floor(Date.now() / 1000))];
 
   return (
     <div className="relative" data-agent-node={data.agentId}>

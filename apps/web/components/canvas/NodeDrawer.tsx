@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from "react";
 import { zeroAddress } from "viem";
 import { removeAgent } from "@/lib/agentActions";
+import { agentConnection, CONNECTION_TEXT } from "@/lib/agentStatus";
 import { cn } from "@/lib/cn";
 import { explorerAddress, explorerTx } from "@/lib/explorer";
 import { longDate, shortHash } from "@/lib/format";
@@ -197,7 +198,7 @@ export function NodeDrawer({ agentId }: { agentId: string }) {
         <div className="min-w-0 flex-1">
           <h2 id="drawer-title" className="truncate font-display text-[26px] leading-tight text-ink">{shownName}</h2>
           <p className={cn("truncate font-mono text-[14px] whitespace-pre", agent.connected ? "text-status-active" : "text-ink-3")}>
-            agent #{agent.agentId.toString()}  ·  {agent.connected ? "active" : "not connected"}
+            agent #{agent.agentId.toString()}  ·  {CONNECTION_TEXT[agentConnection(agent, Math.floor(Date.now() / 1000))]}
           </p>
           {labels[agentId] && <p className="truncate font-mono text-[14px] text-ink-3">registered as {agent.name}</p>}
         </div>
