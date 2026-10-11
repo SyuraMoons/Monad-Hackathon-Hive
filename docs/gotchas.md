@@ -49,7 +49,7 @@ Known pitfalls. Add to this list when you hit a new one.
 - **Express 5 types:** a function returning `express()` needs an explicit `Express` return type under pnpm, or `tsc` reports TS2742.
 - **uint256 in JSON:** `bigint` throws in `JSON.stringify`. Send decimal strings (see `@hive/shared` ids) and convert at the edge.
 - **Merged stacked PRs leave your local `development` stale.** GitHub merges each PR into `origin/development`, your local branch doesn't move. Before you start, run `git fetch && git merge --ff-only origin/development`, or you will think code is missing (this cost us an hour: the bridge looked unbuilt).
-- **Never rename the HKDF string `hive/encrypt`,** not even in the Mindshare rename (ADR-008). The same goes for the memory namespace's strings `hive/prf/memory/v1` and `hive/memory-key/v1` (ADR-029): each decides a key.
+- **Never rename the HKDF string `hive/encrypt`.** The same goes for the memory namespace's strings `hive/prf/memory/v1` and `hive/memory-key/v1` (ADR-029): each decides a key.
 
 ## Memory
 

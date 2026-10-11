@@ -64,7 +64,7 @@ Short architecture decision records. To add one, append the next number and don'
 **Consequences.** No redeploy, and users never fund agent keys by hand. The funder is a hot key: never reuse it anywhere else, and keep the balance small.
 
 ## ADR-008: The product is named Mindshare, and the rename is one scripted PR later
-**Date:** 2026-10-02 · **Status:** accepted, rename not done
+**Date:** 2026-10-02 · **Status:** superseded by ADR-031 on 2026-10-11. The rename was never done
 
 **Decision.** Use "Mindshare" in new user-facing text. Code, packages (`@hive/*`), MCP tools (`hive_*`) and env vars keep "Hive" until a single scripted rename PR (`scripts/rename-to-mindshare.mjs`, dry-run by default) lands on `development` after the open PR stacks merge. The team is told before it lands because MCP tool names and `@hive/shared` imports change.
 
@@ -299,3 +299,12 @@ Short architecture decision records. To add one, append the next number and don'
 - When the RPC refuses a registration for gas, the web reads the owner's balance. If the account holds at least 0.05 MON the message says so instead of telling the user to fund it.
 
 **Consequences.** A new user's first run is one step longer: fund the account, create the agent on the canvas, then connect it. No error appears before the user has done anything. This does not explain or fix the 11 Oct refusal; if it happens again the message will show that the account was funded. Gas is still paid by the owner (ADR-006), nothing is sponsored.
+
+## ADR-031: The product is named Hive; the Mindshare rename is dropped
+**Date:** 2026-10-11 · **Status:** accepted. Replaces ADR-008
+
+**Context.** ADR-008 named the product Mindshare and left the code as Hive until one scripted rename. That rename was never run. Two days before the deadline, Hive is in every package name (`@hive/*`), every MCP tool (`hive_*`), every env var, the key-derivation strings, the connector instructions that agents already follow, and the web UI. Mindshare was in the README title, the API docs title and the agent card description only.
+
+**Decision.** The product is Hive, everywhere. The three places that said Mindshare now say Hive, and no rename script is written.
+
+**Consequences.** One name in the UI, the docs, the code and the demo. Nothing that is deployed or connected has to change: tool names, tokens and env vars stay as they are. The rule from ADR-008 that still holds is kept: the strings `hive/encrypt`, `hive/prf/memory/v1` and `hive/memory-key/v1` are never renamed, because each one decides a key (ADR-029).

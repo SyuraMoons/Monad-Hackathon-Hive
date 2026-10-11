@@ -53,7 +53,7 @@ Short list, details in [docs/decisions.md](docs/decisions.md) and [docs/gotchas.
 
 - **Gas:** testnet, the Mera EOA pays and is faucet-funded (ADR-006). Don't write "sponsored" in UI or docs.
 - **Writes:** the agent key sends `MemorySlots.write`; the bridge funds that key (ADR-007).
-- **Name:** the product is Mindshare, the code still says Hive until one scripted rename PR (ADR-008). Never rename the HKDF string `hive/encrypt`, nor the memory namespace's `hive/prf/memory/v1` and `hive/memory-key/v1` (ADR-029).
+- **Name:** the product is Hive, in the UI, the docs and the code (ADR-031, which replaces ADR-008). There is no rename. Never rename the HKDF string `hive/encrypt`, nor the memory namespace's `hive/prf/memory/v1` and `hive/memory-key/v1` (ADR-029).
 - **Demo agents:** Claude, ChatGPT and DeepSeek (several named agents of each type are allowed, ADR-012). DeepSeek connects through a local runner in `apps/agents` and is planned until a live run is recorded (ADR-020).
 - **Before you start:** `git fetch && git merge --ff-only origin/development`. Stacked PR merges leave local `development` stale.
 
@@ -83,7 +83,7 @@ Short list, details in [docs/decisions.md](docs/decisions.md) and [docs/gotchas.
 
 ## Product name
 
-See ADR-008 and "Decisions in force". Until the rename lands as one PR, keep the existing `@hive/*`, `hive_*` and `HIVE_*` names. Don't rename piecemeal: it breaks every open branch.
+The product is Hive (ADR-031). Keep the `@hive/*`, `hive_*` and `HIVE_*` names, and don't write "Mindshare" in new text.
 
 ## Working with PRs
 

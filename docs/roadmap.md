@@ -227,4 +227,4 @@ We build one layer at a time. Tick each step off here when it's done.
 - ~~Is an ERC-8004 registry deployed on Monad testnet?~~ Yes: the Identity Registry answers at `0x8004A818BFB912233c491871b3d84c89A494BD9e` (checked with `cast` on 11 Oct, ADR-028).
 - ~~Does the MCP TypeScript SDK support our custom server setup?~~ Yes: SDK 1.31 with a stateless Streamable HTTP transport, used by Claude Code against testnet on 5 and 10 Oct ([feedback.md](feedback.md), 2 Oct).
 - Can React Flow handle 20+ nodes with animation?
-- ~~Final product name~~: decided, Mindshare (ADR-008). The rename PR is still to do.
+- ~~Final product name~~: decided, Hive (ADR-031). ADR-008 chose Mindshare on 2 Oct; that rename was never done and is dropped.
