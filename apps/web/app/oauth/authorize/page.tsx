@@ -8,6 +8,7 @@ import { PillButton } from "@/components/ui/Pill";
 import { Waves } from "@/components/ui/Waves";
 import { cn } from "@/lib/cn";
 import { getHiveClient } from "@/lib/hive/client";
+import { agentTypeLabel, PRODUCT } from "@/lib/hive/agentTypes";
 import { parseConsentRequest } from "@/lib/hive/oauthRequest";
 import { displayName, useGraph } from "@/lib/stores/graph";
 import { useSession } from "@/lib/stores/session";
@@ -39,7 +40,7 @@ function Card({ eyebrow, title, children }: { eyebrow: string; title: string; ch
   );
 }
 
-// The page the bridge's GET /oauth/authorize sends the owner to (ADR-019): sign in, pick the Claude agent, hand the bridge its
+// The page the bridge's GET /oauth/authorize sends the owner to (ADR-019): sign in, pick the agent (Claude or GPT, by who is asking), hand the bridge its
 // keys through the usual authorize, then ask it for a code and send the browser back to the connector.
 function Consent() {
   const router = useRouter();
@@ -71,14 +72,15 @@ function Consent() {
     if (signedIn && owner) void useGraph.getState().load(owner);
   }, [signedIn, owner]);
 
-  const mine = Object.values(agents).filter((a) => a.agentType === "claude").sort((a, b) => Number(a.agentId - b.agentId));
+  const wanted = consent?.type ?? "claude";
+  const mine = Object.values(agents).filter((a) => a.agentType === wanted).sort((a, b) => Number(a.agentId - b.agentId));
   const selected = mine.find((a) => a.agentId.toString() === picked) ?? mine[0];
 
   if (!consent) {
     return (
       <Shell>
         <Card eyebrow="CONNECTION REQUEST" title="This link isn’t a valid connection request">
-          <p className="text-[17px] leading-[1.55] text-ink-2">Start again from Claude: add Hive as a custom connector and it opens this page itself.</p>
+          <p className="text-[17px] leading-[1.55] text-ink-2">Start again from Claude or ChatGPT: add Hive as a custom connector and it opens this page itself.</p>
         </Card>
       </Shell>
     );
@@ -113,7 +115,7 @@ function Consent() {
 
   return (
     <Shell>
-      <Card eyebrow="CONNECTION REQUEST" title="Connect Claude to one of your agents">
+      <Card eyebrow="CONNECTION REQUEST" title={`Connect ${PRODUCT[wanted]} to one of your agents`}>
         <p className="text-[17px] leading-[1.55] text-ink-2">
           <strong className="font-medium text-ink">{consent.who}</strong> wants to use Hive as this agent. It can write memory as the agent and read what the agent is allowed to see on your canvas, and nothing else. You can end it from the canvas at any time.
         </p>
@@ -122,7 +124,7 @@ function Consent() {
           <p role="alert" className="text-[15px] text-status-revoked">Couldn’t load your agents: {graphError}</p>
         ) : (
           <div className="flex flex-col gap-3">
-            <div className="flex w-full flex-wrap items-center gap-2" role="group" aria-label="Claude agents">
+            <div className="flex w-full flex-wrap items-center gap-2" role="group" aria-label={`${agentTypeLabel(wanted)} agents`}>
               {mine.map((a) => (
                 <button
                   key={a.agentId.toString()}
@@ -137,14 +139,14 @@ function Consent() {
               ))}
               {!naming && (
                 <button type="button" disabled={busy !== undefined} onClick={() => setNaming(true)} className={cn(chip, "border-dashed border-clay text-ink-2 hover:text-ink")}>
-                  + New Claude agent
+                  + New {agentTypeLabel(wanted)} agent
                 </button>
               )}
             </div>
-            {mine.length === 0 && !naming && <p className="text-[15px] text-ink-2">You don’t have a Claude agent yet. Create one to continue.</p>}
+            {mine.length === 0 && !naming && <p className="text-[15px] text-ink-2">You don’t have a {agentTypeLabel(wanted)} agent yet. Create one to continue.</p>}
             {naming && (
               <NewAgentForm
-                type="claude"
+                type={wanted}
                 onCancel={() => setNaming(false)}
                 onCreated={(id) => {
                   setPicked(id.toString());

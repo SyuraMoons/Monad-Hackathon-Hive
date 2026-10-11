@@ -7,14 +7,13 @@ import { removeAgent } from "@/lib/agentActions";
 import { cn } from "@/lib/cn";
 import { explorerAddress, explorerTx } from "@/lib/explorer";
 import { longDate, shortHash } from "@/lib/format";
-import { deepseekRunner, gptSnippet } from "@/lib/hive/commands";
 import { historyEntries } from "@/lib/hive/memoryHistory";
 import { useFeed } from "@/lib/stores/feed";
 import { displayName, useGraph, type AgentNode, type EdgeView } from "@/lib/stores/graph";
 import { useSession } from "@/lib/stores/session";
 import { useUi } from "@/lib/stores/ui";
 import { topicColor, topicLabel } from "@/lib/topics";
-import { agentTypeIcon } from "@/lib/hive/agentTypes";
+import { agentTypeIcon, hasGuide, PRODUCT } from "@/lib/hive/agentTypes";
 import { AllHistory, MemoryDetail, MemoryList, button, eyebrow, section } from "./MemoryHistory";
 
 const HISTORY_PAGE_SIZE = 5;
@@ -28,13 +27,10 @@ function scopeKey(expiresAt: number | null): string {
 
 // Reconnect after a bridge restart or an expired token; Disconnect ends the bridge session. Both act on the signed-in owner's agent.
 function ConnectionSection({ agent }: { agent: AgentNode }) {
-  const id = agent.agentId.toString();
-  const authorization = useSession((s) => s.authorizations[id]);
   const authorizeAgent = useSession((s) => s.authorizeAgent);
   const disconnectAgent = useSession((s) => s.disconnectAgent);
   const [busy, setBusy] = useState<"reconnect" | "disconnect">();
   const [error, setError] = useState<string>();
-  const [copied, setCopied] = useState(false);
   const live = agent.tokenExpiresAt !== null && agent.tokenExpiresAt > Math.floor(Date.now() / 1000);
   const unfinished = agent.agentKey === zeroAddress;
 
@@ -50,17 +46,6 @@ function ConnectionSection({ agent }: { agent: AgentNode }) {
     }
   }
 
-  async function copyCommand(command: (url: string, token: string) => string) {
-    if (!authorization) return;
-    try {
-      await navigator.clipboard.writeText(command(authorization.mcpUrl, authorization.agentToken));
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch {
-      setError("Could not copy. Open Connect to select the command.");
-    }
-  }
-
   return (
     <section className={section} aria-label="Connection">
       <p className={eyebrow}>CONNECTION</p>
@@ -70,7 +55,9 @@ function ConnectionSection({ agent }: { agent: AgentNode }) {
           : live
           ? agent.connected
             ? `${agent.name} is connected.`
-            : "Authorized. A token under 24h old works again: run /mcp in Claude Code to reconnect."
+            : agent.agentType === "claude"
+            ? "Authorized. A token under 24h old works again: run /mcp in Claude Code to reconnect."
+            : "Authorized. Its token works until it expires: restart the agent or app that uses it to reconnect."
           : `${agent.name} has no session on the bridge. This happens after a bridge restart. Reconnect gives it its keys again.`}
       </p>
       <div className="flex flex-wrap gap-2.5">
@@ -82,19 +69,9 @@ function ConnectionSection({ agent }: { agent: AgentNode }) {
             {busy === "disconnect" ? "Disconnecting…" : "Disconnect"}
           </button>
         )}
-        {authorization && agent.agentType === "gpt" && (
-          <button type="button" className={button} onClick={() => void copyCommand(gptSnippet)}>
-            {copied ? "Copied" : "Copy GPT config"}
-          </button>
-        )}
-        {authorization && agent.agentType === "deepseek" && (
-          <button type="button" className={button} onClick={() => void copyCommand(deepseekRunner)}>
-            {copied ? "Copied" : "Copy DeepSeek command"}
-          </button>
-        )}
-        {agent.agentType === "claude" && !unfinished && (
+        {hasGuide(agent.agentType) && !unfinished && (
           <button type="button" className={button} onClick={() => useUi.getState().set({ connectAgent: agent.agentId })}>
-            Connect to Claude…
+            Connect to {PRODUCT[agent.agentType]}…
           </button>
         )}
       </div>

@@ -4,14 +4,16 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { cn } from "@/lib/cn";
 import { StatusDot } from "./StatusDot";
 
-export type InstallTab = "claude" | "ai" | "desktop" | "gpt" | "deepseek";
+export type InstallTab = "claude" | "ai" | "desktop" | "gpt" | "deepseek" | "codex" | "mcp";
 
 const BAR_LABEL: Record<InstallTab, string> = {
   claude: "Terminal · Claude Code",
   ai: "Prompt · paste into your AI",
   desktop: "claude_desktop_config.json",
-  gpt: "OpenAI API",
+  gpt: "OpenAI API · for developers",
   deepseek: "Terminal · DeepSeek runner",
+  codex: "~/.codex/config.toml",
+  mcp: "MCP client config",
 };
 
 /** Displays `hive_sk_7f3a…` / `eyJh…`: only the first 4 characters of the secret (step 5). */
@@ -145,7 +147,7 @@ export function InstallCard({ tab, command, token, note, pending, error, onRetry
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between gap-4">
               <p className="font-mono text-[14px] text-clay">{secondary.caption}</p>
-              <CopyButton label="Copy runner command" copied={extra.copied} onClick={() => extra.copy(secondary.command, extraRef.current)} />
+              <CopyButton label="Copy command" copied={extra.copied} onClick={() => extra.copy(secondary.command, extraRef.current)} />
             </div>
             <Code text={secondary.command} token={token} mask={mask} codeRef={extraRef} />
           </div>

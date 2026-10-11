@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { aiConnectPrompt, aiDesktopPrompt, claudeCommand, claudeDesktopConfig, claudeTerminalCommand, connectorUrl, deepseekRunner, isLocalUrl, nameSlug, gptRunner, gptSnippet } from "./commands";
+import { aiConnectPrompt, aiDesktopPrompt, claudeCommand, claudeDesktopConfig, claudeTerminalCommand, connectorUrl, deepseekRunner, isLocalUrl, nameSlug, gptSnippet, codexConfig, codexEnv, mcpClientConfig, mcpHttpDetails } from "./commands";
 
 describe("connect commands", () => {
   it("passes the url and token to the DeepSeek runner and nothing else", () => {
@@ -33,9 +33,22 @@ describe("connect commands", () => {
     expect(claudeTerminalCommand("http://h/x'y", "t", "a")).toContain(`x'\\''y`);
   });
 
-  it("keeps the model out of the GPT snippet and the token in the runner", () => {
-    expect(gptSnippet("u", "tok")).toContain("process.env.OPENAI_MODEL");
-    expect(gptRunner("tok")).toBe("HIVE_TOKEN_GPT=tok pnpm --filter @hive/agents gpt --chat");
+  it("keeps the model out of the GPT snippet and sends the bare token, which the Responses API treats as the OAuth token", () => {
+    const snippet = gptSnippet("https://b.example/mcp", "tok");
+    expect(snippet).toContain("process.env.OPENAI_MODEL");
+    expect(snippet).toContain('server_url: "https://b.example/mcp"');
+    expect(snippet).toContain('authorization: "tok"');
+  });
+
+  it("points Codex at a token variable so config.toml never holds the secret", () => {
+    const toml = codexConfig("https://b.example/mcp", "GPT · FE");
+    expect(toml).toBe('[mcp_servers.hive-gpt-fe]\nurl = "https://b.example/mcp"\nbearer_token_env_var = "HIVE_TOKEN_GPT_FE"');
+    expect(codexEnv("tok", "GPT · FE")).toBe("export HIVE_TOKEN_GPT_FE=tok");
+  });
+
+  it("gives a generic MCP app the stdio config and the plain HTTP details", () => {
+    expect(mcpClientConfig("https://b.example/mcp", "tok", "DeepSeek")).toBe(claudeDesktopConfig("https://b.example/mcp", "tok", "DeepSeek"));
+    expect(mcpHttpDetails("https://b.example/mcp", "tok")).toBe("url:    https://b.example/mcp\nheader: Authorization: Bearer tok");
   });
 
   it("builds a Claude Desktop config that keeps the token in env, not in args", () => {
