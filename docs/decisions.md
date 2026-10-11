@@ -293,7 +293,7 @@ Short architecture decision records. To add one, append the next number and don'
 **Context.** `/connect` registered the first agent of the open tab as soon as it loaded. A new account holds no MON (ADR-006: the owner's EOA pays gas), so the first thing every new user saw was a failed transaction. On 11 Oct a new account also kept the "no MON for gas" message after the faucet had paid 1 MON; its registration went through about 14 minutes later with the same code and the same balance. We could not reproduce that and do not know its cause.
 
 **Decision.**
-- `/connect` sends no transaction on load. For a type with no agent it shows the owner address, the live balance, the faucet link and a button to the canvas, which stays inactive while the balance is below 0.05 MON.
+- `/connect` sends no transaction on load. For a type with no agent it shows the owner address, the live balance, the faucet link and a button to the canvas. The button is not locked on the balance: on 11 Oct the page read a funded account as too low.
 - Agents are created only when the user asks: "+ New agent" on the canvas sidebar or on `/connect`. A half-registered agent is finished from its "Finish setup" button, not on load.
 - `connectAgent` only asks the bridge for a token for an agent that already exists and has a writer key.
 - When the RPC refuses a registration for gas, the web reads the owner's balance. If the account holds at least 0.05 MON the message says so instead of telling the user to fund it.

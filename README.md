@@ -33,7 +33,7 @@ Contracts on Monad testnet (chain 10143):
 There is no test account: the login is a passkey you create yourself, and it is the only key.
 
 1. Open the [app](https://monad-hackathon-eta.vercel.app) in Safari with iCloud Keychain, or in Chrome with Google Password Manager, or with 1Password. A passkey saved locally in desktop Chrome cannot produce the key material and fails ([gotchas](docs/gotchas.md)).
-2. Create a passkey. The wallet menu shows your address.
+2. Create a passkey. The Connect page and the wallet menu show your address.
 3. Send testnet MON to that address from https://faucet.monad.xyz. Your address pays its own gas ([ADR-006](docs/decisions.md)).
 4. Create two agents from the canvas sidebar, then drag from one to the other and sign the edge with the passkey.
 5. Open an agent's drawer and copy its `claude --mcp-config` command into a terminal with Claude Code. Do the same for the second agent in a second terminal.
@@ -53,6 +53,7 @@ Everything below is on Monad testnet and can be checked without us. It was made 
 | An agent writes a memory and it propagates | Slot 6 from agent 10 (type `claude`), sent by its own key [`0x6518…5917`](https://testnet.monadscan.com/address/0x6518E5a12F9F78ceF988e9c48c41d761E6fD5917), [write](https://testnet.monadscan.com/tx/0xac8240fbc370275f729dd95bf04b3593d76d39ae6ad1544b9c31c3c84abdfd9e): `MemoryWritten`, then `Propagate` to agent 11 along edge 12 |
 | The other agent writes back | Slot 7 from agent 11 (type `gpt`), sent by its own key [`0x1Fe8…387c`](https://testnet.monadscan.com/address/0x1Fe8563Be900a9532e5Cdd1e9E020DCB5f32387c), [write](https://testnet.monadscan.com/tx/0xa5c28839840be3a856306429a373db1e2760ff3ab76a84edc61de03a9274d3ee): `Propagate` to agent 10 along edge 11 |
 | A later save shows up without anyone touching the indexer | Slot 8 from agent 10, [write](https://testnet.monadscan.com/tx/0x38aa295715acc45f80cd165a2eeea787b3599002ea3775f3cb9235f6c3dd6f92), topic `general`: `Propagate` to agent 11 along edge 12. The indexer returned the slot and its propagation when queried right after |
+| A save from ChatGPT reaches the Claude agents | Slot 10 from agent 11 (type `gpt`), sent by its own key, [write](https://testnet.monadscan.com/tx/0x27163bf07c4c69a314022de73e3d72d46979005052165df4d9e3b435962bbbfd) at 12:02 UTC on 11 Oct: `Propagate` to agents 10 and 12, both type `claude`. That the save was made in chatgpt.com through the connector, and that Claude then read it, is reported by the team; a read leaves nothing onchain |
 | The indexer has all of it | The [GraphQL endpoint](https://indexer.dev.hyperindex.xyz/5a8ecda/v1/graphql) returns these agents, edges, slots and propagations, joins the four identities to their agents, and reports 0 policy violations |
 
 The owner's address sent the registrations and the edges; each write was sent by the writing agent's own key, which the owner derived from the passkey and the bridge holds only for the session. Only the content hash and the topic name are in those transactions. The memory text is ciphertext in Supabase.
@@ -244,8 +245,8 @@ Why not roll your own: a revoke takes effect on the next read, the permission hi
 | Envio indexer | **Live** on Envio Cloud, synced to head on 11 Oct |
 | ERC-8004 identity | **Run on testnet**, 11 Oct: four agents registered and joined in the indexer |
 | Memory key in its own PRF namespace | **Live**. Signed in on two devices with one passkey and one prompt on 11 Oct; a decrypt on the second device not recorded |
-| Memory search and structured memory | **Built**, measured on fixtures. No live run |
-| claude.ai, Claude Desktop and ChatGPT connectors (OAuth) | **Built**, not yet run against those clients |
+| Memory search and structured memory | **Run** on the hosted bridge, 11 Oct: `hive_search_memory` for "ERC-8004 registration status" answered `mode: "hybrid"` and ranked the ERC-8004 memory (slot 6) first, matched on text, entity and meaning. One query on three memories; ranking quality is otherwise measured on fixtures |
+| claude.ai, Claude Desktop and ChatGPT connectors (OAuth) | **Run**, 11 Oct, as reported by the team: the Claude connector added from an iPad, Claude Desktop, Codex CLI, and a save from chatgpt.com that a Claude agent read ([slot 10](https://testnet.monadscan.com/tx/0x27163bf07c4c69a314022de73e3d72d46979005052165df4d9e3b435962bbbfd)). The chain shows the write and its propagation, not which client made it |
 | DeepSeek runner, propagation animation | Planned |
 
 Every run we checked, and what each one did not check, is in [docs/roadmap.md](docs/roadmap.md).
