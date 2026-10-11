@@ -87,7 +87,9 @@ Envio's test indexer fetched blocks 69814735 to 70000445 of chain 10143 through 
 - 2 propagations `4 → 5`, each joined to its slot and credited to edge 3 (`propagationCount` 2). So `Propagate` does fire on an all-topics edge on the redeployed contracts.
 - 15 audit rows, owner and topic counters consistent with the above, and 0 policy violations.
 
-Not checked: a Postgres-backed run (`envio dev`), the GraphQL API the web queries, Envio Cloud, an `EdgeRemoved` on real data (none exists yet), and the `/audit` page against any of it.
+The same day `envio dev` ran the indexer with Postgres and Hasura in Docker and synced to head with the same counts.
+
+Not checked: Envio Cloud, an `EdgeRemoved` on real data (none exists yet), and the `/audit` page in a browser.
 
 ## P0 features (required)
 
@@ -102,7 +104,7 @@ Not checked: a Postgres-backed run (`envio dev`), the GraphQL API the web querie
 | P0.7 | Visual canvas (React Flow) | P3 | 🚧 canvas, audit and connect screens on the mock client. In live mode the live client reads agents and registers them from `/connect` (unit-tested, not yet run against testnet) and reads the bridge's event stream (unit-tested, not yet run in the browser); edges are read and signed on-chain (not yet run on testnet); audit is still a stub; the agent drawer reads memory text through `GET /v1/memory/:contentHash` and decrypts it on this device (unit-tested, not yet run in a browser, ADR-024) |
 | P0.8 | Live propagation animation | P3 | ⏳ |
 | P0.9 | 2 mock chatbots | P4 | ⏳ placeholder only |
-| P0.10 | Envio indexer (audit trail) | P2 | 🚧 `packages/indexer`: schema, handlers and derived stats (policy check, per-edge counts), tested with simulated events. Not yet synced against testnet, not deployed to Envio Cloud, and the web still reads the mock for audit |
+| P0.10 | Envio indexer (audit trail) | P2 | 🚧 `packages/indexer`: schema, handlers and derived stats (policy check, per-edge counts), tested with simulated events. Synced locally against testnet on 11 Oct (see _Verified runs_); not deployed to Envio Cloud, and the web still reads the mock for audit |
 | P0.11 | Demo script + rehearsal | P4 | ⏳ |
 
 P1 nice-to-haves, only after all P0 items are done: Claude Desktop MCP integration, colored isolation zones, provenance view, time-travel replay, ChatGPT integration.
@@ -125,7 +127,7 @@ We build one layer at a time. Tick each step off here when it's done.
 - [ ] Envio indexer (`packages/indexer`)
   - [x] Config for the four contracts from block 69814735, schema, handlers, derived stats and the policy check. Unit-tested with Envio's test indexer and simulated events
   - [x] Handlers replayed over the real testnet history with the test indexer, 11 Oct (see _Verified runs_)
-  - [ ] Full local run with Postgres and GraphQL (`envio dev`, needs Docker)
+  - [x] Full local run with Postgres and Hasura (`envio dev`), 11 Oct: synced to head, 7 agents, 4 edges, 2 slots, 2 propagations, 0 violations, and the GraphQL API answers without a secret
   - [ ] Deploy to Envio Cloud (public GraphQL URL)
   - [ ] Web: `graph.auditEvents` and `graph.provenance` read the indexer
   - [ ] Web: stats strip on `/audit`

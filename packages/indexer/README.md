@@ -4,7 +4,7 @@ Envio HyperIndex for Hive's audit trail on Monad testnet (chain 10143). It turns
 
 It is for history and display only. Permission checks never read it: the bridge reads live chain state (AGENTS.md rule 3). Everything it stores is already public onchain (agent names, topic text, content hashes), never memory plaintext.
 
-Status: handlers and tests work with simulated events. Not yet synced against testnet or deployed (see [docs/roadmap.md](../../docs/roadmap.md)).
+Status: tested with simulated events and synced locally against testnet on 11 Oct 2026. Not yet deployed to Envio Cloud (see [docs/roadmap.md](../../docs/roadmap.md)).
 
 ## Entities
 
@@ -37,6 +37,8 @@ Local run:
 4. After a change to `config.yaml`, `schema.graphql` or an ABI, restart with `pnpm --filter @hive/indexer exec envio dev -r` to re-index from `start_block`.
 
 `ENVIO_TUI=false` turns the terminal UI off (it is off by default in CI).
+
+If something else already listens on port 5433, Envio takes it for its own Postgres, starts none, and hangs at "Waiting for Hasura". Pick another port: `ENVIO_PG_PORT=5439 pnpm --filter @hive/indexer dev`.
 
 ## Why nothing here imports the workspace
 
