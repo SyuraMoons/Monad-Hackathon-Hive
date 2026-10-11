@@ -22,6 +22,7 @@ import type {
   TxHash,
   UnixSeconds,
 } from "@hive/shared";
+import type { AgentIdentity } from "./identities";
 import type { MemoryView } from "./memoryView";
 
 export type HiveMode = "mock" | "live";
@@ -83,6 +84,8 @@ export interface HiveClient {
     provenance(contentHash: ContentHash): Promise<Provenance | null>;
     /** Counters for the Audit strip. All zero for an owner the indexer has not seen. */
     ownerStats(owner: Address): Promise<OwnerStats>;
+    /** The owner's ERC-8004 identities as the indexer joined them, by Hive agent id (ADR-028). Display only. */
+    identities(owner: Address): Promise<Record<string, AgentIdentity>>;
   };
   events: {
     /** Bridge SSE. Returns an unsubscribe function. */

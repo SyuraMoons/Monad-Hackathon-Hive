@@ -5,7 +5,7 @@ import { hivePublicClient } from "../clients";
 import type { HiveSigner } from "../signer";
 import type { HiveClient, Session } from "../types";
 import { createBridgeApi } from "./bridge";
-import { auditEvents, ownerStats, provenance } from "./audit";
+import { agentIdentities, auditEvents, ownerStats, provenance } from "./audit";
 import { envioAudit } from "./auditEnvio";
 import { agentHistory } from "./history";
 import { chainHistory } from "./historyChain";
@@ -73,6 +73,7 @@ export function createLiveClient(): LiveHiveClient {
       auditEvents: (owner) => auditEvents(envioAudit, owner),
       provenance: (contentHash) => provenance(envioAudit, contentHash),
       ownerStats: (owner) => ownerStats(envioAudit, owner),
+      identities: (owner) => agentIdentities(envioAudit, owner),
     },
     events: bridge.events,
     memory: {

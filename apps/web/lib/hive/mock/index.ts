@@ -225,6 +225,10 @@ export function createMockClient(): MockHiveClient {
           propagations: s.propagatedTo.map((to) => ({ slotId: s.slotId, from: s.agentId, to, contentHash: s.contentHash, topic: s.topic, txHash: s.txHash, at: s.writtenAt })),
         });
       },
+      // The mock has no indexer: an identity added in this tab is remembered by the graph store.
+      async identities() {
+        return {};
+      },
       async ownerStats() {
         await latency();
         // The mock only delivers along active edges, so there is never a delivery to flag.

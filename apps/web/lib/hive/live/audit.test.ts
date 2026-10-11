@@ -1,6 +1,6 @@
 import { HiveError, zContentHash } from "@hive/shared";
 import { describe, expect, it, vi } from "vitest";
-import { auditEvents, ownerStats, provenance, type AuditDeps } from "./audit";
+import { agentIdentities, auditEvents, ownerStats, provenance, type AuditDeps } from "./audit";
 import { envioAudit } from "./auditEnvio";
 
 const tx = (n: number) => `0x${n.toString(16).padStart(2, "0").repeat(32)}`;
@@ -121,4 +121,22 @@ describe("envioAudit", () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response("no", { status: 502 })));
     await expect(envioAudit.query("{ x }", {})).rejects.toThrow(/502/);
   }));
+});
+
+describe("agentIdentities", () => {
+  it("asks for the lowercased owner's joined identities and keys them by Hive agent id", async () => {
+    const d = deps({ Erc8004Identity: [{ id: "2142", hiveAgentId: "7", registeredTx: tx(1) }, { id: "2143", hiveAgentId: "8", registeredTx: tx(2) }] });
+    expect(await agentIdentities(d, "0xABCDEF0000000000000000000000000000000001")).toEqual({ "7": { erc8004Id: "2142", txHash: tx(1) }, "8": { erc8004Id: "2143", txHash: tx(2) } });
+    expect(d.query).toHaveBeenCalledWith(expect.stringContaining("hiveAgentId: { _is_null: false }"), { owner: "0xabcdef0000000000000000000000000000000001" });
+  });
+
+  it("keeps the lowest id when an agent has several, whatever the order", async () => {
+    const d = deps({ Erc8004Identity: [{ id: "10", hiveAgentId: "7", registeredTx: tx(2) }, { id: "9", hiveAgentId: "7", registeredTx: tx(1) }] });
+    expect(await agentIdentities(d, "0x01")).toEqual({ "7": { erc8004Id: "9", txHash: tx(1) } });
+  });
+
+  it("skips rows it can't show: no agent, a bad id, a bad hash", async () => {
+    const d = deps({ Erc8004Identity: [{ id: "1", hiveAgentId: null, registeredTx: tx(1) }, { id: "x", hiveAgentId: "7", registeredTx: tx(1) }, { id: "2", hiveAgentId: "7", registeredTx: "0x12" }, { id: "3", hiveAgentId: "abc", registeredTx: tx(1) }] });
+    expect(await agentIdentities(d, "0x01")).toEqual({});
+  });
 });

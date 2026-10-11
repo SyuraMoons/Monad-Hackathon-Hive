@@ -1,4 +1,5 @@
 import { HiveError, zAgentType, zAuditEvent, zOwnerStats, zProvenance, type AuditEvent, type ContentHash, type OwnerStats, type Provenance } from "@hive/shared";
+import { zIdentity, type AgentIdentity } from "../identities";
 
 // The audit page and the provenance card, read from the Envio indexer (packages/indexer). The GraphQL call is
 // injected (AuditDeps), so this file has no network in it. The index is for display only: it never decides access.
@@ -80,4 +81,26 @@ export async function ownerStats(deps: AuditDeps, owner: string): Promise<OwnerS
   const parsed = zOwnerStats.safeParse(rows[0]);
   if (!parsed.success) throw new HiveError("INTERNAL", "The audit indexer sent unexpected stats.");
   return parsed.data;
+}
+
+const IDENTITY_QUERY = `query Identities($owner: String!) {
+  Erc8004Identity(where: { owner: { _eq: $owner }, hiveAgentId: { _is_null: false } }) { id hiveAgentId registeredTx }
+}`;
+
+type IdentityRow = { id: string; hiveAgentId: string | null; registeredTx: string };
+
+/**
+ * The owner's ERC-8004 identities the indexer joined to an agent (ADR-028), by Hive agent id. The indexer has already
+ * checked that both have the same owner. When an agent has several, the lowest id wins, as `Agent.erc8004Id` does.
+ */
+export async function agentIdentities(deps: AuditDeps, owner: string): Promise<Record<string, AgentIdentity>> {
+  const { Erc8004Identity: rows } = await deps.query<{ Erc8004Identity: IdentityRow[] }>(IDENTITY_QUERY, { owner: owner.toLowerCase() });
+  const out: Record<string, AgentIdentity> = {};
+  for (const row of rows) {
+    const parsed = zIdentity.safeParse({ erc8004Id: row.id, txHash: row.registeredTx });
+    if (!parsed.success || !row.hiveAgentId || !/^(0|[1-9]\d*)$/.test(row.hiveAgentId)) continue;
+    const current = out[row.hiveAgentId];
+    if (!current || BigInt(parsed.data.erc8004Id) < BigInt(current.erc8004Id)) out[row.hiveAgentId] = parsed.data;
+  }
+  return out;
 }
