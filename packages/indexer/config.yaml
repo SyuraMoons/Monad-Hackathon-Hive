@@ -1,0 +1,43 @@
+# Hive audit-trail indexer. Addresses and ABIs mirror @hive/shared (run `pnpm --filter @hive/indexer sync`).
+name: hive-indexer
+description: Agents, permission edges and memory writes on Monad testnet, with derived stats and a policy check.
+address_format: lowercase
+field_selection:
+  transaction_fields:
+    - hash
+contracts:
+  - name: AgentRegistry
+    abi_file_path: abis/AgentRegistry.json
+    handler: src/handlers/registry.ts
+    events:
+      - event: AgentRegistered
+      - event: AgentWriterSet
+  - name: KnowledgeGraph
+    abi_file_path: abis/KnowledgeGraph.json
+    handler: src/handlers/graph.ts
+    events:
+      - event: EdgeAdded
+      - event: EdgeRemoved
+  - name: MemorySlots
+    abi_file_path: abis/MemorySlots.json
+    handler: src/handlers/memory.ts
+    events:
+      - event: MemoryWritten
+  - name: PropagationEngine
+    abi_file_path: abis/PropagationEngine.json
+    handler: src/handlers/propagation.ts
+    events:
+      - event: Propagate
+chains:
+  - id: 10143
+    # Block of the AgentRegistry deployment (ADR-021 redeploy, packages/contracts/broadcast).
+    start_block: 69814735
+    contracts:
+      - name: AgentRegistry
+        address: "0x06F4401cF289bfc29de59Fc1B624096Dc69ff25B"
+      - name: KnowledgeGraph
+        address: "0x80db4a46BEE029464Aa1fca083985d1C5178AFd6"
+      - name: MemorySlots
+        address: "0xdE8DAf9599366b2ef8Ae245bF574808844Aa5f8a"
+      - name: PropagationEngine
+        address: "0x4af2CC25026f918E88d727704D3FB888C20b0397"
