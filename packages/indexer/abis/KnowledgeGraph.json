@@ -266,6 +266,24 @@
     "stateMutability": "nonpayable"
   },
   {
+    "type": "function",
+    "name": "setExpiry",
+    "inputs": [
+      {
+        "name": "edgeId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "expiresAt",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
     "type": "event",
     "name": "EdgeAdded",
     "inputs": [
@@ -292,6 +310,31 @@
         "type": "string",
         "indexed": false,
         "internalType": "string"
+      },
+      {
+        "name": "expiresAt",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "timestamp",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "EdgeExpiryChanged",
+    "inputs": [
+      {
+        "name": "edgeId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
       },
       {
         "name": "expiresAt",
