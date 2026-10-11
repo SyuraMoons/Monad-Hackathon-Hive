@@ -1,5 +1,5 @@
 import { HiveError, zAgentType, type Agent, type AgentType } from "@hive/shared";
-import { BaseError, InsufficientFundsError, getAddress, zeroAddress, type Address, type Hex } from "viem";
+import { BaseError, InsufficientFundsError, formatEther, getAddress, parseEther, zeroAddress, type Address, type Hex } from "viem";
 
 // AgentRegistry reads and the two-step registration. The chain calls are injected (RegistryDeps), so this file
 // has no RPC in it and its tests run against fakes. The real deps are in registryChain.ts.
@@ -14,7 +14,12 @@ export type RegistryDeps = {
   register(name: string, agentType: string, agentKey: Hex): Promise<{ agentId: bigint; txHash: Hex }>;
   /** Sends `setAgentWriter` and resolves with its hash once the receipt is in. */
   setWriter(agentId: bigint, writer: Address): Promise<Hex>;
+  /** The owner's MON balance in wei, read after the RPC refuses a transaction for gas. */
+  balanceOf(owner: Address): Promise<bigint>;
 };
+
+/** Below this the owner may not be able to pay for a registration. */
+export const MIN_GAS_BALANCE = parseEther("0.05");
 
 const sameAddress = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 
@@ -28,11 +33,19 @@ export function toAgent(a: ChainAgent): Agent {
 export const isOutOfFunds = (x: unknown) =>
   x instanceof InsufficientFundsError || (x instanceof Error && /insufficient (balance|funds)/i.test(`${x.message} ${(x as { details?: string }).details ?? ""}`));
 
-/** Fixed messages only: nothing from the RPC goes into them. The owner address is named so it is clear which account has to hold the MON. */
-function toHiveError(e: unknown, owner: Address): HiveError {
+/**
+ * Fixed messages only: nothing from the RPC goes into them. The owner address is named so it is clear which account has to
+ * hold the MON. The balance is read here because the RPC's refusal alone does not say the account is empty.
+ */
+async function toHiveError(e: unknown, deps: RegistryDeps, owner: Address): Promise<HiveError> {
   if (e instanceof HiveError) return e;
   if (e instanceof BaseError && e.walk(isOutOfFunds) !== null) {
-    return new HiveError("CHAIN_ERROR", `Your account ${owner.slice(0, 6)}…${owner.slice(-4)} has no MON for gas. Send test MON from the faucet to that address, then try again.`);
+    const short = `${owner.slice(0, 6)}…${owner.slice(-4)}`;
+    const balance = await deps.balanceOf(owner).catch(() => undefined);
+    if (balance !== undefined && balance >= MIN_GAS_BALANCE) {
+      return new HiveError("CHAIN_ERROR", `Monad refused the transaction for gas, although ${short} holds ${Number(formatEther(balance)).toFixed(4)} MON. Wait a few seconds, then try again.`);
+    }
+    return new HiveError("CHAIN_ERROR", `Your account ${short} has no MON for gas. Send test MON from the faucet to that address, then try again.`);
   }
   return new HiveError("CHAIN_ERROR", "Could not register the agent on Monad.");
 }
@@ -54,6 +67,6 @@ export async function registerAndBind(
     const txHash = await deps.setWriter(registered.agentId, input.agentKey);
     return { agentId: registered.agentId, txHash };
   } catch (e) {
-    throw toHiveError(e, input.owner);
+    throw await toHiveError(e, deps, input.owner);
   }
 }

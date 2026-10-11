@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { NewAgentForm } from "@/components/app/NewAgentForm";
 import { ConnectGuide } from "@/components/connect/ConnectGuide";
+import { FirstAgentCard } from "@/components/connect/FirstAgentCard";
 import { PillButton } from "@/components/ui/Pill";
 import { StatusDot } from "@/components/ui/StatusDot";
 import { Tabs } from "@/components/ui/Tabs";
@@ -47,7 +48,6 @@ const ago = (seconds: number) => (seconds < 60 ? `${Math.max(0, seconds)}s ago` 
 function pendingText(name: string, conn: Connection | undefined, graphReady: boolean): string | undefined {
   if (!graphReady) return "Loading your agents…";
   if (!conn || conn.phase === "authorizing") return `Creating ${name}’s scoped key…`;
-  if (conn.phase === "registering") return `Registering ${name} on Monad…`;
   return undefined;
 }
 
@@ -90,9 +90,9 @@ export default function ConnectPage() {
   const [naming, setNaming] = useState(false);
   const now = useNow();
 
-  // Set up the first agent of the open tab: register if needed, then authorize (rules §6, Connect rows).
+  // Get a token for the first agent of the open tab. This never registers one: a new account has no MON to pay for it.
   useEffect(() => {
-    if (graphReady && !locked) void connectAgent(AGENTS[tab].type, AGENTS[tab].name);
+    if (graphReady && !locked) void connectAgent(AGENTS[tab].type);
   }, [graphReady, locked, tab, connectAgent]);
 
   const ofType = (t: AgentType) => Object.values(agents).filter((a) => a.agentType === t).sort((a, b) => Number(a.agentId - b.agentId));
@@ -108,10 +108,12 @@ export default function ConnectPage() {
   const auth = selected ? authorizations[selected.agentId.toString()] : undefined;
   const token = auth?.agentToken ?? "";
   const url = auth?.mcpUrl ?? "";
-  const needsAuthorize = !!selected && !auth && !locked && (!isDefault || conn?.phase === "error" || conn?.phase === "ready");
+  const unfinished = !!selected && selected.agentKey === zeroAddress;
+  const needsAuthorize = !!selected && !auth && !locked && (!isDefault || unfinished || conn?.phase === "error" || conn?.phase === "ready");
   // A saved token keeps its command on screen after a reload: the passkey is asked only when something needs the keys.
   const needsUnlock = locked && !token;
-  const unfinished = !!selected && selected.agentKey === zeroAddress;
+  // No agent of this type at all (hidden ones aside): nothing to connect yet, so show how to fund the account and where to create one.
+  const noAgent = graphReady && !graphError && mine.length === 0 && !allHidden && !naming;
 
   function switchTab(next: Tab) {
     setTab(next);
@@ -196,7 +198,7 @@ export default function ConnectPage() {
         )}
 
         <div id="connect-panel" role="tabpanel" aria-labelledby={`connect-tab-${tab}`} className="flex w-full flex-col gap-4">
-          <ConnectGuide
+          {noAgent && owner ? <FirstAgentCard agentName={agent.name} owner={owner} /> : <ConnectGuide
             key={tab}
             type={agent.type}
             name={selected?.name ?? agent.name}
@@ -227,9 +229,9 @@ export default function ConnectPage() {
                     ? unlock().then(() => setActionError(undefined), (e: unknown) => fail(e, "Could not unlock with the passkey."))
                     : needsAuthorize && selected
                       ? authorizeAgent(selected.agentId).then(() => setActionError(undefined), (e: unknown) => fail(e, "Could not authorize the agent."))
-                      : connectAgent(agent.type, agent.name)),
+                      : connectAgent(agent.type)),
             }}
-          />
+          />}
         </div>
 
         <div className="flex w-full flex-col gap-2 pt-1.5 text-[14px]">

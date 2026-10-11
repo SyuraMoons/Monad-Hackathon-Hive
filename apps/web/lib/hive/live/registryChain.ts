@@ -5,7 +5,8 @@ import type { HiveSigner } from "../signer";
 import type { ChainAgent, RegistryDeps } from "./registry";
 
 /** Reads need no signer. */
-export const chainReader: Pick<RegistryDeps, "agentsOf"> = {
+export const chainReader: Pick<RegistryDeps, "agentsOf" | "balanceOf"> = {
+  balanceOf: (owner) => hivePublicClient.getBalance({ address: owner }),
   async agentsOf(owner): Promise<ChainAgent[]> {
     try {
       const [ids, list] = await hivePublicClient.readContract({ address: hiveDeployment.agentRegistry, abi: AgentRegistryAbi, functionName: "agentsOf", args: [owner] });

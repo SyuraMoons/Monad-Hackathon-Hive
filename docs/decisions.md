@@ -286,3 +286,16 @@ Short architecture decision records. To add one, append the next number and don'
 - Salts and info strings are fixed forever, like `hive/encrypt`: changing one makes existing ciphertext unreadable.
 
 **Consequences.** The recovery phrase restores the account in any BIP-39 wallet but no longer decrypts memories written after this change, and a leaked phrase no longer leaks them. A different passkey cannot decrypt; a synced copy of the same passkey can, on any device, because the PRF output depends only on the credential, the `rpId` and the salt. A future sign-in from a phrase or a backup passkey would need the memory key wrapped for it, which is not built. The bridge still holds the memory key during an agent session (ADR-009); this ADR does not change the trust model. No contract, gas, indexer or Supabase change. A web app that predates this change sends no legacy key and keeps working against the new bridge. The new web app against an older bridge also works, but that bridge ignores the legacy key, so memories sealed before the change are unreadable by agents until the bridge is updated: deploy the bridge first.
+
+## ADR-030: The Connect page never registers an agent by itself
+**Date:** 2026-10-11 · **Status:** accepted. Built and unit-tested; not yet seen in a browser
+
+**Context.** `/connect` registered the first agent of the open tab as soon as it loaded. A new account holds no MON (ADR-006: the owner's EOA pays gas), so the first thing every new user saw was a failed transaction. On 11 Oct a new account also kept the "no MON for gas" message after the faucet had paid 1 MON; its registration went through about 14 minutes later with the same code and the same balance. We could not reproduce that and do not know its cause.
+
+**Decision.**
+- `/connect` sends no transaction on load. For a type with no agent it shows the owner address, the live balance, the faucet link and a button to the canvas, which stays inactive while the balance is below 0.05 MON.
+- Agents are created only when the user asks: "+ New agent" on the canvas sidebar or on `/connect`. A half-registered agent is finished from its "Finish setup" button, not on load.
+- `connectAgent` only asks the bridge for a token for an agent that already exists and has a writer key.
+- When the RPC refuses a registration for gas, the web reads the owner's balance. If the account holds at least 0.05 MON the message says so instead of telling the user to fund it.
+
+**Consequences.** A new user's first run is one step longer: fund the account, create the agent on the canvas, then connect it. No error appears before the user has done anything. This does not explain or fix the 11 Oct refusal; if it happens again the message will show that the account was funded. Gas is still paid by the owner (ADR-006), nothing is sponsored.
