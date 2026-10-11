@@ -5,12 +5,15 @@ import { z } from "zod";
 import type { SessionStore } from "./sessions.js";
 import type { TokenService, UserClaims } from "./tokens.js";
 
-// The bridge is its own OAuth 2.1 authorization server for claude.ai, Desktop and mobile connectors (ADR-019).
+// The bridge is its own OAuth 2.1 authorization server for the claude.ai and ChatGPT connectors (ADR-019).
 // Dynamic client registration is stateless, PKCE S256 is required, and codes and refresh tokens live in memory like
 // SessionStore: a restart or an expired agent session means the owner signs in with the passkey again.
 
 const CODE_TTL_S = 60;
 const CLAUDE_CALLBACK = "https://claude.ai/api/mcp/auth_callback";
+// ChatGPT uses the stable URI when the issuer rules (RFC 9207 `iss`) are met, and a per-connector one otherwise.
+const CHATGPT_CALLBACK = "https://chatgpt.com/connector_platform_oauth_redirect";
+const CHATGPT_CONNECTOR_CALLBACK = /^https:\/\/chatgpt\.com\/connector\/oauth\/[A-Za-z0-9_-]{1,128}$/;
 const LOOPBACK = new Set(["localhost", "127.0.0.1"]);
 
 const sha256 = (s: string) => createHash("sha256").update(s).digest();
@@ -22,9 +25,9 @@ const sameString = (a: string, b: string) => {
   return x.length === y.length && timingSafeEqual(x, y);
 };
 
-/** Claude's hosted callback, or a loopback URL (Claude Code uses a port that changes per session). */
+/** Claude's or ChatGPT's hosted callback, or a loopback URL (Claude Code uses a port that changes per session). */
 export function isAllowedRedirect(uri: string): boolean {
-  if (uri === CLAUDE_CALLBACK) return true;
+  if (uri === CLAUDE_CALLBACK || uri === CHATGPT_CALLBACK || CHATGPT_CONNECTOR_CALLBACK.test(uri)) return true;
   try {
     const u = new URL(uri);
     return u.protocol === "http:" && LOOPBACK.has(u.hostname) && !u.username && !u.password && !u.hash;
@@ -116,7 +119,7 @@ export type OAuthDeps = {
   now?: () => number;
 };
 
-/** The `WWW-Authenticate` value that tells Claude where to start signing in. Claude only starts on a 401 that carries it. */
+/** The `WWW-Authenticate` value that tells Claude or ChatGPT where to start signing in. They only start on a 401 that carries it. */
 export const wwwAuthenticate = (base: string) => `Bearer resource_metadata="${base}/.well-known/oauth-protected-resource"`;
 
 const zRegistration = z.object({ redirect_uris: z.array(z.string().max(512)).min(1).max(5) });
@@ -147,6 +150,7 @@ export function mountOAuth(app: Express, deps: OAuthDeps): void {
       code_challenge_methods_supported: ["S256"],
       token_endpoint_auth_methods_supported: ["none"],
       scopes_supported: ["hive"],
+      authorization_response_iss_parameter_supported: true,
     });
   });
 
@@ -154,7 +158,7 @@ export function mountOAuth(app: Express, deps: OAuthDeps): void {
   app.post("/oauth/register", async (req, res) => {
     const body = zRegistration.safeParse(req.body);
     if (!body.success || !body.data.redirect_uris.every(isAllowedRedirect)) {
-      oauthError(res, 400, "invalid_redirect_uri", "Redirect URIs must be Claude's callback or a loopback address.");
+      oauthError(res, 400, "invalid_redirect_uri", "Redirect URIs must be Claude's or ChatGPT's callback, or a loopback address.");
       return;
     }
     const redirectUris = body.data.redirect_uris;
@@ -178,7 +182,7 @@ export function mountOAuth(app: Express, deps: OAuthDeps): void {
     }
     const params = zOAuthAuthorizeParams.safeParse(req.query);
     if (!params.success) {
-      res.redirect(302, withParams(redirectUri, { error: "invalid_request", state: typeof state === "string" ? state : undefined }));
+      res.redirect(302, withParams(redirectUri, { error: "invalid_request", state: typeof state === "string" ? state : undefined, iss: base }));
       return;
     }
     const to = new URL("/oauth/authorize", webUrl);
@@ -197,14 +201,14 @@ export function mountOAuth(app: Express, deps: OAuthDeps): void {
 
     let redirectTo: string;
     if (decision === "deny") {
-      redirectTo = withParams(request.redirect_uri, { error: "access_denied", state: request.state });
+      redirectTo = withParams(request.redirect_uri, { error: "access_denied", state: request.state, iss: base });
     } else {
       if (agentId === undefined) throw new HiveError("INVALID_INPUT", "Choose an agent to connect.");
       const user = res.locals.user as UserClaims;
       const session = sessions.get(agentId);
       if (!session || session.owner.toLowerCase() !== user.owner.toLowerCase()) throw new HiveError("FORBIDDEN", "Authorize this agent first, then approve.");
       const code = store.issueCode({ clientId: request.client_id, redirectUri: request.redirect_uri, challenge: request.code_challenge, agentId, owner: session.owner });
-      redirectTo = withParams(request.redirect_uri, { code, state: request.state });
+      redirectTo = withParams(request.redirect_uri, { code, state: request.state, iss: base });
     }
     const out: OAuthApproveResponse = { redirectTo };
     res.json(out);
@@ -229,7 +233,7 @@ export function mountOAuth(app: Express, deps: OAuthDeps): void {
     });
   }
 
-  // Claude sends application/x-www-form-urlencoded here (RFC 6749 section 4.1.3), unlike /oauth/register.
+  // Claude and ChatGPT send application/x-www-form-urlencoded here (RFC 6749 section 4.1.3), unlike /oauth/register.
   app.post("/oauth/token", express.urlencoded({ extended: false, limit: "8kb" }), async (req, res) => {
     const field = (k: string) => (typeof req.body?.[k] === "string" ? (req.body[k] as string) : undefined);
     const clientId = field("client_id");

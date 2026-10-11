@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { zAgentId } from "../ids.js";
 
-// OAuth 2.1 for claude.ai, Desktop and mobile connectors. The bridge is its own authorization server (ADR-019).
+// OAuth 2.1 for the claude.ai and ChatGPT connectors. The bridge is its own authorization server (ADR-019).
 // /oauth/* routes speak RFC 6749 shapes; only the web consent page talks to /v1/oauth/approve.
 
 /** PKCE S256 challenge: base64url of a SHA-256 digest, 43 characters. */
