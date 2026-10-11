@@ -286,7 +286,7 @@ export function createMockClient(): MockHiveClient {
         if (mockFlag("bridge-offline")) throw offline();
         const text = memory[contentHash];
         if (text === undefined) throw new HiveError("NOT_FOUND", "No memory with that content hash.");
-        return text;
+        return { content: text };
       },
     },
 

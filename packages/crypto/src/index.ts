@@ -1,5 +1,5 @@
 import { zContentHash, type ContentHash, type Hex } from "@hive/shared";
-import { bytesToHex, concatBytes, hexToBytes, keccak256 } from "viem";
+import { bytesToHex, concatBytes, hexToBytes, keccak256, stringToBytes } from "viem";
 
 // AES-256-GCM, the same layout WebCrypto produces in the browser: 12-byte random IV,
 // ciphertext with the 16-byte tag appended. The key is the delegated `encryptionKey` (32 bytes).
@@ -28,6 +28,9 @@ async function importKey(key: Hex | Uint8Array): Promise<CryptoKey> {
   if (raw.length !== KEY_BYTES) throw new CryptoError(`encryption key must be ${KEY_BYTES} bytes`);
   return crypto.subtle.importKey("raw", new Uint8Array(raw), "AES-GCM", false, ["encrypt", "decrypt"]);
 }
+
+/** Which key sealed a row, without revealing it: a short domain-separated hash. The bridge stores it and the web checks it before decrypting. */
+export const keyIdOf = (key: Hex | Uint8Array) => `hive-key:${keccak256(concatBytes([stringToBytes("hive/key-id"), typeof key === "string" ? hexToBytes(key) : key])).slice(0, 18)}`;
 
 /** keccak256(iv ‖ ciphertext). Never a hash of plaintext, so the hash leaks nothing about the content. */
 export function contentHash(iv: Uint8Array, ciphertext: Uint8Array): ContentHash {

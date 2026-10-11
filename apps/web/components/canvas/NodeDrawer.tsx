@@ -10,6 +10,7 @@ import { explorerAddress, explorerTx } from "@/lib/explorer";
 import { longDate, shortHash } from "@/lib/format";
 import { pageOf } from "@/lib/pagination";
 import { deepseekRunner, gptSnippet } from "@/lib/hive/commands";
+import type { MemoryView } from "@/lib/hive/memoryView";
 import type { MemoryHistoryRow } from "@/lib/hive/types";
 import { useFeed, type FeedRow } from "@/lib/stores/feed";
 import { displayName, useGraph, type AgentNode, type EdgeView } from "@/lib/stores/graph";
@@ -21,6 +22,10 @@ import { agentTypeIcon } from "@/lib/hive/agentTypes";
 const eyebrow = "font-mono text-[14px] tracking-[0.08em] whitespace-pre text-ink-3";
 const section = "flex flex-col gap-2.5 border-t border-line px-6 py-[18px]";
 const HISTORY_PAGE_SIZE = 5;
+
+type Preview = MemoryView | "error" | "locked" | "loading";
+const SUMMARY_CHARS = 160;
+const summaryOf = (view: MemoryView) => view.gist ?? (view.content.length > SUMMARY_CHARS ? `${view.content.slice(0, SUMMARY_CHARS).trimEnd()}…` : view.content);
 
 type Entry = { slotId: bigint; topic: string; contentHash: ContentHash; at: number; propagatedTo?: bigint[] };
 
@@ -153,6 +158,41 @@ function RemoveSection({ agent }: { agent: AgentNode }) {
   );
 }
 
+// One past write. The text is decrypted on this device; the agent's own summary (gist) leads and the full text opens on click.
+function HistoryItem({ entry, preview, reached }: { entry: Entry; preview: Preview | undefined; reached: string }) {
+  const [open, setOpen] = useState(false);
+  const view = typeof preview === "object" ? preview : null;
+  const summary = view ? summaryOf(view) : null;
+  const text = "text-[15px] leading-[1.45] break-words whitespace-pre-wrap text-ink";
+  const hash = <span className="font-mono text-[14px] text-ink-3">content {shortHash(entry.contentHash)}  ·  encrypted</span>;
+
+  return (
+    <li className="flex flex-col gap-1">
+      {view ? (
+        view.content !== summary ? (
+          <button type="button" aria-expanded={open} onClick={() => setOpen(!open)} className={cn(text, "cursor-pointer text-left")}>
+            {open ? view.content : summary}
+            <span className="ml-2 font-mono text-[14px] text-ink-3 underline underline-offset-2">{open ? "less" : "more"}</span>
+          </button>
+        ) : (
+          <p className={text}>{view.content}</p>
+        )
+      ) : preview === "error" ? (
+        <p className="text-[14px] leading-[1.45] text-ink-3">Couldn’t read this memory here.  {hash}</p>
+      ) : preview === undefined || preview === "loading" ? (
+        <p className="text-[15px] leading-[1.45] text-ink-3">Decrypting on this device…</p>
+      ) : (
+        <p className="text-[15px] leading-[1.45] break-words text-ink">{hash}</p>
+      )}
+      <p className="flex items-center gap-2 font-mono text-[14px] whitespace-pre text-ink-2">
+        <span aria-hidden="true" className="h-[3px] w-3.5" style={{ background: topicColor(entry.topic) }} />
+        {entry.topic}  ·  {view?.kind ? `${view.kind}  ·  ` : ""}{longDate(entry.at).replace(/ \d{4}$/, "")}
+        {reached}
+      </p>
+    </li>
+  );
+}
+
 // Figma Canvas 5 Node drawer (61:710): covers the feed panel, closes on ✕, Esc or a canvas click.
 export function NodeDrawer({ agentId }: { agentId: string }) {
   const agent = useGraph((s) => s.agents[agentId]);
@@ -163,9 +203,21 @@ export function NodeDrawer({ agentId }: { agentId: string }) {
   const previews = useFeed((s) => s.previews);
   const past = useFeed((s) => s.history[agentId]);
   const loadHistory = useFeed((s) => s.loadHistory);
+  const loadPreview = useFeed((s) => s.loadPreview);
+  const unlock = useSession((s) => s.unlock);
   const setUi = useUi((s) => s.set);
   const closeRef = useRef<HTMLButtonElement>(null);
   const [historyPage, setHistoryPage] = useState(0);
+  const [unlocking, setUnlocking] = useState(false);
+  const [unlockError, setUnlockError] = useState<string>();
+  const writes = historyEntries(past, rows, BigInt(agentId));
+  const history = pageOf(writes, historyPage, HISTORY_PAGE_SIZE);
+  const pageKey = history.items.map((w) => w.contentHash).join();
+
+  // Decrypt the rows on this page, on this device. A locked one waits for the passkey (retryLocked).
+  useEffect(() => {
+    for (const hash of pageKey ? (pageKey.split(",") as ContentHash[]) : []) void loadPreview(hash);
+  }, [pageKey, loadPreview]);
 
   useEffect(() => {
     void loadHistory(BigInt(agentId));
@@ -182,9 +234,21 @@ export function NodeDrawer({ agentId }: { agentId: string }) {
   const live = Object.values(edges).filter((e) => e.state === "signed" || e.state === "revoking" || e.state === "pending");
   const outgoing = live.filter((e) => e.from === agent.agentId);
   const incoming = live.filter((e) => e.to === agent.agentId);
-  const writes = historyEntries(past, rows, agent.agentId);
-  const history = pageOf(writes, historyPage, HISTORY_PAGE_SIZE);
+  const locked = history.items.some((w) => previews[w.contentHash] === "locked");
   const icon = agentTypeIcon(agent.agentType);
+
+  async function unlockMemories() {
+    setUnlocking(true);
+    setUnlockError(undefined);
+    try {
+      await unlock();
+      useFeed.getState().retryLocked();
+    } catch (e) {
+      setUnlockError(e instanceof Error ? e.message : "Could not unlock. Try again.");
+    } finally {
+      setUnlocking(false);
+    }
+  }
 
   function revoke(e: EdgeView, ev: MouseEvent<HTMLButtonElement>) {
     // anchor the confirm card to the left of the drawer, level with the row
@@ -271,25 +335,26 @@ export function NodeDrawer({ agentId }: { agentId: string }) {
       <section className={section} aria-label="Memory history">
         <p className={eyebrow}>MEMORY HISTORY  ·  {writes.length}</p>
         {past === "error" && <p className="text-[14px] leading-[1.45] text-ink-3">Couldn’t read the history from Monad. New writes still appear here.</p>}
+        {locked && (
+          <div className="flex flex-col gap-2 rounded-chip border border-line bg-paper-2 px-3.5 py-3">
+            <p className="text-[15px] leading-[1.5] text-ink-2">Your memories stay encrypted until you unlock with your passkey. They are decrypted on this device and never leave it.</p>
+            <div>
+              <button type="button" className={button} disabled={unlocking} onClick={() => void unlockMemories()}>{unlocking ? "Waiting for your passkey…" : "Unlock to read"}</button>
+            </div>
+            {unlockError && <p role="alert" className="text-[14px] leading-[1.45] text-status-revoked">{unlockError}</p>}
+          </div>
+        )}
         {past === "loading" && !writes.length && <p className="text-[15px] leading-[1.5] text-ink-2">Loading history from Monad…</p>}
         {writes.length ? (
           <ul className="flex flex-col gap-3">
-            {history.items.map((w) => {
-              const p = previews[w.contentHash];
-              const text = p && p !== "loading" && p !== "error" ? p : null;
-              return (
-                <li key={w.slotId.toString()} className="flex flex-col gap-1">
-                  <p className="text-[15px] leading-[1.45] break-words text-ink">
-                    {text ?? <span className="font-mono text-[14px] text-ink-3">content {shortHash(w.contentHash)}  ·  encrypted</span>}
-                  </p>
-                  <p className="flex items-center gap-2 font-mono text-[14px] whitespace-pre text-ink-2">
-                    <span aria-hidden="true" className="h-[3px] w-3.5" style={{ background: topicColor(w.topic) }} />
-                    {w.topic}  ·  {longDate(w.at).replace(/ \d{4}$/, "")}
-                    {w.propagatedTo ? `  ·  ${w.propagatedTo.length ? `→ ${w.propagatedTo.map(name).join(", ")}` : "stayed here"}` : ""}
-                  </p>
-                </li>
-              );
-            })}
+            {history.items.map((w) => (
+              <HistoryItem
+                key={w.slotId.toString()}
+                entry={w}
+                preview={previews[w.contentHash]}
+                reached={w.propagatedTo ? `  ·  ${w.propagatedTo.length ? `→ ${w.propagatedTo.map(name).join(", ")}` : "stayed here"}` : ""}
+              />
+            ))}
           </ul>
         ) : (
           past !== "loading" && past !== "error" && <p className="text-[15px] leading-[1.5] text-ink-2">No writes yet.</p>

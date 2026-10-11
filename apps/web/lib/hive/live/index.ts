@@ -11,10 +11,11 @@ import { loadEdgeNotes, saveEdgeNote } from "../edgeNotes";
 import { addEdgeTx, edgesOf, removeEdgeTx } from "./edges";
 import { chainEdges, edgeReader } from "./edgesChain";
 import { registerAndBind, toAgent } from "./registry";
+import { previewMemory } from "./preview";
 import { chainReader, chainRegistry } from "./registryChain";
 
 // Sign-in and agent sessions talk to the real bridge, agents are read from the AgentRegistry and edges from KnowledgeGraph.
-// Audit, provenance (Envio) and memory preview arrive in step 10, one service at a time.
+// Audit and provenance (Envio) arrive in step 10, one service at a time.
 const todo = (what: string): never => {
   throw new Error(`${what}: not implemented yet: see step 10`);
 };
@@ -23,8 +24,8 @@ const todo = (what: string): never => {
 const LOW_BALANCE = parseEther("0.05");
 
 export type LiveHiveClient = HiveClient & {
-  /** The signed-in owner's signer, set by the session store after sign-in and cleared on sign-out. Memory only. */
-  useSigner(signer: HiveSigner | null): void;
+  /** The signed-in owner's signer and encryption key, set by the session store after sign-in and cleared on sign-out. Memory only. */
+  useSigner(signer: HiveSigner | null, encryptionKey?: Uint8Array): void;
   /** Puts a saved session back after a reload, with no keys: the signer comes later, from the passkey. */
   resume(session: Session): void;
 };
@@ -32,10 +33,12 @@ export type LiveHiveClient = HiveClient & {
 export function createLiveClient(): LiveHiveClient {
   const bridge = createBridgeApi();
   let signer: HiveSigner | null = null;
+  let encryptionKey: Uint8Array | undefined;
   return {
     mode: "live",
-    useSigner: (next) => {
+    useSigner: (next, key) => {
       signer = next;
+      encryptionKey = next ? key : undefined;
     },
     resume: bridge.resume,
     status: {
@@ -72,7 +75,7 @@ export function createLiveClient(): LiveHiveClient {
     events: bridge.events,
     memory: {
       history: (agentId) => agentHistory(chainHistory, agentId),
-      preview: async () => todo("memory.preview"),
+      preview: (contentHash) => previewMemory({ fetchSealed: bridge.sealedMemory, encryptionKey: () => encryptionKey }, contentHash),
     },
     tx: {
       registerAgent({ name, agentType, agentKey }) {
