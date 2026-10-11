@@ -49,7 +49,7 @@ export function ProvenanceCard({ contentHash, events }: { contentHash: ContentHa
     setQuote(undefined);
     void getHiveClient().then(async (c) => {
       const [p, q] = await Promise.all([c.graph.provenance(contentHash).catch(() => null), c.memory.preview(contentHash).catch(() => null)]);
-      if (alive) { setProv(p); setQuote(q); }
+      if (alive) { setProv(p); setQuote(q ? q.content : null); }
     });
     return () => { alive = false; };
   }, [contentHash]);

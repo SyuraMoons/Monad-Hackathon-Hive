@@ -9,6 +9,7 @@ import { checkAgentName } from "@/lib/hive/agentName";
 import { clearAgentTokens, loadAgentTokens, saveAgentTokens } from "@/lib/hive/agentTokens";
 import { clearSavedSession, loadSavedSession, saveSession } from "@/lib/hive/savedSession";
 import type { HiveMode } from "@/lib/hive/types";
+import { useFeed } from "./feed";
 import { useGraph, type AgentNode } from "./graph";
 import type { LiveHiveClient } from "@/lib/hive/live";
 import type { MockHiveClient } from "@/lib/hive/mock";
@@ -187,7 +188,7 @@ export const useSession = create<SessionState>()((set, get) => ({
         const k = keys;
         (client as MockHiveClient).adoptDemoAgents(session.owner, (n) => privateKeyToAddress(k.agentPrivateKey(n)));
       } else {
-        (client as LiveHiveClient).useSigner({ account: keys.owner, end: () => {} });
+        (client as LiveHiveClient).useSigner({ account: keys.owner, end: () => {} }, keys.encryptionKey);
       }
       const agents = await client.agents.list().catch(() => []);
       if (ac.signal.aborted) throw new PasskeyError("CANCELLED", "Cancelled");
@@ -265,7 +266,8 @@ export const useSession = create<SessionState>()((set, get) => ({
       }
       set({ keys: derived });
       const client = await getHiveClient();
-      if (client.mode === "live") (client as LiveHiveClient).useSigner({ account: derived.owner, end: () => {} });
+      if (client.mode === "live") (client as LiveHiveClient).useSigner({ account: derived.owner, end: () => {} }, derived.encryptionKey);
+      void useFeed.getState().retryLocked();
       return derived;
     })().finally(() => {
       unlocking = null;

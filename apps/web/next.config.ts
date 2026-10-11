@@ -7,7 +7,7 @@ export default function config(phase: string): NextConfig {
     throw new Error("NEXT_PUBLIC_HIVE_MODE=mock is not allowed in production builds. Use `live`, or run `next dev`.");
   }
   return {
-    transpilePackages: ["@hive/shared"],
+    transpilePackages: ["@hive/shared", "@hive/crypto"],
     // Hide Next's floating "N" badge in dev; build errors still show as an overlay.
     devIndicators: false,
     // Lets a production build run next to a live `next dev` without overwriting its .next folder.
