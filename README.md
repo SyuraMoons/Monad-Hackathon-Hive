@@ -1,11 +1,10 @@
-# Mindshare
+# Hive
 
 **An onchain permission layer for AI agent memory.** An agent can read another agent's memory only if the owner signed a permission edge for it on Monad. With no edge, nothing is shared. Memory content is encrypted with a key derived from the owner's passkey and is never put onchain.
 
 It is built for developers to build on: four contracts, an MCP server any agent can call, a typed client, and an indexer that audits the whole history. The canvas in `apps/web` is the reference client, where the owner draws the edges.
 
 > Monad Metropolis Hackathon · Track 4 (Trust, Identity & AI) · also entered for the Envio and Mera bounties.
-> The product is Mindshare. The code still says Hive (`@hive/*`, `hive_*`) until one rename ([ADR-008](docs/decisions.md)).
 
 ## Live
 
@@ -257,7 +256,6 @@ Why not roll your own: a revoke takes effect on the next read, the permission hi
 - The two-salt prompt recorded on Safari with iCloud Keychain and on 1Password, and a memory opened on the second device.
 - Publish `@hive/mcp-client` to npm, so building on the bridge does not need this repo.
 - A contract redeploy that carries what is waiting in the source: `setExpiry`, so an edge's expiry changes in place ([ADR-027](docs/decisions.md)).
-- The rename from Hive to Mindshare in code, as one scripted change ([ADR-008](docs/decisions.md)).
 
 ## What is real
 
