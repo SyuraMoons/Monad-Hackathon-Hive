@@ -14,6 +14,7 @@ const STEP_TEXT: Record<CreateStep, string> = {
   registering: "Registering on Monad (2 transactions)…",
   loading: "Reading it back from Monad…",
   authorizing: "Authorizing with the bridge…",
+  identity: "Adding its ERC-8004 identity (1 more transaction)…",
 };
 
 /** Names and registers one more agent. Used on Connect (type fixed by its tab) and on the canvas (type chosen here). */
@@ -26,6 +27,7 @@ export function NewAgentForm({ type, stacked, onBusyChange, onCreated, onCancel 
   onCancel(): void;
 }) {
   const createAgent = useSession((s) => s.createAgent);
+  const withIdentity = useGraph((s) => s.identityAvailable);
   const [picked, setPicked] = useState<AgentType>(type ?? "claude");
   const [name, setName] = useState("");
   const [step, setStep] = useState<CreateStep>();
@@ -89,7 +91,7 @@ export function NewAgentForm({ type, stacked, onBusyChange, onCreated, onCancel 
       </button>
       </div>
       <p className="w-full text-[14px] leading-[1.45] text-ink-3" aria-live="polite">
-        {step ? `${STEP_TEXT[step]} You can reload: an unfinished agent is finished later with one click.` : "Registering is two transactions. Your account pays a little gas."}
+        {step ? `${STEP_TEXT[step]} You can reload: an unfinished agent is finished later with one click.` : withIdentity ? "Registering is two transactions, then one more for its ERC-8004 identity. Your account pays a little gas." : "Registering is two transactions. Your account pays a little gas."}
       </p>
       {error && <p role="alert" className="w-full text-[14px] leading-[1.45] text-status-revoked">{error}</p>}
     </form>

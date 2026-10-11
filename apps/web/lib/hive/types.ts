@@ -94,7 +94,13 @@ export interface HiveClient {
     /** Fetches the ciphertext and decrypts it on this device (rules O4). Rejects with `LockedError` while the keys are locked. */
     preview(contentHash: ContentHash): Promise<MemoryView>;
   };
+  identity: {
+    /** The URI an ERC-8004 identity for this agent would carry, or null when the bridge is not on a public https URL (ADR-028). */
+    cardUrl(agentId: AgentId): string | null;
+  };
   tx: {
+    /** One owner transaction on the ERC-8004 Identity Registry, linked to the agent by metadata (ADR-028). Optional: it grants nothing. */
+    registerIdentity(agentId: AgentId): TxHandle<{ erc8004Id: bigint }>;
     /** AgentRegistry.register(name, agentType, agentKey) as an owner userOp (rules O1). */
     registerAgent(input: { name: string; agentType: AgentType; agentKey: Address }): TxHandle<{ agentId: AgentId }>;
     addEdge(input: { from: AgentId; to: AgentId; topic: Topic; expiresAt: UnixSeconds }): TxHandle<{ edgeId: EdgeId }>;

@@ -59,7 +59,7 @@ export function createMockClient(): MockHiveClient {
   const sessions = new Map<string, { lastCallAt: number; tokenExpiresAt: number }>();
   const listeners = new Set<(e: HiveEventWire) => void>();
   const nonces = new Map<string, string>();
-  let seq = 0, nextSlot = 1, nextEdge = 2, nextAgent = graph.agents.length + 1, writeIdx = 0;
+  let seq = 0, nextSlot = 1, nextEdge = 2, nextAgent = graph.agents.length + 1, nextIdentity = 2142, writeIdx = 0;
   let owner: Address = MOCK_OWNER;
   const demoAgents = graph.agents.length;
 
@@ -303,7 +303,17 @@ export function createMockClient(): MockHiveClient {
       },
     },
 
+    identity: {
+      cardUrl: (agentId) => `https://bridge.mock.example/agents/${agentId}/card.json`,
+    },
+
     tx: {
+      registerIdentity(agentId) {
+        return tx(() => {
+          if (!graph.agents.some((a) => a.agentId === String(agentId))) return new HiveError("CHAIN_ERROR", "No such agent.");
+          return { erc8004Id: BigInt(nextIdentity++) };
+        });
+      },
       registerAgent({ name, agentType, agentKey }) {
         return tx(() => {
           if (graph.agents.some((a) => a.agentKey.toLowerCase() === agentKey.toLowerCase())) return new HiveError("CHAIN_ERROR", "That agent key is already registered.");

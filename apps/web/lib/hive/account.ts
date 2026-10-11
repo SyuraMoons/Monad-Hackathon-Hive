@@ -5,8 +5,12 @@ import { decodeEventLog, encodeFunctionData } from "viem";
 import type { Hex, TransactionReceipt } from "viem";
 import {
   AgentRegistryAbi,
+  ERC8004_HIVE_AGENT_KEY,
+  Erc8004IdentityRegistryAbi,
   KnowledgeGraphAbi,
   MemorySlotsAbi,
+  encodeHiveAgentRef,
+  erc8004Deployment,
   hiveDeployment,
 } from "@hive/shared";
 import { bufferedGas, GAS_FALLBACKS } from "./gas";
@@ -82,6 +86,38 @@ export async function setAgentWriter(
     GAS_FALLBACKS.setAgentWriter,
   );
   return client.writeContract({ address, abi: AgentRegistryAbi, functionName: "setAgentWriter", args, gas });
+}
+
+// Reads the new ERC-8004 id from the registry's own Registered log.
+export function decodeErc8004RegisteredId(receipt: TransactionReceipt): bigint | undefined {
+  for (const log of receipt.logs) {
+    if (log.address.toLowerCase() !== erc8004Deployment.identityRegistry.toLowerCase()) continue;
+    try {
+      const decoded = decodeEventLog({ abi: Erc8004IdentityRegistryAbi, data: log.data, topics: log.topics });
+      if (decoded.eventName === "Registered") return decoded.args.agentId;
+    } catch {
+      // another event of the registry (Transfer, MetadataSet)
+    }
+  }
+  return undefined;
+}
+
+// ADR-028: an ERC-8004 identity whose metadata points back at the Hive agent. It grants nothing.
+export async function registerErc8004Identity(
+  signer: HiveSigner,
+  agentURI: string,
+  hiveAgentId: bigint,
+): Promise<Hex> {
+  const client = createHiveWalletClient(signer);
+  const address = erc8004Deployment.identityRegistry;
+  const args = [agentURI, [{ metadataKey: ERC8004_HIVE_AGENT_KEY, metadataValue: encodeHiveAgentRef(hiveDeployment.agentRegistry, hiveAgentId) }]] as const;
+  const gas = await bufferedGas(
+    client,
+    address,
+    encodeFunctionData({ abi: Erc8004IdentityRegistryAbi, functionName: "register", args }),
+    GAS_FALLBACKS.registerIdentity,
+  );
+  return client.writeContract({ address, abi: Erc8004IdentityRegistryAbi, functionName: "register", args, gas });
 }
 
 export async function addEdge(

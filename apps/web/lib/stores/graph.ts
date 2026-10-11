@@ -1,10 +1,11 @@
 "use client";
 
-import type { Address, Agent, AgentId, AgentStatus, Edge, EdgeId, HiveError, HiveEvent, Topic, TxHash, UnixSeconds } from "@hive/shared";
+import { hiveDeployment, type Address, type Agent, type AgentId, type AgentStatus, type Edge, type EdgeId, type HiveError, type HiveEvent, type Topic, type TxHash, type UnixSeconds } from "@hive/shared";
 import { create } from "zustand";
 import { getHiveClient } from "@/lib/hive/client";
 import { cleanLabel, loadAgentLabels, saveAgentLabels } from "@/lib/hive/agentLabels";
 import { loadHidden, saveHidden } from "@/lib/hive/hidden";
+import { loadIdentities, saveIdentities, type AgentIdentity } from "@/lib/hive/identities";
 import type { TxResult } from "@/lib/hive/types";
 
 export type AgentNode = Agent & { connected: boolean; lastCallAt: UnixSeconds | null; tokenExpiresAt: UnixSeconds | null };
@@ -38,6 +39,12 @@ type GraphState = {
   hidden: Record<string, true>;
   /** The owner's nickname per agent id, kept in this browser. The registered name stays in `agents` (ADR-018). */
   labels: Record<string, string>;
+  /** ERC-8004 identities this browser registered, by Hive agent id (ADR-028). Display only: they grant nothing. */
+  identities: Record<string, AgentIdentity>;
+  /** False when the bridge is not on a public https URL, so no identity can be added from here. */
+  identityAvailable: boolean;
+  /** One owner transaction on the ERC-8004 registry. The signer must be unlocked. */
+  addIdentity(agentId: AgentId): Promise<TxResult<{ erc8004Id: bigint }>>;
   /** An empty label clears it. */
   setLabel(agentId: AgentId, raw: string): void;
   /** Refused while the agent has a live edge, so a hidden agent never keeps sharing. */
@@ -76,6 +83,19 @@ export const useGraph = create<GraphState>()((set, get) => ({
   edges: {},
   hidden: {},
   labels: {},
+  identities: {},
+  identityAvailable: false,
+
+  async addIdentity(agentId) {
+    const client = await getHiveClient();
+    const result = await client.tx.registerIdentity(agentId).wait().catch((e: HiveError) => failed(e));
+    if (result.status === "confirmed") {
+      const identities = { ...get().identities, [idKey(agentId)]: { erc8004Id: result.erc8004Id.toString(), txHash: result.txHash } };
+      set({ identities });
+      if (hiddenOwner) saveIdentities(hiveDeployment.agentRegistry, hiddenOwner, identities);
+    }
+    return result;
+  },
 
   setLabel(agentId, raw) {
     const id = idKey(agentId);
@@ -126,7 +146,7 @@ export const useGraph = create<GraphState>()((set, get) => ({
         edges[idKey(e.edgeId)] = { ...e, key: idKey(e.edgeId), state: "signed" };
       }
       hiddenOwner = owner;
-      set({ status: "ready", agents: mergeStatus(agents, statuses), edges, hidden: Object.fromEntries(loadHidden(owner).map((id) => [id, true as const])), labels: loadAgentLabels(owner) });
+      set({ status: "ready", agents: mergeStatus(agents, statuses), edges, hidden: Object.fromEntries(loadHidden(owner).map((id) => [id, true as const])), labels: loadAgentLabels(owner), identities: loadIdentities(hiveDeployment.agentRegistry, owner), identityAvailable: client.identity.cardUrl(BigInt(0)) !== null });
     } catch (e) {
       set({ status: "error", error: e instanceof Error ? e.message : String(e) });
     }
@@ -184,6 +204,6 @@ export const useGraph = create<GraphState>()((set, get) => ({
 
   reset() {
     hiddenOwner = undefined;
-    set({ status: "idle", error: undefined, agents: {}, edges: {}, hidden: {}, labels: {} });
+    set({ status: "idle", error: undefined, agents: {}, edges: {}, hidden: {}, labels: {}, identities: {}, identityAvailable: false });
   },
 }));

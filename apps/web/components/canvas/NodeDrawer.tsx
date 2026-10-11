@@ -81,6 +81,52 @@ function ConnectionSection({ agent }: { agent: AgentNode }) {
   );
 }
 
+// ADR-028: a public ERC-8004 identity for the agent. It is a listing, not a permission, and the copy says so.
+function Erc8004Row({ agent }: { agent: AgentNode }) {
+  const identity = useGraph((s) => s.identities[agent.agentId.toString()]);
+  const available = useGraph((s) => s.identityAvailable);
+  const addAgentIdentity = useSession((s) => s.addAgentIdentity);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string>();
+
+  async function add() {
+    setBusy(true);
+    setError(undefined);
+    try {
+      await addAgentIdentity(agent.agentId);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Something went wrong. Try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (identity) {
+    return (
+      <p className="text-[14px] leading-[1.45] text-ink-2">
+        ERC-8004 identity{" "}
+        <a href={explorerTx(identity.txHash)} target="_blank" rel="noreferrer" className="font-mono text-ink underline underline-offset-2">#{identity.erc8004Id}</a>
+        . A public listing on Monad testnet. It does not change what this agent can read.
+      </p>
+    );
+  }
+  if (agent.agentKey === zeroAddress) return null;
+  if (!available) return <p className="text-[14px] leading-[1.45] text-ink-3">No ERC-8004 identity added from this browser. Adding one needs a bridge on a public https URL.</p>;
+  return (
+    <>
+      <p className="text-[14px] leading-[1.45] text-ink-2">
+        No ERC-8004 identity added from this browser. Adding one is one transaction: it lists the agent’s name, type and owner in the public registry on Monad testnet. It does not change what this agent can read.
+      </p>
+      <div>
+        <button type="button" className={button} disabled={busy} onClick={() => void add()}>
+          {busy ? "Adding…" : "Add ERC-8004 identity"}
+        </button>
+      </div>
+      {error && <p role="alert" className="text-[14px] leading-[1.45] text-status-revoked">{error}</p>}
+    </>
+  );
+}
+
 // The registry can't delete an agent, so this hides it on this browser and ends its bridge session (ADR-012).
 function RemoveSection({ agent }: { agent: AgentNode }) {
   const [confirming, setConfirming] = useState(false);
@@ -219,6 +265,7 @@ export function NodeDrawer({ agentId }: { agentId: string }) {
           <dt className="text-ink-3">scope key</dt>
           <dd className="font-mono text-ink">{scopeKey(agent.tokenExpiresAt)}</dd>
         </dl>
+        <Erc8004Row agent={agent} />
       </section>
 
       <ConnectionSection agent={agent} />

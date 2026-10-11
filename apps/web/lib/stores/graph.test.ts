@@ -1,8 +1,10 @@
+import { HiveError } from "@hive/shared";
 import { describe, expect, it, vi } from "vitest";
 
-// The store only reaches the client from load(), which these tests don't call.
+// The store reaches the client from load(), which these tests don't call, and from the transactions, which get a fake.
 vi.mock("@/lib/hive/client", () => ({ getHiveClient: vi.fn() }));
 
+import { getHiveClient } from "@/lib/hive/client";
 import { displayName, useGraph, visibleAgents, type AgentNode, type EdgeView } from "./graph";
 
 const agent = (id: number): AgentNode =>
@@ -61,5 +63,26 @@ describe("agent labels", () => {
     useGraph.setState({ labels: { "1": "x" } });
     useGraph.getState().setLabel(BigInt(1), "   ");
     expect(useGraph.getState().labels).toEqual({});
+  });
+});
+
+describe("ERC-8004 identity", () => {
+  const TX = `0x${"ab".repeat(32)}`;
+  const clientWith = (result: object) => vi.mocked(getHiveClient).mockResolvedValue({ tx: { registerIdentity: vi.fn(() => ({ status: "pending", wait: async () => result })) } } as never);
+
+  it("remembers the id and the transaction once the receipt is in", async () => {
+    seed();
+    useGraph.setState({ identities: {} });
+    clientWith({ status: "confirmed", txHash: TX, explorerUrl: "https://explorer.test/tx", erc8004Id: BigInt(2142) });
+    expect((await useGraph.getState().addIdentity(BigInt(1))).status).toBe("confirmed");
+    expect(useGraph.getState().identities).toEqual({ "1": { erc8004Id: "2142", txHash: TX } });
+  });
+
+  it("records nothing when the transaction fails", async () => {
+    seed();
+    useGraph.setState({ identities: {} });
+    clientWith({ status: "failed", error: new HiveError("CHAIN_ERROR", "Could not add the ERC-8004 identity on Monad.") });
+    expect((await useGraph.getState().addIdentity(BigInt(1))).status).toBe("failed");
+    expect(useGraph.getState().identities).toEqual({});
   });
 });

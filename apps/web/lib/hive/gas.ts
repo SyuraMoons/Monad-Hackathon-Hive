@@ -10,6 +10,8 @@ const DEFAULT_GAS_MULTIPLIER = 1.1;
 export const GAS_FALLBACKS = {
   register: BigInt(300_000),
   setAgentWriter: BigInt(120_000),
+  // ERC-8004 register with one metadata entry: about 311k in a simulation on 11 Oct.
+  registerIdentity: BigInt(400_000),
   addEdge: BigInt(300_000),
   removeEdge: BigInt(120_000),
   write: BigInt(400_000),
