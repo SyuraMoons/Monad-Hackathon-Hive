@@ -4,7 +4,7 @@ Envio HyperIndex for Hive's audit trail on Monad testnet (chain 10143). It turns
 
 It is for history and display only. Permission checks never read it: the bridge reads live chain state (AGENTS.md rule 3). Everything it stores is already public onchain (agent names, topic text, content hashes), never memory plaintext.
 
-Status: tested with simulated events and synced locally against testnet on 11 Oct 2026. Not yet deployed to Envio Cloud (see [docs/roadmap.md](../../docs/roadmap.md)).
+Status: tested with simulated events, synced locally against testnet, and deployed to Envio Cloud on 11 Oct 2026 at `https://indexer.dev.hyperindex.xyz/19a4398/v1/graphql` (see [docs/roadmap.md](../../docs/roadmap.md)). When queried that day the deployed version had no `Erc8004Identity` and no `Agent.erc8004Id`, so it was built from a commit before the ERC-8004 handlers.
 
 ## Entities
 

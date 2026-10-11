@@ -14,7 +14,7 @@ It is built for developers to build on: four contracts, an MCP server any agent 
 | **App** (reference client) | https://monad-hackathon-eta.vercel.app |
 | **Bridge** (MCP server and HTTP API) | https://hivebridge-production.up.railway.app · [`/health`](https://hivebridge-production.up.railway.app/health) · [`/docs`](https://hivebridge-production.up.railway.app/docs) (Swagger) · [`/openapi.json`](https://hivebridge-production.up.railway.app/openapi.json) |
 | **Agent card** (ERC-8004) | [`/agents/1/card.json`](https://hivebridge-production.up.railway.app/agents/1/card.json) |
-| **Indexer** (Envio GraphQL) | Not deployed to Envio Cloud yet. It runs locally, see [packages/indexer](packages/indexer) |
+| **Indexer** (Envio Cloud, GraphQL) | https://indexer.dev.hyperindex.xyz/19a4398/v1/graphql |
 | **Demo video** | To be added |
 | **Pitch video** | To be added |
 
@@ -103,7 +103,7 @@ const { memories } = await hive.readMemory({ topic: "work" }); // [] when no edg
 
 **From the chain.** Permissions are plain contract state, so another app can check them without us: `KnowledgeGraph.hasPermission(from, to, topic)`. ABIs and addresses are exported from `@hive/shared`.
 
-**From the indexer.** Once it is deployed, the history is one GraphQL query away. For example, an owner's totals and any delivery that no edge explains:
+**From the indexer.** The history is one GraphQL query away, with no key, at `https://indexer.dev.hyperindex.xyz/19a4398/v1/graphql`. For example, an owner's totals and any delivery that no edge explains:
 
 ```graphql
 query ($owner: String!) {
@@ -154,7 +154,7 @@ The same passkey on a second device derives the same phrase, so the same address
 - **A policy check.** `PolicyViolation` records any `Propagate` that no active, unexpired edge explains. It is expected to stay empty, so the indexer audits the protocol.
 - **A cross-registry join.** ERC-8004 identities are joined to our agents, but only after checking that both have the same owner.
 
-The web app's audit page, provenance card and stats strip read it. Status: tested with simulated events and synced locally against testnet on 11 Oct (7 agents, 4 edges, 2 propagations, 0 violations). Not on Envio Cloud yet.
+The web app's audit page, provenance card and stats strip read it. Status: deployed on Envio Cloud and synced to the chain head when queried on 11 Oct: 11 agents, 12 edges, 7 memory slots, 10 propagations, 40 audit rows and 0 violations. The deployed version does not have the ERC-8004 entities yet, so the identity join is tested but not live.
 
 ## What you have to trust
 
@@ -182,7 +182,7 @@ Why not roll your own: a revoke takes effect on the next read, the permission hi
 | MCP write, read and revoke with two Claude Code agents | **Run on testnet**, 10 Oct |
 | Encrypted storage, ciphertext only | **Live** |
 | Bridge on Railway, web on Vercel | **Live** |
-| Envio indexer | **Built**, synced locally. Not on Envio Cloud |
+| Envio indexer | **Live** on Envio Cloud, synced to head on 11 Oct. The ERC-8004 join is not in the deployed version yet |
 | ERC-8004 identity | **Built**, no transaction sent yet |
 | Memory search and structured memory | **Built**, measured on fixtures. No live run |
 | claude.ai, Claude Desktop and ChatGPT connectors (OAuth) | **Built**, not yet run against those clients |

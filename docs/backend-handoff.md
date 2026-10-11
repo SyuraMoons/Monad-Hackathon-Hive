@@ -1,6 +1,14 @@
 # Backend handoff: what the web app expects
 
-Status: 30 Sep 2026. The web app (`apps/web`) is finished against a mock backend: landing, login (real Mera passkey), connect, canvas (edges, signing, revoke, drawer, zones, wallet), and audit. Every screen reads through one interface, `HiveClient`, so plugging in the real services changes no screens. This page lists what each backend owner needs to ship so the web app can switch to live mode, and the decisions to close first.
+**Status, 11 Oct 2026:** this page was written on 30 Sep, before the backend existed, and is kept as the record of what the web asked for. The contracts, the bridge and the indexer are built since. What changed, and where the current answer is:
+
+- The web app runs in live mode on the deployed site; the mock client is a development scaffold. Current status: [roadmap.md](roadmap.md).
+- Section 2: #3 is still two calls, `register` then `setAgentWriter`, plus an optional third for the ERC-8004 identity (ADR-028). #7 is the Vercel domain in [deployment.md](deployment.md).
+- Section 3: the routes are built; the live list is the bridge's Swagger UI at `/docs`. The canvas reads agents and edges from the chain, not from an Envio graph snapshot; Envio serves the audit events, provenance, stats and ERC-8004 identities (ADR-025).
+- Section 4: the list is corrected below. Kernel and Pimlico are not used (ADR-006) and there is no Envio websocket.
+- Section 6 is done or superseded. The GPT agent in `apps/agents` was replaced by the DeepSeek runner (ADR-020).
+
+Original status, 30 Sep 2026: the web app (`apps/web`) is finished against a mock backend: landing, login (real Mera passkey), connect, canvas (edges, signing, revoke, drawer, zones, wallet), and audit. Every screen reads through one interface, `HiveClient`, so plugging in the real services changes no screens. This page lists what each backend owner needs to ship so the web app can switch to live mode, and the decisions to close first.
 
 > The detailed planning notes (`docs/rules.md` and friends) are private working notes and are not in the repo. This page and `packages/shared` are the shared contract.
 
@@ -10,7 +18,7 @@ Everything that crosses a process boundary is defined once in `packages/shared` 
 
 | File | What it defines |
 | --- | --- |
-| `src/ids.ts` | `AgentId`, `EdgeId`, `SlotId` (uint256: decimal string in JSON, `bigint` in TS), `Topic` (`^[a-z0-9-]{1,31}$`), `ContentHash`, `TxHash`, `Address`, `AgentType` (`claude`, `gpt`, `therapy-bot`, `other`), unix-seconds timestamps |
+| `src/ids.ts` | `AgentId`, `EdgeId`, `SlotId` (uint256: decimal string in JSON, `bigint` in TS), `Topic` (`^[a-z0-9-]{1,31}$`), `ContentHash`, `TxHash`, `Address`, `AgentType` (see `AGENT_TYPES` in `src/ids.ts`), unix-seconds timestamps |
 | `src/errors.ts` | `ErrorCode` enum and the error envelope `{ error: { code, message } }` |
 | `src/schema/api.ts` | Every `/v1` body and response, plus `authMessage(owner, nonce)`, the exact text the owner signs at login |
 | `src/schema/events.ts` | The SSE event union for `/v1/events` |
@@ -18,7 +26,7 @@ Everything that crosses a process boundary is defined once in `packages/shared` 
 | `src/schema/graph.ts` | Envio shapes: graph snapshot, audit events, provenance |
 | `src/chain.ts` | `monadTestnet`, `explorerTxUrl`, `explorerAddressUrl` (Monadscan) |
 
-`pnpm --filter @hive/shared test` runs the schema tests (18 passing).
+`pnpm --filter @hive/shared test` runs the schema tests (50 passing on 11 Oct).
 
 The web side of the interface is `apps/web/lib/hive/types.ts` (`HiveClient`). `lib/hive/mock/` shows exactly what the web expects each call to return.
 
@@ -98,8 +106,6 @@ The GPT agent is runbook Step 10a (`apps/agents`): a real OpenAI model that uses
 NEXT_PUBLIC_HIVE_MODE=live
 NEXT_PUBLIC_BRIDGE_URL=http://localhost:4000
 NEXT_PUBLIC_ENVIO_URL=
-NEXT_PUBLIC_ENVIO_WS_URL=
-NEXT_PUBLIC_PIMLICO_API_KEY=
 NEXT_PUBLIC_PASSKEY_RP_ID=
 NEXT_PUBLIC_EXPLORER_URL=https://testnet.monadscan.com
 ```

@@ -11,13 +11,14 @@
 | 3 | Agent bridge: MCP tools for agents plus an event stream for the canvas | Node + MCP SDK | `apps/bridge` | 🚧 (MCP write, read and revoke run on testnet with two Claude Code agents, 10 Oct ✅; deployed on Railway ✅; search and the OAuth connectors built, no live run) |
 | 4 | Memory storage: encrypted memory content | Supabase | `supabase/` | ✅ (ciphertext-only `memory_content`, written and read by the bridge) |
 | 5 | Permission graph: agents, edges, propagation events | Solidity on Monad testnet (10143) | `packages/contracts` | ✅ |
-| 5b | Audit trail: indexed onchain events | Envio HyperIndex | `packages/indexer` | 🚧 (handlers and tests ✅; synced locally against testnet 11 Oct; not on Envio Cloud; the web reads it in live mode, queries confirmed against the local indexer) |
+| 5b | Audit trail: indexed onchain events | Envio HyperIndex | `packages/indexer` | 🚧 (handlers and tests ✅; on Envio Cloud and synced to head 11 Oct ✅, without the ERC-8004 entities yet; the web reads it in live mode, `/audit` on the deployed site not yet seen in a browser) |
 
 ## What goes where
 
 | Data | Where | Why |
 | --- | --- | --- |
 | Agent identities | Monad (`AgentRegistry`) | Public, verifiable identity |
+| Agent identity for other projects (optional) | Monad (ERC-8004 Identity Registry) and an agent card on the bridge | Lets anything outside Hive find an agent. Never decides access (ADR-028). Built, no transaction sent yet |
 | Permission edges (from, to, topic, expiry) | Monad (`KnowledgeGraph`) | Anyone can audit who may share what |
 | Memory write events (content **hash** only) | Monad (`MemorySlots`) | Verifiable propagation trail |
 | Memory content | Supabase, AES-GCM ciphertext | Private. The server can't decrypt it |
@@ -35,7 +36,9 @@ The same phrase restores the same account without the passkey, in Hive or any BI
 
 Transactions were planned as ERC-4337 user operations through Pimlico's paymaster, so users need no MON. See [ADR-002](decisions.md). Superseded by [ADR-006](decisions.md) — writes go from a faucet-funded EOA; Kernel + Pimlico return behind `HiveSigner`.
 
-## Flows (planned)
+## Flows
+
+The edge and memory flows ran on testnet on 10 Oct (see the roadmap's verified runs). The canvas pulse animation is planned.
 
 **Add a permission edge** (checkpoint CP1)
 ```
