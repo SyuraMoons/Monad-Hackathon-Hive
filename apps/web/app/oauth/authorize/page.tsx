@@ -58,6 +58,7 @@ function Consent() {
   const [naming, setNaming] = useState(false);
   const [busy, setBusy] = useState<"allow" | "deny">();
   const [error, setError] = useState<string>();
+  const [sentBack, setSentBack] = useState<{ to: string; decision: "allow" | "deny" }>();
 
   useEffect(() => {
     void useSession.getState().restore();
@@ -95,6 +96,22 @@ function Consent() {
     );
   }
 
+  if (sentBack) {
+    const allowed = sentBack.decision === "allow";
+    return (
+      <Shell>
+        <Card eyebrow="CONNECTION REQUEST" title={allowed ? `Approved. Finish in ${PRODUCT[wanted]}` : "Connection cancelled"}>
+          <p role="status" className="text-[17px] leading-[1.55] text-ink-2">
+            {allowed ? `Sending you back to ${PRODUCT[wanted]} to finish.` : `Sending you back to ${PRODUCT[wanted]}.`} If its app opened instead, you can close this tab.
+          </p>
+          <a href={sentBack.to} className={cn(linkButton, "self-start")}>
+            Go back to {PRODUCT[wanted]}
+          </a>
+        </Card>
+      </Shell>
+    );
+  }
+
   async function finish(decision: "allow" | "deny") {
     if (!consent) return;
     setBusy(decision);
@@ -106,6 +123,8 @@ function Consent() {
         await authorizeAgent(selected.agentId);
       }
       const { redirectTo } = await (await getHiveClient()).oauth.approve({ request: consent.request, decision, agentId: decision === "allow" ? selected?.agentId : undefined });
+      // On a phone or tablet the redirect can open the Claude or ChatGPT app and leave this tab behind, so the tab has to say it is done.
+      setSentBack({ to: redirectTo, decision });
       window.location.assign(redirectTo);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong. Try again.");

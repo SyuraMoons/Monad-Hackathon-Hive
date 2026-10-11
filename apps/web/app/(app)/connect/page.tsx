@@ -181,7 +181,7 @@ export default function ConnectPage() {
               {a.name}
             </button>
           ))}
-          {selected && !naming && (
+          {(selected || allHidden) && !naming && (
             <button type="button" onClick={() => setNaming(true)} disabled={needsUnlock} className={cn(chip, "border-dashed border-clay text-ink-2 hover:text-ink disabled:cursor-default disabled:opacity-50")}>
               + New {agent.name} agent
             </button>
@@ -211,7 +211,7 @@ export default function ConnectPage() {
                 (needsUnlock
                   ? `Unlock with your passkey to set up ${selected?.name ?? agent.name}.`
                   : allHidden
-                    ? `All your ${agent.name} agents are hidden. Show one again from the canvas sidebar.`
+                    ? `All your ${agent.name} agents are hidden. Show one again from the canvas sidebar, or create a new one here.`
                     : needsAuthorize
                     ? unfinished
                       ? `${selected?.name} was registered, but its setup stopped halfway. Finishing is one transaction.`
