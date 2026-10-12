@@ -26,7 +26,7 @@ import { privateKeyToAddress } from "viem/accounts";
 import { explorerTx } from "@/lib/explorer";
 import type { BridgeStatus, HiveClient, TxHandle, TxResult } from "../types";
 import { initialGraph, MOCK_LIVE_WRITES, MOCK_MEMORY, MOCK_OWNER, MOCK_SEED_EVENTS, now, stressGraph } from "./data";
-import { latency, mockFlag, randomHex32 } from "./flags";
+import { latency, mockFlag, randomHex32, urlNumber } from "./flags";
 
 type SlotWire = {
   slotId: string; agentId: string; topic: string; contentHash: string; txHash: string;
@@ -43,7 +43,7 @@ export type MockHiveClient = HiveClient & {
 
 export function createMockClient(): MockHiveClient {
   const stress = mockFlag("stress");
-  const graph: GraphSnapshotWire = mockFlag("no-agents") ? { agents: [], edges: [] } : stress ? stressGraph() : initialGraph();
+  const graph: GraphSnapshotWire = mockFlag("no-agents") ? { agents: [], edges: [] } : stress ? stressGraph(urlNumber("agents", 20, 2, 20)) : initialGraph();
   // Stress: a random agent writes on the topic of its outgoing edge, so every write pulses.
   const stressWrite = () => {
     const e = graph.edges[Math.floor(Math.random() * graph.edges.length)];
@@ -277,7 +277,7 @@ export function createMockClient(): MockHiveClient {
             if (targets.length && !stress) {
               timers.push(setTimeout(() => emit({ type: "memory.read", data: { readerAgentId: targets[0], fromAgentIds: [w.agentId], count: 1 } }), 2000));
             }
-          }, stress ? 250 : 9000);
+          }, stress ? urlNumber("pace", 250, 100, 10_000) : 9000);
         }, 300 + Math.random() * 500));
 
         return () => {

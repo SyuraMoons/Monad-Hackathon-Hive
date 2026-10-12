@@ -18,3 +18,12 @@ export const randomHex32 = () => {
   const bytes = crypto.getRandomValues(new Uint8Array(32));
   return "0x" + Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 };
+
+// Like the flags: a number from the first page load sticks for the tab, so /login?agents=8 still applies on /canvas.
+const initialSearch = typeof window === "undefined" ? "" : window.location.search;
+
+/** ?agents=8 / ?pace=1200 for the stress scene: a number from the page URL, clamped, or the default. */
+export function urlNumber(name: string, fallback: number, min: number, max: number): number {
+  const n = Number(new URLSearchParams(window.location.search).get(name) ?? new URLSearchParams(initialSearch).get(name));
+  return Number.isFinite(n) && n > 0 ? Math.min(max, Math.max(min, Math.round(n))) : fallback;
+}
