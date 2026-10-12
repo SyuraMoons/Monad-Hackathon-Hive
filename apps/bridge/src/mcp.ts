@@ -45,6 +45,8 @@ const metaOf = ({ gist, kind, entities, supersedes }: MemoryMeta): MemoryMeta =>
 function buildServer(deps: McpDeps, session: AgentSession): McpServer {
   // The embedding setup of this session: the owner and key id are the session's, like on a write.
   const embeddings: EmbeddingDeps | undefined = deps.embeddings && { ...deps.embeddings, owner: getAddress(session.owner), keyId: keyIdOf(session.encryptionKey) };
+  // Every successful result says who the call ran as, from the token, so a client on the wrong identity shows it in the first answer.
+  const answer = (value: object) => result({ ...value, as: { agentId: session.agentId, name: session.name } });
   const server = new McpServer({ name: "hive-bridge", version: "0.0.0" }, { instructions: HIVE_INSTRUCTIONS });
 
   async function save(topic: string, content: string, meta: MemoryMeta = {}): Promise<WriteMemoryOutput> {
@@ -65,7 +67,7 @@ function buildServer(deps: McpDeps, session: AgentSession): McpServer {
   server.registerTool("hive_write_memory", { description: "Write a memory under a topic. It reaches only agents with a matching, unexpired permission edge from you. Add a one-line `gist` (200 characters), a `kind` (decision, interface, fact, task, session or state) and `entities` (exact names, ids, addresses) so others can find it without reading it. Set `supersedes` to the slotId of your own earlier memory in the same topic to replace it. Keep one `state` memory per topic as its living summary.", inputSchema: zWriteMemoryInput.shape }, async (input) => {
     try {
       if (metaLooksLikeSecret(input)) return failure(SECRET_MESSAGE);
-      return result(await save(input.topic, input.content, metaOf(input)));
+      return answer(await save(input.topic, input.content, metaOf(input)));
     } catch (e) {
       // HiveError messages are fixed strings, safe to show the agent. Anything else stays generic.
       return failure(e instanceof HiveError ? e.message : "Could not write the memory.");
@@ -83,7 +85,7 @@ function buildServer(deps: McpDeps, session: AgentSession): McpServer {
       if (metaLooksLikeSecret(input)) return failure(SECRET_MESSAGE);
       const topic = input.topic ?? DEFAULT_TOPIC;
       try {
-        return result({ ...(await save(topic, input.summary, metaOf(input))), topic });
+        return answer({ ...(await save(topic, input.summary, metaOf(input))), topic });
       } catch (e) {
         return failure(e instanceof HiveError ? e.message : "Could not save the session.");
       }
@@ -95,7 +97,7 @@ function buildServer(deps: McpDeps, session: AgentSession): McpServer {
   server.registerTool(
     "hive_list_memory",
     { description: "List the newest memories other agents shared with you: id, sender, topic, gist, kind, size and a short preview, without the full content. Replaced memories are left out. Pass the `cursor` from your last call to get only newer ones, oldest first; while `more` is true, call again with the cursor it returns. Then read the ones you need with hive_read_memory and slotIds. Permissions are checked on live chain state at every call.", inputSchema: zListMemoryInput.shape },
-    async (input) => result(await listMemory(readDeps(), { agentId: session.agentId, ...input })),
+    async (input) => answer(await listMemory(readDeps(), { agentId: session.agentId, ...input })),
   );
 
   server.registerTool("hive_read_memory", { description: "Read the full content of memories other agents shared with you, newest 20 by default. Pass `slotIds` (from hive_list_memory) to read specific ones, and `topic`, `kind` or `cursor` to narrow. `kind: \"state\"` gives each sender's living summary of a topic. `mine: true` reads your own memories instead, for example your own state before you rewrite it. `more` is true when memories were left out: older ones, or newer ones when you passed a `cursor` (call again with the cursor it returns). Permissions are checked on live chain state at every call.", inputSchema: zReadMemoryInput.shape }, async (input) => {
@@ -104,7 +106,7 @@ function buildServer(deps: McpDeps, session: AgentSession): McpServer {
       const from = [...new Set(out.memories.map((m) => m.fromAgentId.toString()))];
       deps.events?.publish(session.owner, { type: "memory.read", data: { readerAgentId: session.agentId.toString(), fromAgentIds: from, count: out.memories.length } });
     }
-    return result(out);
+    return answer(out);
   });
 
   server.registerTool(
@@ -113,7 +115,7 @@ function buildServer(deps: McpDeps, session: AgentSession): McpServer {
       description: "Search the memories you may read for what matters to your task, ranked: words, names, ids and addresses match. Returns gist, kind and a short preview, not the full content; read the ones you need with hive_read_memory and slotIds. Replaced memories are left out, and `mine: true` searches your own. Permissions are checked on live chain state at every call.",
       inputSchema: zSearchMemoryInput.shape,
     },
-    async (input) => result(await searchMemory(readDeps(), { agentId: session.agentId, ...input })),
+    async (input) => answer(await searchMemory(readDeps(), { agentId: session.agentId, ...input })),
   );
 
   server.registerTool("hive_whoami", { description: "Who you are in Hive and when your session ends.", inputSchema: {} }, async () => {
@@ -121,7 +123,7 @@ function buildServer(deps: McpDeps, session: AgentSession): McpServer {
       const agent = await deps.chain.agent(session.agentId);
       // STUB: readableTopics needs topic text, but KnowledgeGraph stores only keccak256(topic). Fill from EdgeAdded logs or Envio.
       const out: WhoamiOutput = { agentId: session.agentId, name: agent.name, owner: getAddress(session.owner), tokenExpiresAt: session.expiresAt, readableTopics: [] };
-      return result(out);
+      return answer(out);
     } catch (e) {
       // The error name only: a viem message carries the RPC URL and addresses, and the SDK would hand it to the agent as is.
       console.error(`bridge: whoami failed at registry${e instanceof Error ? ` (${e.name})` : ""}`);

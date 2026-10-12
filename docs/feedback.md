@@ -2,6 +2,10 @@
 
 Running notes on friction with the MCP SDK, tooling and Monad, for the team feedback doc. Newest first.
 
+## 12 Oct 2026
+
+- **One account can reach Hive by two routes, and nothing said which identity the AI used.** A Claude Desktop connector belongs to the account, so a Claude Code session with no local `hive` server for its own agent wrote as the connector's agent (11 Oct, agent 20 instead of 21). The bridge was right, since identity comes from the token. Every successful tool result now carries `as: { agentId, name }` and the server instructions tell the agent to say it, so a wrong identity shows in the first answer. Not yet seen with a real client.
+
 ## 10 Oct 2026
 
 - **Monad charges the declared gas limit, so "enough MON" depends on the limit, not on what a call uses.** One `MemorySlots.write` estimated at 253k gas, our 125% margin declared 317k, and at 102 gwei that is 0.0323 MON. A key with 0.0318 MON was refused. A gas-needed figure in the RPC error, or a documented formula for the minimum balance, would have saved the hunt.

@@ -6,6 +6,10 @@ import { MAX_CONTENT_BYTES, zEntities, zGist, zMemoryContent, zMemoryKind, zMemo
 
 const zContent = zMemoryContent;
 
+/** The Hive agent a call ran as, from the token. Every tool result carries it so a wrong identity shows in the first answer. */
+export const zCaller = z.object({ agentId: zAgentId, name: z.string() });
+const zAs = { as: zCaller.optional().describe("The Hive agent you are acting as. Tell the user when they ask who you are, or when it looks wrong.") };
+
 /** Where `hive_save_session` writes when no topic is given (ADR-014). */
 export const DEFAULT_TOPIC = "general";
 
@@ -18,6 +22,7 @@ export const zWriteMemoryOutput = z.object({
   contentHash: zContentHash,
   txHash: zTxHash,
   propagatedTo: z.array(zAgentId),
+  ...zAs,
 });
 
 
@@ -70,6 +75,7 @@ export const zReadMemoryOutput = z.object({
   more: z.boolean().default(false),
   cursor: zCursor.optional(),
   notice: z.string().optional(),
+  ...zAs,
 });
 
 export const zListMemoryInput = z.object({ ...zScope, limit: zLimit });
@@ -78,6 +84,7 @@ export const zListMemoryOutput = z.object({
   more: z.boolean().default(false),
   cursor: zCursor.optional(),
   notice: z.string().optional(),
+  ...zAs,
 });
 
 export const SEARCH_LIMIT_DEFAULT = 5;
@@ -101,6 +108,7 @@ export const zSearchMemoryOutput = z.object({
   /** Candidates that had no vector yet and ranked on their words only. Left out when none. */
   pending: z.number().int().positive().optional(),
   notice: z.string().optional(),
+  ...zAs,
 });
 
 export const zWhoamiInput = z.object({}).strict();
@@ -110,6 +118,7 @@ export const zWhoamiOutput = z.object({
   owner: zAddress,
   tokenExpiresAt: zUnixSeconds,
   readableTopics: z.array(z.object({ fromAgentId: zAgentId, topic: zTopic, expiresAt: zUnixSeconds })),
+  ...zAs,
 });
 
 export const MCP_TOOLS = {
@@ -132,4 +141,5 @@ export type ListMemoryInput = z.input<typeof zListMemoryInput>;
 export type ListMemoryOutput = z.infer<typeof zListMemoryOutput>;
 export type SearchMemoryInput = z.input<typeof zSearchMemoryInput>;
 export type SearchMemoryOutput = z.infer<typeof zSearchMemoryOutput>;
+export type Caller = z.infer<typeof zCaller>;
 export type WhoamiOutput = z.infer<typeof zWhoamiOutput>;
