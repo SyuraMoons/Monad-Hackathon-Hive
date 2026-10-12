@@ -1,4 +1,5 @@
 import {
+  ALL_TOPICS,
   authMessage,
   HiveError,
   zAddress,
@@ -69,7 +70,7 @@ export function createMockClient(): MockHiveClient {
   };
 
   const activeTargets = (from: string, topic: string) =>
-    graph.edges.filter((e) => e.active && String(e.from) === from && e.topic === topic && e.expiresAt > now()).map((e) => String(e.to));
+    graph.edges.filter((e) => e.active && String(e.from) === from && (e.topic === topic || e.topic === ALL_TOPICS) && e.expiresAt > now()).map((e) => String(e.to));
 
   function recordWrite(agentId: string, topic: string, contentHash: string, at: number, propagatedTo: string[]) {
     const slot: SlotWire = { slotId: String(nextSlot++), agentId, topic, contentHash, txHash: randomHex32(), writtenAt: at, propagatedTo };
