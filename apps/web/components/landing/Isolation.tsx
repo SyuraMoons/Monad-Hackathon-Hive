@@ -9,7 +9,7 @@ const ROWS: Array<{ key: string; value: string; topic?: boolean }> = [
   { key: "signed", value: "passkey" },
 ];
 
-// Figma Section/Isolation 5:84
+// Isolation section.
 export function Isolation() {
   return (
     <section
@@ -37,7 +37,7 @@ export function Isolation() {
             <div key={r.key} className="flex gap-2">
               <dt className="w-16 shrink-0 text-ink-3">{r.key}</dt>
               <dd className="text-ink">
-                {/* Topic names as text stay in ink inside a border of the topic colour (design.md §3.3, D1). */}
+                {/* Topic names as text stay in ink inside a border of the topic colour. */}
                 {r.topic ? <span className="rounded-tag border border-topic-work px-1.5 py-px">{r.value}</span> : r.value}
               </dd>
             </div>

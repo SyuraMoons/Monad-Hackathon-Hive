@@ -2,7 +2,7 @@ import { PillLink } from "@/components/ui/Pill";
 import { cn } from "@/lib/cn";
 import { gutter } from "./type";
 
-// Figma Section/Closing 7:20
+// Closing section.
 export function Closing() {
   return (
     <section

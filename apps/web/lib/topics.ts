@@ -1,4 +1,4 @@
-// Topic colours are design tokens (design.md §3.3), not a list of allowed topics: any topic an edge
+// Topic colours are design tokens, not a list of allowed topics: any topic an edge
 // carries gets drawn, and topics without their own token use ink-2.
 const TOKENS: Record<string, string> = {
   work: "var(--color-topic-work)",

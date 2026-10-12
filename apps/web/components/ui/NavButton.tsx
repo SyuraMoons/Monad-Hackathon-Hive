@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { ComponentProps } from "react";
 import { cn } from "@/lib/cn";
 
-// Figma landing 5:16: outlined mono button, radius 0.
+// Outlined mono button, radius 0.
 export function NavButton({ className, ...rest }: ComponentProps<typeof Link>) {
   return (
     <Link

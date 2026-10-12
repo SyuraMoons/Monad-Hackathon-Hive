@@ -160,7 +160,7 @@ function RemoveSection({ agent }: { agent: AgentNode }) {
   );
 }
 
-// Figma Canvas 5 Node drawer (61:710): covers the feed panel, closes on ✕, Esc or a canvas click.
+// Node drawer: covers the feed panel, closes on ✕, Esc or a canvas click.
 export function NodeDrawer({ agentId }: { agentId: string }) {
   const agent = useGraph((s) => s.agents[agentId]);
   const agents = useGraph((s) => s.agents);

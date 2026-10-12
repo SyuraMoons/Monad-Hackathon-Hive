@@ -20,7 +20,7 @@ const STEPS = [
   },
 ];
 
-// Figma Section/How it works 5:62
+// How it works section.
 export function HowItWorks() {
   return (
     <section id="how-it-works" aria-labelledby="how-title" className={cn(anchor, "pt-[84px] pb-5")}>

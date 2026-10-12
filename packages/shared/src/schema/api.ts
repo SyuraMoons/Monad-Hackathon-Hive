@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { zAddress, zAgentId, zAgentType, zBase64, zHex, zUnixSeconds } from "../ids.js";
 
-// Bridge HTTP routes (rules §5.1). Bodies are what the client sends, responses what the bridge returns.
+// Bridge HTTP routes. Bodies are what the client sends, responses what the bridge returns.
 
 export const zHealthResponse = z.object({
   ok: z.boolean(),

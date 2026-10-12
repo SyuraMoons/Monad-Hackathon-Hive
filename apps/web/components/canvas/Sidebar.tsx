@@ -38,7 +38,7 @@ function useHealth() {
   return rpc;
 }
 
-// Figma sidebar (55:53): agent chips, topics from the edges that exist, network status.
+// Sidebar: agent chips, topics from the edges that exist, network status.
 export function Sidebar({ layout, place, unplace }: { layout: Layout; place(patch: Layout, persist?: boolean): void; unplace(id: string): void }) {
   const allAgents = useGraph((s) => s.agents);
   const hidden = useGraph((s) => s.hidden);

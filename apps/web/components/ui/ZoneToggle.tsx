@@ -1,6 +1,6 @@
 import { cn } from "@/lib/cn";
 
-// design.md §6 Isolation toggle: h 33 pill, 28 × 16 switch; off = clay track, on = amber-strong track and border.
+// Isolation toggle: h 33 pill, 28 × 16 switch; off = clay track, on = amber-strong track and border.
 export function ZoneToggle({ on, onChange }: { on: boolean; onChange(on: boolean): void }) {
   return (
     <button

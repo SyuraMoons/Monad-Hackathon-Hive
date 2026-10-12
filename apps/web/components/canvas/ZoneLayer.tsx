@@ -47,7 +47,7 @@ export function ZoneLayer({ zones, layout }: { zones: Zone[]; layout: Layout }) 
               className="hive-zone absolute inset-0"
               style={{ borderColor: `color-mix(in srgb, ${color} 55%, transparent)`, background: `color-mix(in srgb, ${color} 7%, transparent)` }}
             />
-            {/* Zone labels stay ink-2: topic colours fail AA at 14px (design D1). */}
+            {/* Zone labels stay ink-2: topic colours fail AA at 14px. */}
             <p className="absolute top-3.5 left-5 font-mono text-[14px] tracking-[0.1em] whitespace-pre text-ink-2">
               ZONE {i + 1}  ·  {z.sealed ? "sealed" : `${z.topics.join(", ")}  ·  ${z.names.join(", ")}`}
             </p>

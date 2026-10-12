@@ -3,7 +3,7 @@
 import { Toast } from "@/components/ui/Toast";
 import { useUi } from "@/lib/stores/ui";
 
-// Top-centre stack over the canvas (design.md §6 Toast). Success auto-dismisses after 4 s (ui store); errors persist.
+// Top-centre stack over the canvas. Success auto-dismisses after 4 s (ui store); errors persist.
 export function Toaster() {
   const toasts = useUi((s) => s.toasts);
   const dismiss = useUi((s) => s.dismissToast);

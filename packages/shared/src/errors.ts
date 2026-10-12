@@ -14,7 +14,7 @@ export const ERROR_CODES = [
 export const zErrorCode = z.enum(ERROR_CODES);
 export type ErrorCode = z.infer<typeof zErrorCode>;
 
-/** `{ "error": { "code", "message" } }` on every non-2xx response (rules §5.1). */
+/** `{ "error": { "code", "message" } }` on every non-2xx response. */
 export const zErrorEnvelope = z.object({
   error: z.object({ code: zErrorCode, message: z.string() }),
 });

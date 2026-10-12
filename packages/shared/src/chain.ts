@@ -1,6 +1,6 @@
 export { monadTestnet } from "viem/chains";
 
-/** Monad testnet explorer (rules A4). Every link the UI shows must open here (T8). */
+/** Monad testnet explorer. Every link the UI shows must open here. */
 export const EXPLORER_URL = "https://testnet.monadscan.com";
 
 const trim = (base: string) => base.replace(/\/+$/, "");

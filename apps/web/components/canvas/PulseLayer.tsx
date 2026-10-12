@@ -7,7 +7,7 @@ import { useGraph } from "@/lib/stores/graph";
 import { topicColor } from "@/lib/topics";
 import { edgePathId } from "./HiveEdge";
 
-const DURATION = 600; // design.md §8: 600 ms ease-out
+const DURATION = 600; // 600 ms ease-out
 const SVG = "http://www.w3.org/2000/svg";
 const easeOut = (t: number) => 1 - (1 - t) ** 3;
 

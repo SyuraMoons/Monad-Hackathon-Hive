@@ -14,7 +14,7 @@ export type AgentNodeData = { agentId: string; isolated: boolean; revoked?: bool
 export type AgentFlowNode = Node<AgentNodeData, "agent">;
 
 
-// Figma Canvas Node 55:118: Active · Isolated · Revoked · Selected. Data is read from the store by id.
+// Node states: Active · Isolated · Revoked · Selected. Data is read from the store by id.
 function AgentNodeImpl({ id, data, selected }: NodeProps<AgentFlowNode>) {
   const connection = useConnection();
   const connecting = connection.inProgress;

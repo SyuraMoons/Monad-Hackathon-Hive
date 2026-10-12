@@ -1,6 +1,6 @@
 import { cn } from "@/lib/cn";
 
-// Figma waves 5:7–5:9 (reused on Login 46:49–46:51 and Connect 54:50–54:52).
+// Waves, reused on Login and Connect.
 export function Waves({ className }: { className?: string }) {
   return (
     <div className={cn("pointer-events-none absolute inset-x-0 top-0 [&>svg]:absolute [&>svg]:top-0 [&>svg]:left-0 [&>svg]:w-full", className)} aria-hidden="true">

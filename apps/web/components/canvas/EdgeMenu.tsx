@@ -8,7 +8,7 @@ import { useUi, type Anchor } from "@/lib/stores/ui";
 
 const item = "flex min-h-9 w-full cursor-pointer items-center px-3.5 py-[9px] text-left text-[15px] text-ink hover:bg-paper-2 focus-visible:bg-paper-2 focus-visible:outline-none";
 
-// Figma Canvas 3 Revoke (61:239): 240 wide, radius 10, ink border, shadow-menu. Arrow keys move between items.
+// Edge menu: 240 wide, radius 10, ink border, shadow-menu. Arrow keys move between items.
 export function EdgeMenu({ edgeKey, at }: { edgeKey: string; at: Anchor }) {
   const edge = useGraph((s) => s.edges[edgeKey]);
   const setUi = useUi((s) => s.set);

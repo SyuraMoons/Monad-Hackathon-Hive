@@ -2,7 +2,7 @@ import { ALL_TOPICS, zTopic } from "@hive/shared";
 import { keccak256, stringToBytes, type Hex } from "viem";
 import type { ChainEdge, ChainSlot } from "./types.js";
 
-// Access control is deterministic code (golden rule 3): no LLM, no heuristics. Default deny:
+// Access control is deterministic code: no LLM, no heuristics. Default deny:
 // anything that is not an exact, active, unexpired edge for this reader, sender and topic is refused.
 
 export const topicHash = (topic: string) => keccak256(stringToBytes(topic));

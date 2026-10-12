@@ -12,7 +12,7 @@ import { useGraph } from "@/lib/stores/graph";
 import { useSession } from "@/lib/stores/session";
 import { useUi } from "@/lib/stores/ui";
 
-// Figma 07 · Canvas: 0 Empty (56:231) and 1 Live (55:46). 240 / canvas / 340 (design.md §5).
+// Canvas layout: 240 / canvas / 340.
 // Real by construction: everything shown comes from the graph and feed stores, which only HiveClient fills.
 function Canvas({ owner }: { owner: string }) {
   const { layout, place, unplace } = useLayout(owner);
@@ -33,7 +33,7 @@ function Canvas({ owner }: { owner: string }) {
             </p>
           )}
         </main>
-        {/* The node drawer covers the feed panel (design.md §6 Drawer). */}
+        {/* The node drawer covers the feed panel. */}
         <div className="relative grid min-h-0">
           <LiveFeed />
           {drawer !== null && <NodeDrawer key={drawer.toString()} agentId={drawer.toString()} />}
