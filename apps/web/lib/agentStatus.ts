@@ -1,7 +1,7 @@
 export type AgentConnection = "connected" | "waiting" | "none";
 
 /**
- * `connected` on the wire means "has made a tool call" (docs/backend-handoff.md). An agent that was authorized but has not
+ * `connected` on the wire means "has made a tool call". An agent that was authorized but has not
  * called yet has a live session and a token, so it is "waiting", not "none". Only `none` needs a reconnect.
  */
 export function agentConnection(agent: { connected: boolean; tokenExpiresAt: number | null }, nowS: number): AgentConnection {

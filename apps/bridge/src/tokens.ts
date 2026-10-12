@@ -7,7 +7,7 @@ const CLIENT_TTL_S = 365 * 24 * 60 * 60;
 export type UserClaims = { owner: string; expiresAt: number };
 export type AgentClaims = { agentId: bigint; owner: string; expiresAt: number };
 
-/** HS256, 24 h, `{ sub: owner, typ: "user" }` (docs/backend-handoff.md). */
+/** HS256, 24 h, `{ sub: owner, typ: "user" }`. */
 export class TokenService {
   private key: Uint8Array;
   constructor(secret: string, private now: () => number = () => Math.floor(Date.now() / 1000)) {

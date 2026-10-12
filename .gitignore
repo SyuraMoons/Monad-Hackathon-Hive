@@ -49,7 +49,7 @@ packages/contracts/out/
 packages/contracts/cache/
 packages/contracts/broadcast/
 
-# Private planning docs (local working notes; docs/backend-handoff.md is the shared version)
+# Private planning docs (local working notes, not in the repo)
 docs/rules.md
 docs/design.md
 docs/hero-prompt.md

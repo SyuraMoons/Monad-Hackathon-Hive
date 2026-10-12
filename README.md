@@ -6,6 +6,8 @@ It is built for developers to build on: four contracts, an MCP server any agent 
 
 > Monad Metropolis Hackathon · Track 4 (Trust, Identity & AI) · also entered for the Envio and Mera bounties.
 
+> **Notice.** This repository is a hackathon submission, published so that judges and reviewers can read and run it. **No license is granted** and all rights are reserved: please do not copy, reuse or redistribute the code. See [NOTICE.md](NOTICE.md).
+
 ## Live
 
 | | |
