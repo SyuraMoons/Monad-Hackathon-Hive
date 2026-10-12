@@ -2,7 +2,7 @@
 
 import { ViewportPortal } from "@xyflow/react";
 import { useEffect, useRef } from "react";
-import { pulses, type Pulse } from "@/lib/pulse";
+import { findPulseEdge, pulses, type Pulse } from "@/lib/pulse";
 import { useGraph } from "@/lib/stores/graph";
 import { topicColor } from "@/lib/topics";
 import { edgePathId } from "./HiveEdge";
@@ -14,11 +14,11 @@ const easeOut = (t: number) => 1 - (1 - t) ** 3;
 type Running = { path: SVGPathElement; length: number; start: number; dot: SVGCircleElement; glow: SVGCircleElement; to: string };
 
 /** Briefly marks the target node: the arrival flash, or the whole effect with reduced motion. */
-function flash(agentId: string, ms: number) {
+function flash(agentId: string, ms: number, cls = "hive-hit") {
   const el = document.querySelector<HTMLElement>(`[data-agent-node="${CSS.escape(agentId)}"] .hive-node`);
   if (!el) return;
-  el.classList.add("hive-hit");
-  window.setTimeout(() => el.classList.remove("hive-hit"), ms);
+  el.classList.add(cls);
+  window.setTimeout(() => el.classList.remove(cls), ms);
 }
 
 /**
@@ -53,15 +53,14 @@ export function PulseLayer() {
     }
 
     function start({ from, to, topic }: Pulse) {
-      const edge = Object.values(useGraph.getState().edges).find(
-        (e) => e.state === "signed" && e.from.toString() === from && e.to.toString() === to && e.topic === topic,
-      );
+      const edge = findPulseEdge(Object.values(useGraph.getState().edges), { from, to, topic });
       if (!edge) return;
       if (reduce.matches) return flash(to, 150);
       const path = document.getElementById(edgePathId(edge.key)) as SVGPathElement | null;
       const g = layer.current;
       if (!path || !g) return;
 
+      flash(from, 300, "hive-send");
       const color = topicColor(topic);
       const glow = document.createElementNS(SVG, "circle");
       glow.setAttribute("r", "14");
