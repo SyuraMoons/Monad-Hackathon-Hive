@@ -38,10 +38,10 @@ export function initialGraph(): GraphSnapshotWire {
   };
 }
 
-/** ?mock=stress: 20 agents in a chain with work and research edges, for the 60 fps check (step 6). */
-export function stressGraph(): GraphSnapshotWire {
+/** ?mock=stress: 20 agents in a chain with work and research edges, for the 60 fps check (step 6). `count` sets another size. */
+export function stressGraph(count = 20): GraphSnapshotWire {
   const t = now();
-  const agents = Array.from({ length: 20 }, (_, i) => ({
+  const agents = Array.from({ length: count }, (_, i) => ({
     agentId: String(i + 1), owner: MOCK_OWNER, agentKey: mockKey(i + 1), name: `Agent ${i + 1}`,
     agentType: (["claude", "gpt", "other"] as const)[i % 3], registeredAt: t - DAY,
   }));

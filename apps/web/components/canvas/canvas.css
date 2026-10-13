@@ -47,6 +47,12 @@
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-amber-strong) 22%, transparent), var(--shadow-node);
 }
 
+/* Pulse departure: the writer's border lights up as the dot leaves. */
+.hive-node.hive-send {
+  border-color: var(--color-amber-strong);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-amber-strong) 14%, transparent), var(--shadow-node);
+}
+
 /* Easy connect: while dragging a connection, the whole target node accepts the drop. */
 .hive-flow .react-flow__handle.hive-drop-target {
   position: absolute; inset: 0; width: 100%; height: 100%; transform: none;
