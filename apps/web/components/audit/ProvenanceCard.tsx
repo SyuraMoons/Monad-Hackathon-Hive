@@ -8,6 +8,7 @@ import { clockTime, longDate, shortHash } from "@/lib/format";
 import { getHiveClient } from "@/lib/hive/client";
 import { useFeed } from "@/lib/stores/feed";
 import { useGraph } from "@/lib/stores/graph";
+import { useSession } from "@/lib/stores/session";
 
 const ENVIO_URL = process.env.NEXT_PUBLIC_ENVIO_URL;
 const LONG_QUOTE = 240;
@@ -39,6 +40,7 @@ function Step({ dot, last, title, meta, tx }: { dot: string; last?: boolean; tit
 // "Where did this fact go?": the quote is decrypted on this device.
 export function ProvenanceCard({ contentHash, events }: { contentHash: ContentHash | null; events: AuditEvent[] }) {
   const agents = useGraph((s) => s.agents);
+  const owner = useSession((s) => s.owner);
   const rows = useFeed((s) => s.rows);
   const [prov, setProv] = useState<Provenance | null | undefined>(undefined);
   const [quote, setQuote] = useState<string | null | undefined>(undefined);
@@ -141,8 +143,8 @@ export function ProvenanceCard({ contentHash, events }: { contentHash: ContentHa
         </>
       )}
 
-      {ENVIO_URL ? (
-        <a href={ENVIO_URL} target="_blank" rel="noreferrer" className="inline-flex min-h-9 items-center text-[14px] font-medium whitespace-pre text-ink underline underline-offset-2 hover:text-ink-2">
+      {ENVIO_URL && owner ? (
+        <a href={`/api/audit-raw?owner=${owner}`} target="_blank" rel="noreferrer" className="inline-flex min-h-9 items-center text-[14px] font-medium whitespace-pre text-ink underline underline-offset-2 hover:text-ink-2">
           Open the raw events on Envio  →
         </a>
       ) : (
