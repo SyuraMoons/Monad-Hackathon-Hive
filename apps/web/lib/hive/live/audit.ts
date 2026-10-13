@@ -11,7 +11,7 @@ export type AuditDeps = {
 
 export const AUDIT_LIMIT = 500;
 
-const AUDIT_FIELDS = "kind at txHash agentId name agentType edgeId fromAgent toAgent topic expiresAt slotId contentHash propagatedCount";
+export const AUDIT_FIELDS = "kind at txHash agentId name agentType edgeId fromAgent toAgent topic expiresAt slotId contentHash propagatedCount";
 
 const AUDIT_QUERY = `query Audit($owner: String!, $limit: Int!) {
   AuditEvent(where: { owner: { _eq: $owner } }, order_by: [{ block: desc }, { logIndex: desc }], limit: $limit) { ${AUDIT_FIELDS} }
