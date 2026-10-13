@@ -33,7 +33,7 @@ export type TxResult<T extends object = object> =
   | ({ status: "confirmed"; txHash: TxHash; explorerUrl: string } & T)
   | { status: "failed"; error: HiveError };
 
-/** Returned as soon as the userOp is sent, so the UI can draw it as pending (golden rule 6). */
+/** Returned as soon as the transaction is sent, so the UI can draw it as pending. */
 export type TxHandle<T extends object = object> = { status: "pending"; wait(): Promise<TxResult<T>> };
 
 /** One past write of an agent, as the chain keeps it: hashes and topics, never content. */
@@ -55,7 +55,7 @@ export interface HiveClient {
     health(): Promise<HealthResponse>;
     /**
      * Only for the ADR-002 fallback (the owner EOA pays gas): the balance, e.g. "0.001 MON", when it may not
-     * cover a signature. With Pimlico-sponsored userOps (rules A5) this is always null.
+     * cover a signature. It is null while the balance is enough.
      */
     lowBalance(): Promise<string | null>;
     /** The signed-in owner's MON balance for the wallet menu. `mon` is already formatted ("0.1234"); `low` means it may not cover a few transactions. */
@@ -94,7 +94,7 @@ export interface HiveClient {
   memory: {
     /** The agent's past writes from the chain, newest first (at most 50). Content stays encrypted: this is hashes and topics. */
     history(agentId: AgentId): Promise<MemoryHistoryRow[]>;
-    /** Fetches the ciphertext and decrypts it on this device (rules O4). Rejects with `LockedError` while the keys are locked. */
+    /** Fetches the ciphertext and decrypts it on this device. Rejects with `LockedError` while the keys are locked. */
     preview(contentHash: ContentHash): Promise<MemoryView>;
   };
   identity: {
@@ -104,7 +104,7 @@ export interface HiveClient {
   tx: {
     /** One owner transaction on the ERC-8004 Identity Registry, linked to the agent by metadata (ADR-028). Optional: it grants nothing. */
     registerIdentity(agentId: AgentId): TxHandle<{ erc8004Id: bigint }>;
-    /** AgentRegistry.register(name, agentType, agentKey) as an owner userOp (rules O1). */
+    /** AgentRegistry.register(name, agentType, agentKey) as an owner transaction. */
     registerAgent(input: { name: string; agentType: AgentType; agentKey: Address }): TxHandle<{ agentId: AgentId }>;
     addEdge(input: { from: AgentId; to: AgentId; topic: Topic; expiresAt: UnixSeconds }): TxHandle<{ edgeId: EdgeId }>;
     removeEdge(edgeId: EdgeId): TxHandle;

@@ -1,6 +1,6 @@
 import type { HiveEventWire } from "@hive/shared";
 
-// Events for GET /v1/events. Payloads carry ids and hashes only, never memory content (golden rule 2).
+// Events for GET /v1/events. Payloads carry ids and hashes only, never memory content.
 
 export type BusEvent = HiveEventWire;
 type Draft = { [T in BusEvent["type"]]: Omit<Extract<BusEvent, { type: T }>, "id" | "at"> }[BusEvent["type"]];

@@ -9,7 +9,6 @@ import { Reveal } from "@/components/landing/Reveal";
 import { WireUp } from "@/components/landing/WireUp";
 import { SiteHeader } from "@/components/site/SiteHeader";
 
-// Figma 03 · Landing, frame 5:4
 export default function Home() {
   return (
     <>

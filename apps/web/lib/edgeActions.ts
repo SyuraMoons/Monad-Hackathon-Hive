@@ -27,7 +27,7 @@ const name = (id: bigint) => useGraph.getState().agents[id.toString()]?.name ?? 
 type Step = (TxResult<{ edgeId: EdgeId }> | TxResult) & { stage: "revoke" | "add"; replaced: boolean };
 
 /**
- * Sign an edge: it draws pending (dashed) at once and turns solid on the receipt (golden rule 6, rules §5.6).
+ * Sign an edge: it draws pending (dashed) at once and turns solid on the receipt.
  * With `both` it signs the reverse edge too, one transaction after the other under one toast and one unlock.
  * Signing over a live edge replaces it: the contract has no uniqueness and no expiry setter, so a second addEdge would
  * leave the old edge granting its old expiry. Each leg revokes its live twins first, so a failure in between leaves no

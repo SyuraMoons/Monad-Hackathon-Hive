@@ -5,7 +5,7 @@ import s from "./Pill.module.css";
 
 type Variant = "default" | "danger";
 
-// Figma Button/Pill 4:2: dark pill, paper label, amber arrow.
+// Dark pill, paper label, amber arrow.
 function Arrow() {
   return (
     <svg className={s.arrow} width="17" height="17" viewBox="0 0 17 17" fill="none" aria-hidden="true">

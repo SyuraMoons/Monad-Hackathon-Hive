@@ -133,6 +133,19 @@ Not checked:
 - Safari with iCloud Keychain, and 1Password.
 - An iPhone: the passkey sheet there offered only a QR code and a security key. Not followed up.
 
+### 12 Oct 2026 — two Claude Code agents on the local bridge, through the web app (live mode)
+
+Run by hand with two terminals (`hive-agent-1`, `hive-agent-2`), the web app in live mode on `:3000` and the bridge on `:4000`, following [manual-test-two-agents.md](manual-test-two-agents.md). Read from the tool output in the terminals and from the live memory feed in the canvas, not from the chain with `cast`.
+
+- A write by agent 1 (slot 14, topic `general`) returned `propagatedTo: ["23"]`, and the feed said "propagated to Agent 2" on an all-topics edge.
+- The first read by "agent 2" came back empty because both terminals were agent 1 (same `hive-agent-1` command). Agent 2 wrote as itself later (see the feed below), so the second terminal was fixed.
+- Later in the feed: agent 1 writes on `personal` and `work` propagated to agent 2, agent 2 writes propagated to agent 1 over a second edge, and the one-topic `work` edge was revoked at 23:04 ("Agent 1 ✕ Agent 2 on “work”").
+- PR for the pulse matching (#189): the mock browser run is in its description; the live pulse is not.
+
+Not checked:
+- The pulse animation on the live path (real SSE from the bridge). It was not recorded as seen; the roadmap item stays open.
+- The deployed site and bridge. The read by agent 2 after the fix, as text. `cast receipt` for these writes.
+
 ## P0 features (required)
 
 | # | Feature | Owner | Status |

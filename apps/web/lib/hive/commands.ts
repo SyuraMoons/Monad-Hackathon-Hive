@@ -99,7 +99,7 @@ export const connectorUrl = (mcpUrl: string | undefined, bridgeUrl: string | und
 /** Anthropic's and OpenAI's servers call the connector, so a localhost or private address can never work. */
 export const isLocalUrl = (url: string) => /^https?:\/\/(localhost|127\.|10\.|192\.168\.|\[::1\])/i.test(url);
 
-// OpenAI Responses API with a remote MCP tool (rules O7 option b, design D11). The model comes from the env, never hardcoded.
+// OpenAI Responses API with a remote MCP tool. The model comes from the env, never hardcoded.
 export const gptSnippet = (url: string, token: string) =>
   [
     `await openai.responses.create({`,

@@ -62,7 +62,7 @@ export async function registerAndBind(
 ): Promise<{ agentId: bigint; txHash: Hex }> {
   try {
     const unbound = (await deps.agentsOf(input.owner)).find((a) => a.agentType === input.agentType && a.name === input.name && sameAddress(a.writer, zeroAddress));
-    // Nothing reads `pubKey` yet (docs/backend-handoff.md §2, #3), so it carries the agent key address.
+    // Nothing reads `pubKey` yet, so it carries the agent key address.
     const registered = unbound ? { agentId: unbound.id, txHash: undefined } : await deps.register(input.name, input.agentType, input.agentKey);
     const txHash = await deps.setWriter(registered.agentId, input.agentKey);
     return { agentId: registered.agentId, txHash };

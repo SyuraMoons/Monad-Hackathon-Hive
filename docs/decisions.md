@@ -46,16 +46,16 @@ Short architecture decision records. To add one, append the next number and don'
 **Consequences.** Every owner address from before this change moves (nothing was deployed yet). The phrase opens the account in any BIP-39 wallet, so the UI only shows it behind a fresh passkey prompt and never stores it. Imported phrases and backup passkeys (secret vaults, #67) derive keys the same way.
 
 ## ADR-006: Gas on Monad testnet is paid by the Mera EOA, funded from the faucet
-**Date:** 2026-10-02 · **Status:** accepted (confirmed by Harfi)
+**Date:** 2026-10-02 · **Status:** accepted
 
 **Context.** ADR-002 planned a Kernel smart account sponsored by Pimlico. We run on testnet, where the faucet makes that unnecessary.
 
-**Decision.** The Mera key signs and sends graph transactions directly (Akhnaf's Path A). No Pimlico, no Kernel.
+**Decision.** The Mera key signs and sends graph transactions directly (the contracts' Path A: the owner key sends, no relayer). No Pimlico, no Kernel.
 
 **Consequences.** The owner address needs testnet MON. UI copy that says gas is "sponsored" (`WalletMenu.tsx`, `WalletChip.tsx`) is no longer accurate and must change, or the low-balance UI already in `EdgeEditorModal.tsx` must be switched on. AGENTS.md rule 8 (don't overclaim) applies.
 
 ## ADR-007: The agent key sends `MemorySlots.write`, and the bridge funds it
-**Date:** 2026-10-03 · **Status:** accepted (Altaf; Akhnaf please confirm, no contract change needed)
+**Date:** 2026-10-03 · **Status:** accepted (no contract change needed)
 
 **Context.** The deployed `MemorySlots.write` requires `msg.sender == registry.writerOf(agentId)`, so the agent's own key must send the transaction and hold MON.
 
@@ -71,7 +71,7 @@ Short architecture decision records. To add one, append the next number and don'
 **Consequences.** The HKDF info string `hive/encrypt` must never be renamed: it derives the encryption key from the passkey, and changing it makes all existing ciphertext unreadable. Demo and MCP focus is Claude and ChatGPT; Cursor is not a product we integrate.
 
 ## ADR-009: The bridge holds the delegated key and sees plaintext only in memory
-**Date:** 2026-10-04 · **Status:** accepted (confirmed by Harfi)
+**Date:** 2026-10-04 · **Status:** accepted
 
 **Context.** ADR-004 and hard rule 2 said content is encrypted on the client. The bridge write path (#77) encrypts on the bridge with the owner's delegated key from the authorized session, and reads decrypt there too, so plaintext reaches the bridge.
 
@@ -191,7 +191,7 @@ Short architecture decision records. To add one, append the next number and don'
 **Consequences.** No contract change and no gas change. Plaintext, gist, entities and vectors never reach a log, an error, an SSE event or an unencrypted row. Slots written before this change read as legacy content with no gist, so they rank on text only. A forged `supersedes` pointing at another sender's slot is ignored. If the embedding model can't load, search stays lexical and `/health` reports it. Built and tested with in-memory fakes, and the real model was run locally; none of it has run against testnet or Railway yet, so the UI and docs call it built, not verified (rule 8). Embeddings are off by default (`HIVE_EMBEDDINGS`), need the `memory_embedding` migration applied, and add a model of about 120 MB and some hundred MB of memory to the bridge. The e5 similarity scale is compressed (right matches 0.80-0.875, wrong 0.72-0.81 in the roadmap run), so the floor `HIVE_EMBED_MIN_SIM` (default 0.78) only cuts the clearly unrelated and ranking does the rest.
 
 ## ADR-023: Topic and agent names are public onchain, and only the permission graph decides reads
-**Date:** 2026-10-11 · **Status:** accepted (confirmed by Harfi)
+**Date:** 2026-10-11 · **Status:** accepted
 
 **Context.** ADR-009 and hard rule 2 said "nothing but hashes goes onchain". That is not true of the deployed contracts: `MemorySlots` stores each memory's topic as text and emits it in `MemoryWritten`, and `AgentRegistry` stores each agent's name and type. Anyone can read them on a block explorer, and the chain cannot forget them. `KnowledgeGraph` stores only `keccak256(topic)`, but that hides nothing once the same topic is written to `MemorySlots`. Since ADR-022 the bridge also keeps decrypted memories per session, not only while it serves a call. And every authorized read hands plaintext to the reading agent and so to its model provider, which the rules did not say; the login page went as far as "the memory only you can read". Separately, a review of ADR-022 found that a `supersedes` written by one agent could change which of another sender's memories were visible. Rule 3 ("an LLM never decides") did not cover that, because no LLM was involved.
 

@@ -62,7 +62,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   useHiveBootstrap(signedIn ? owner : undefined);
 
-  // Esc closes the innermost open layer (design.md §10). Modals handle their own Esc first.
+  // Esc closes the innermost open layer. Modals handle their own Esc first.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape" && useUi.getState().closeLayers()) e.preventDefault(); };
     document.addEventListener("keydown", onKey);
@@ -75,7 +75,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className="relative flex min-h-svh flex-col overflow-x-hidden">
       {pathname === "/connect" && <Waves />}
       <TopBar />
-      {/* design.md §7: the app routes need a laptop-sized screen */}
+      {/* The app routes need a laptop-sized screen */}
       <p className="grid flex-1 place-items-center px-6 text-center text-[17px] text-ink-2 lg:hidden">
         Hive&rsquo;s canvas works best on a laptop.
       </p>

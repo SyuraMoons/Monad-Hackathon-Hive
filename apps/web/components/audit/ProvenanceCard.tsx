@@ -36,7 +36,7 @@ function Step({ dot, last, title, meta, tx }: { dot: string; last?: boolean; tit
   );
 }
 
-// Figma Audit 62:234 "Where did this fact go?": the quote is decrypted on this device (rules O4).
+// "Where did this fact go?": the quote is decrypted on this device.
 export function ProvenanceCard({ contentHash, events }: { contentHash: ContentHash | null; events: AuditEvent[] }) {
   const agents = useGraph((s) => s.agents);
   const rows = useFeed((s) => s.rows);

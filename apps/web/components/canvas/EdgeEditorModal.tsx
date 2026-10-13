@@ -24,7 +24,7 @@ const PRESETS = [
 type ExpiryKey = (typeof PRESETS)[number]["key"] | "custom";
 
 
-/** Only for the ADR-002 fallback (EOA pays gas). With sponsored userOps lowBalance() is null (rules A5, design D3). */
+/** Only for the ADR-002 fallback (the Mera EOA pays gas): lowBalance() is null while the balance is enough. */
 function useLowBalance() {
   const [balance, setBalance] = useState<string | null>(null);
   useEffect(() => {
@@ -42,7 +42,7 @@ const toDateInput = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).
 
 export type EdgeDraft = { from: AgentId; to: AgentId; topic: Topic; expiresAt: number };
 
-// Figma Canvas 2 Edge editor (56:407); low-balance variant 93:481.
+// Edge editor, with a low-balance variant.
 export function EdgeEditorModal({ from, to, initialTopic, onClose, onSign, returnFocus }: {
   from: AgentId;
   to: AgentId;
@@ -203,7 +203,7 @@ export function EdgeEditorModal({ from, to, initialTopic, onClose, onSign, retur
       </div>
 
       {lowBalance && (
-        // Only for the ADR-002 fallback (the Mera EOA pays gas). Hidden while Pimlico sponsors userOps.
+        // Only for the ADR-002 fallback (the Mera EOA pays gas). Hidden while the balance is enough.
         <p className="flex items-start gap-2.5 rounded-chip border border-amber-strong bg-paper-2 px-4 py-3 text-[14px] leading-[1.5] text-ink">
           <StatusDot status="pending" className="mt-1.5" />
           You have {lowBalance}, which may not cover this signature. Get test MON from the faucet, then sign.

@@ -10,9 +10,9 @@ import { Waves } from "@/components/ui/Waves";
 import { cn } from "@/lib/cn";
 import { useSession, type LoginError } from "@/lib/stores/session";
 
-const PROGRESS_MS = 1200; // design.md §8: Login state 3 progress bar
+const PROGRESS_MS = 1200; // Login state 3 progress bar
 
-// State 4 copy per error (design.md §9 voice, D6 for PRF_UNAVAILABLE). Never "Face ID".
+// State 4 copy per error. Never "Face ID".
 function errorCopy(error: LoginError | undefined): { title: string; body: string; hint: string } {
   switch (error?.code) {
     case "PRF_UNAVAILABLE":

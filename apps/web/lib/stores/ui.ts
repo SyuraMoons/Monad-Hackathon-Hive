@@ -36,9 +36,9 @@ type UiState = {
   toasts: ToastItem[];
   bridge: BridgeStatus;
   set(patch: Partial<Omit<UiState, "set" | "toast" | "dismissToast" | "closeLayers">>): void;
-  /** Esc closes any layer (design.md §10). Returns whether something was open. */
+  /** Esc closes any layer. Returns whether something was open. */
   closeLayers(): boolean;
-  /** Success and revoked toasts auto-dismiss after 4 s; errors persist (design.md §8). Returns the toast id. */
+  /** Success and revoked toasts auto-dismiss after 4 s; errors persist. Returns the toast id. */
   toast(t: Omit<ToastItem, "id"> & { id?: string }): string;
   dismissToast(id: string): void;
 };

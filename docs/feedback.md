@@ -2,6 +2,16 @@
 
 Running notes on friction with the MCP SDK, tooling and Monad, for the team feedback doc. Newest first.
 
+## 12 Oct 2026
+
+- **One account can reach Hive by two routes, and nothing said which identity the AI used.** A Claude Desktop connector belongs to the account, so a Claude Code session with no local `hive` server for its own agent wrote as the connector's agent (11 Oct, agent 20 instead of 21). The bridge was right, since identity comes from the token. Every successful tool result now carries `as: { agentId, name }` and the server instructions tell the agent to say it, so a wrong identity shows in the first answer. Not yet seen with a real client.
+- **The canvas pulse was matched on the exact topic, so every all-topics edge was silent.** Edges store `*` (ADR-013) and the pulse looked for `edge.topic === topic`. The memory arrived, `propagatedTo` was set and the feed said so, but no dot moved, and the edges in the recent live runs were all-topics. A pure `findPulseEdge` with a test fixed it; the mock had the same blind spot (it propagated on exact topics only), which hid the bug in development.
+- **Our own first browser check of that fix was wrong.** The old one-topic edge was still active beside the new all-topics edge, so a pulse proved nothing about `*`. Written into the PR as a correction. Read the state, then pick a case only the thing under test can carry.
+- **A second terminal on the same agent looks like a permission bug.** Both Claude Code terminals ran `hive-agent-1`, so the "reader" got an empty read. Nothing on screen but the window title said so. This is the same family as the 11 Oct identity case, and the reason for the `as` field.
+- **Fixed prompts that name the tool made the manual test repeatable again** (T1 to T6 in [manual-test-two-agents.md](manual-test-two-agents.md)), and a Playwright virtual authenticator with PRF made the canvas testable without a person at the keyboard.
+- **A running `next dev` is easy to break from the same folder.** `pnpm build` rewrites `.next`. `NEXT_DIST_DIR` already existed for this; it was not written down.
+- **Railway plan, from its pricing page on 12 Oct (check the page, it changes):** Free after the trial is 0.5 GB RAM and 1 vCPU per service, 1 project, 3 services; Hobby is $5 minimum with $5 of usage included and up to 48 GB per service; Pro is $20 minimum. Memory is billed per GB per second, which is about $10 a month per GB held all month, so the bridge without embeddings (a few hundred MB) fits the Hobby credit and with embeddings (about 1 GB) costs about $5 more. Nothing there says whether a service sleeps when idle, so check `/health` before a demo.
+
 ## 10 Oct 2026
 
 - **Monad charges the declared gas limit, so "enough MON" depends on the limit, not on what a call uses.** One `MemorySlots.write` estimated at 253k gas, our 125% margin declared 317k, and at 102 gwei that is 0.0323 MON. A key with 0.0318 MON was refused. A gas-needed figure in the RPC error, or a documented formula for the minimum balance, would have saved the hunt.
@@ -26,7 +36,7 @@ Running notes on friction with the MCP SDK, tooling and Monad, for the team feed
 - **Secret vaults need a second prompt to sign in.** A vault's salt is random, so its owner can't be found until the passkey answers once (to learn the credential ID) and then again (to decrypt). A documented "vault keyed by the default salt" pattern, or returning PRF for two salts in one ceremony (`eval.second`), would make it one prompt.
 - **`@modelcontextprotocol/sdk` 1.31 works for a custom Streamable HTTP server on Node 22/24.** Stateless mode (`sessionIdGenerator: undefined`, `enableJsonResponse: true`) with one `McpServer` per request needs no session bookkeeping, which suits a bridge that identifies the agent from a bearer token. `registerTool` takes a zod raw shape, so the shared zod 4 schemas plug in directly. Tool results should carry `structuredContent` as well as text. Both must be JSON-safe: uint256 values (`bigint`) need converting to decimal strings first.
 - **KnowledgeGraph stores `keccak256(topic)` only.** The bridge can check permissions from the hash, but can't show a readable topic list (`hive_whoami.readableTopics`) without reading `EdgeAdded` logs or Envio. Worth a topic string in the `Edge` struct or an event-backed reader.
-- **`msg.sender == writer` on `MemorySlots.write`** forces every agent key to hold MON unless the bridge relays. Needs a team decision (see `docs/backend-handoff.md` §2, #4).
+- **`msg.sender == writer` on `MemorySlots.write`** forces every agent key to hold MON unless the bridge relays. Needs a team decision (decided in ADR-007: the agent key sends the write and the bridge funds it).
 
 ## 1 Oct 2026
 

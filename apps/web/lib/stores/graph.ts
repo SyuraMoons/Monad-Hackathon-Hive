@@ -10,7 +10,7 @@ import type { TxResult } from "@/lib/hive/types";
 
 export type AgentNode = Agent & { connected: boolean; lastCallAt: UnixSeconds | null; tokenExpiresAt: UnixSeconds | null };
 
-/** An edge as the canvas draws it. `pending` stays dashed until the receipt arrives (golden rule 6). */
+/** An edge as the canvas draws it. `pending` stays dashed until the receipt arrives. */
 export type EdgeView = Omit<Edge, "edgeId" | "addedTx"> & {
   key: string;
   edgeId: EdgeId | null;
@@ -198,7 +198,7 @@ export const useGraph = create<GraphState>()((set, get) => ({
     const result = await client.tx.removeEdge(edge.edgeId).wait().catch((e: HiveError) => failed(e));
     if (result.status === "confirmed") {
       set({ edges: { ...get().edges, [key]: { ...edge, active: false, removedTx: result.txHash, state: "revoked", revokedAt: Date.now(), explorerUrl: result.explorerUrl } } });
-      // The ghost edge fades out over 3 s (design.md §8), then leaves the graph.
+      // The ghost edge fades out over 3 s, then leaves the graph.
       setTimeout(() => {
         const { [key]: gone, ...rest } = get().edges;
         if (gone?.state === "revoked") set({ edges: rest });

@@ -33,7 +33,7 @@ function borderPoint(n: InternalNode, toward: Pt): Pt {
   return { x: c.x + dx * scale, y: c.y + dy * scale };
 }
 
-// Pending: 1.5px dashed ink-3 · Signed: 2px solid topic colour with an arrowhead · Hover: 3px (design.md §6).
+// Pending: 1.5px dashed ink-3 · Signed: 2px solid topic colour with an arrowhead · Hover: 3px.
 // Edges float: they run straight between the facing borders of the two nodes, wherever those are.
 function HiveEdgeImpl({ data, source, target }: EdgeProps<HiveFlowEdge>) {
   const edge = useGraph((s) => (data ? s.edges[data.edgeKey] : undefined));
@@ -58,7 +58,7 @@ function HiveEdgeImpl({ data, source, target }: EdgeProps<HiveFlowEdge>) {
   const txHash = ghost ? edge.removedTx : edge.addedTx;
 
   if (ghost) {
-    // Revoked ghost: dashed status-revoked at 45%, fading to 0 over 3 s (design.md §6 Edge, §8).
+    // Revoked ghost: dashed status-revoked at 45%, fading to 0 over 3 s.
     return (
       <>
         <g className="hive-ghost" style={{ color }}>
@@ -112,7 +112,7 @@ function HiveEdgeImpl({ data, source, target }: EdgeProps<HiveFlowEdge>) {
               target="_blank"
               rel="noreferrer"
               aria-label={`View edge transaction ${shortHash(txHash)} on Monadscan`}
-              tabIndex={-1} // keyboard users reach it through the edge menu, so Tab stays nodes → edges (design.md §10)
+              tabIndex={-1} // keyboard users reach it through the edge menu, so Tab stays nodes → edges
               className="font-mono whitespace-pre text-ink-2 underline underline-offset-2 hover:text-ink"
             >
               tx {shortHash(txHash)}  ↗

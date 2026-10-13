@@ -1,8 +1,8 @@
 import { zHiveEvent } from "@hive/shared";
 import type { HiveClient } from "../types";
 
-// The bridge's SSE stream (GET /v1/events). EventSource can't send headers, so the user token goes in the query
-// (docs/backend-handoff.md). Every message is checked against zHiveEvent: an invalid one is dropped, never shown.
+// The bridge's SSE stream (GET /v1/events). EventSource can't send headers, so the user token goes in the query.
+// Every message is checked against zHiveEvent: an invalid one is dropped, never shown.
 
 type Source = Pick<EventSource, "close" | "readyState" | "onopen" | "onmessage" | "onerror">;
 type SourceFactory = (url: string) => Source;

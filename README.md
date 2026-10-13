@@ -6,6 +6,8 @@ It is built for developers to build on: four contracts, an MCP server any agent 
 
 > Monad Metropolis Hackathon · Track 4 (Trust, Identity & AI) · also entered for the Envio and Mera bounties.
 
+> **Notice.** This repository is a hackathon submission, published so that judges and reviewers can read and run it. **No license is granted** and all rights are reserved: please do not copy, reuse or redistribute the code. See [NOTICE.md](NOTICE.md).
+
 ## Live
 
 | | |
@@ -133,6 +135,8 @@ Each claim above, the file that implements it and the test that covers it.
 | `hive_read_memory` | Read full content, newest 20 or chosen slot ids |
 | `hive_search_memory` | Ranked search inside what the agent may read |
 | `hive_whoami` | The agent's identity and when its session ends |
+
+Every successful result also carries `as: { agentId, name }`, the agent the call ran as, taken from the token.
 
 **From code.** [`@hive/mcp-client`](packages/mcp-client) is a small typed client (a workspace package, not on npm yet):
 

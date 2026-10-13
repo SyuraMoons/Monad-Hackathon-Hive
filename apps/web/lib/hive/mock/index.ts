@@ -1,4 +1,5 @@
 import {
+  ALL_TOPICS,
   authMessage,
   HiveError,
   zAddress,
@@ -26,7 +27,7 @@ import { privateKeyToAddress } from "viem/accounts";
 import { explorerTx } from "@/lib/explorer";
 import type { BridgeStatus, HiveClient, TxHandle, TxResult } from "../types";
 import { initialGraph, MOCK_LIVE_WRITES, MOCK_MEMORY, MOCK_OWNER, MOCK_SEED_EVENTS, now, stressGraph } from "./data";
-import { latency, mockFlag, randomHex32 } from "./flags";
+import { latency, mockFlag, randomHex32, urlNumber } from "./flags";
 
 type SlotWire = {
   slotId: string; agentId: string; topic: string; contentHash: string; txHash: string;
@@ -43,7 +44,7 @@ export type MockHiveClient = HiveClient & {
 
 export function createMockClient(): MockHiveClient {
   const stress = mockFlag("stress");
-  const graph: GraphSnapshotWire = mockFlag("no-agents") ? { agents: [], edges: [] } : stress ? stressGraph() : initialGraph();
+  const graph: GraphSnapshotWire = mockFlag("no-agents") ? { agents: [], edges: [] } : stress ? stressGraph(urlNumber("agents", 20, 2, 20)) : initialGraph();
   // Stress: a random agent writes on the topic of its outgoing edge, so every write pulses.
   const stressWrite = () => {
     const e = graph.edges[Math.floor(Math.random() * graph.edges.length)];
@@ -55,7 +56,7 @@ export function createMockClient(): MockHiveClient {
   const registerTx = new Map<string, string>();
   const edgeTimes = new Map<string, { addedAt: number; removedAt?: number }>(graph.edges.map((e) => [String(e.edgeId), { addedAt: now() - 25 * 60 }]));
   const txFor = (agentId: string) => registerTx.get(agentId) ?? (registerTx.set(agentId, randomHex32()), registerTx.get(agentId)!);
-  // Agents start disconnected, like after a bridge restart: the Connect page authorizes them (rules §5.1).
+  // Agents start disconnected, like after a bridge restart: the Connect page authorizes them.
   const sessions = new Map<string, { lastCallAt: number; tokenExpiresAt: number }>();
   const listeners = new Set<(e: HiveEventWire) => void>();
   const nonces = new Map<string, string>();
@@ -69,7 +70,7 @@ export function createMockClient(): MockHiveClient {
   };
 
   const activeTargets = (from: string, topic: string) =>
-    graph.edges.filter((e) => e.active && String(e.from) === from && e.topic === topic && e.expiresAt > now()).map((e) => String(e.to));
+    graph.edges.filter((e) => e.active && String(e.from) === from && (e.topic === topic || e.topic === ALL_TOPICS) && e.expiresAt > now()).map((e) => String(e.to));
 
   function recordWrite(agentId: string, topic: string, contentHash: string, at: number, propagatedTo: string[]) {
     const slot: SlotWire = { slotId: String(nextSlot++), agentId, topic, contentHash, txHash: randomHex32(), writtenAt: at, propagatedTo };
@@ -77,7 +78,7 @@ export function createMockClient(): MockHiveClient {
     return slot;
   }
 
-  // Seed the history shown in Figma, so Audit and provenance have something to find.
+  // Seed some history, so Audit and provenance have something to find.
   for (const s of MOCK_SEED_EVENTS) {
     if (s.type === "memory.written" && graph.agents.length) {
       recordWrite(s.data.agentId, s.data.topic, s.data.contentHash, now() - s.ago, [...s.data.propagatedTo]);
@@ -117,7 +118,7 @@ export function createMockClient(): MockHiveClient {
         if (mockFlag("bridge-offline")) throw offline();
         return zHealthResponse.parse({ ok: true, chainId: 10143, rpcReachable: true, supabaseReachable: true, activeSessions: sessions.size, version: "mock" });
       },
-      // ?mock=low-balance previews the ADR-002 fallback warning (Figma 93:481).
+      // ?mock=low-balance previews the ADR-002 fallback warning.
       lowBalance: async () => (mockFlag("low-balance") ? "0.001 MON" : null),
       balance: async () => (mockFlag("low-balance") ? { mon: "0.0010", low: true } : { mon: "12.5000", low: false }),
     },
@@ -277,7 +278,7 @@ export function createMockClient(): MockHiveClient {
             if (targets.length && !stress) {
               timers.push(setTimeout(() => emit({ type: "memory.read", data: { readerAgentId: targets[0], fromAgentIds: [w.agentId], count: 1 } }), 2000));
             }
-          }, stress ? 250 : 9000);
+          }, stress ? urlNumber("pace", 250, 100, 10_000) : 9000);
         }, 300 + Math.random() * 500));
 
         return () => {

@@ -1,4 +1,4 @@
-/* React Flow restyled to Hive tokens (design.md §6 Canvas controls, Edge, Canvas Node). */
+/* React Flow restyled to Hive tokens (canvas controls, edge, node). */
 .hive-flow { --xy-background-color: var(--color-paper); font-family: var(--font-body); }
 .hive-flow .react-flow__background { opacity: .55; }
 
@@ -28,7 +28,7 @@
 
 .hive-edge:hover .hive-edge-path { stroke-width: 3; }
 
-/* Revoked ghost: 45% → 0 over 3 s, long enough to show on camera (design.md §8). */
+/* Revoked ghost: 45% → 0 over 3 s, long enough to show on camera. */
 @keyframes hive-ghost-fade { from { opacity: .45; } to { opacity: 0; } }
 @keyframes hive-ghost-label-fade { 0%, 60% { opacity: 1; } to { opacity: 0; } }
 .hive-ghost { animation: hive-ghost-fade 3s linear forwards; }
@@ -40,11 +40,17 @@
 /* Isolation zones (Canvas 6, 61:750): translucent fill + dashed border in the zone colour. */
 .hive-zone { border-radius: 24px; border: 1.5px dashed; }
 
-/* Pulse arrival: the target's border flashes amber-strong once, then settles back (hero storyboard, design.md §8). */
+/* Pulse arrival: the target's border flashes amber-strong once, then settles back (hero storyboard). */
 .hive-node { transition: border-color .15s var(--ease-hive), box-shadow .15s var(--ease-hive); }
 .hive-node.hive-hit {
   border-color: var(--color-amber-strong);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-amber-strong) 22%, transparent), var(--shadow-node);
+}
+
+/* Pulse departure: the writer's border lights up as the dot leaves. */
+.hive-node.hive-send {
+  border-color: var(--color-amber-strong);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-amber-strong) 14%, transparent), var(--shadow-node);
 }
 
 /* Easy connect: while dragging a connection, the whole target node accepts the drop. */

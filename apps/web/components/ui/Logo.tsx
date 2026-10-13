@@ -1,6 +1,6 @@
 import { cn } from "@/lib/cn";
 
-// Figma Logo 13:23: hex mark + "Hive" (Display/Wordmark), 84 × 26.
+// Logo: hex mark + "Hive" (Display/Wordmark), 84 × 26.
 export function Logo({ className }: { className?: string }) {
   return (
     <span className={cn("inline-flex items-center gap-3", className)}>

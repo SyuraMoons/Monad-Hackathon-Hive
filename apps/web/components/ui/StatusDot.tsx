@@ -9,7 +9,7 @@ const COLOR: Record<DotStatus, string> = {
   pending: "bg-amber-strong",
 };
 
-// Colour alone never carries state (design.md §10), so pass `label` unless visible text says it.
+// Colour alone never carries state, so pass `label` unless visible text says it.
 export function StatusDot({ status, size = 8, label, className }: { status: DotStatus; size?: 6 | 8; label?: string; className?: string }) {
   return (
     <span

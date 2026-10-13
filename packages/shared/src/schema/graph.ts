@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { zAddress, zAgentId, zAgentType, zContentHash, zEdgeId, zEdgeTopic, zSlotId, zTopic, zTxHash, zUnixSeconds } from "../ids.js";
 
-// Envio entities the web app reads (rules §5.3): graph state, audit history, provenance.
+// Envio entities the web app reads: graph state, audit history, provenance.
 
 export const zAgent = z.object({
   agentId: zAgentId,
@@ -45,7 +45,7 @@ export const zPropagation = z.object({
 
 export const zGraphSnapshot = z.object({ agents: z.array(zAgent), edges: z.array(zEdge) });
 
-/** One row of the Audit page: an indexed contract event (rules §4 events). */
+/** One row of the Audit page: an indexed contract event. */
 const audit = <K extends string, S extends z.ZodRawShape>(kind: K, shape: S) =>
   z.object({ kind: z.literal(kind), at: zUnixSeconds, txHash: zTxHash, ...shape });
 

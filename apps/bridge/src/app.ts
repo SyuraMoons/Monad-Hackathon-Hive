@@ -258,7 +258,7 @@ export function createApp(deps: AppDeps): Express {
     res.json(out);
   }));
 
-  // EventSource can't send headers, so the user token travels in the query (docs/backend-handoff.md).
+  // EventSource can't send headers, so the user token travels in the query.
   app.get("/v1/events", wrap(async (req, res) => {
     const token = typeof req.query.token === "string" ? req.query.token : undefined;
     if (!token) throw new HiveError("UNAUTHORIZED", "Missing token.");
