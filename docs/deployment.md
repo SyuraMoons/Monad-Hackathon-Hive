@@ -37,3 +37,12 @@ NEXT_PUBLIC_ENVIO_URL=https://indexer.dev.hyperindex.xyz/5a8ecda/v1/graphql
 Use the Vercel site, not `localhost:3000`. The connector URL in Connect → Claude.ai is the `mcpUrl` the bridge returned when the agent was authorized, so a local web app talking to a local bridge shows `http://localhost:4000/mcp`. Anthropic's servers can't reach that.
 
 The URL to paste is `https://hivebridge-production.up.railway.app/mcp`. Passkeys are bound to the domain, so sign in on the Vercel site with a passkey made there (see [gotchas.md](gotchas.md)).
+
+## Before a demo or a recording
+
+- Do not redeploy the bridge, or restart it, once agents are connected. Sessions, OAuth codes and refresh tokens live in memory, so every agent has to Reconnect afterwards.
+- Reconnect the agents a few minutes before you start. Agent tokens last 24 h.
+- `curl https://hivebridge-production.up.railway.app/health` right before, and look at `activeSessions` after the agents connect.
+- Check the Railway plan and credit in the dashboard. See the 12 Oct entry in [feedback.md](feedback.md) for what the free and Hobby plans allow.
+- Keep a screen recording of one full run and a local bridge for Claude Code as the fallback. ChatGPT cannot reach a local bridge.
+
