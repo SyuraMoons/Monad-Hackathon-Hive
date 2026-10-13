@@ -134,6 +134,8 @@ Each claim above, the file that implements it and the test that covers it.
 | `hive_search_memory` | Ranked search inside what the agent may read |
 | `hive_whoami` | The agent's identity and when its session ends |
 
+Every successful result also carries `as: { agentId, name }`, the agent the call ran as, taken from the token.
+
 **From code.** [`@hive/mcp-client`](packages/mcp-client) is a small typed client (a workspace package, not on npm yet):
 
 ```ts

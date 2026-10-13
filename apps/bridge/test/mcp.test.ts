@@ -122,6 +122,19 @@ describe("MCP over Streamable HTTP (official SDK client)", () => {
     await client.close();
   });
 
+  it("every successful result says who the call ran as, from the token", async () => {
+    const chatgpt = await connect(agentToken["ChatGPT"]);
+    const claude = await connect(agentToken["Claude"]);
+    for (const [name, args] of [["hive_list_memory", {}], ["hive_read_memory", {}], ["hive_search_memory", { query: "Nexus" }], ["hive_whoami", {}]] as const) {
+      expect((await call(chatgpt, name, args)).data.as).toEqual({ agentId: "2", name: "ChatGPT" });
+    }
+    expect((await call(claude, "hive_write_memory", { topic: "work", content: "as-check" })).data.as).toEqual({ agentId: "1", name: "Claude" });
+    // An `as` the caller sends is not an argument of any tool: the answer still names the token's agent.
+    expect((await call(chatgpt, "hive_read_memory", { as: { agentId: "1", name: "Claude" } })).data.as).toEqual({ agentId: "2", name: "ChatGPT" });
+    await chatgpt.close();
+    await claude.close();
+  });
+
   it("whoami gives a fixed message when the registry read fails, not the raw RPC error", async () => {
     const client = await connect(agentToken["ChatGPT"]);
     const real = chain.agent.bind(chain);
@@ -185,7 +198,7 @@ describe("MCP over Streamable HTTP (official SDK client)", () => {
     const claude = await connect(agentToken["Claude"]);
     const saved = await call(claude, "hive_save_session", { summary: "Goal: ship Hive. Decided: Postgres. Open: edges." });
     expect(saved.isError).toBeFalsy();
-    expect(saved.data).toMatchObject({ topic: "general", propagatedTo: ["2"] });
+    expect(saved.data).toMatchObject({ topic: "general", propagatedTo: ["2"], as: { agentId: "1", name: "Claude" } });
     const named = await call(claude, "hive_save_session", { summary: "Notes for research", topic: "research" });
     expect(named.data).toMatchObject({ topic: "research", propagatedTo: [] });
     await claude.close();
