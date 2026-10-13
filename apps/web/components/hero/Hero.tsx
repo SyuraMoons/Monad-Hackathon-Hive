@@ -24,7 +24,7 @@ const VIDEO_WEBM = "/hero/hero-scrub.webm"; // for browsers without H.264
 
 const step = (i: number) => ({ "--i": i }) as CSSProperties;
 
-// Figma hero 5:22, one screen. On wide screens the clip plays behind the text. Elsewhere the graph is
+// Hero, one screen. On wide screens the clip plays behind the text. Elsewhere the graph is
 // drawn in its signed state (complete without JavaScript), and GSAP loops the story on it:
 // memory flows, the edge is revoked, redrawn and signed.
 export function Hero() {

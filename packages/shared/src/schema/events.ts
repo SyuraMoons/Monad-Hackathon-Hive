@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { zAgentId, zContentHash, zSlotId, zTopic, zTxHash, zUnixSeconds } from "../ids.js";
 
-// SSE on /v1/events (rules §5.2). Payloads never carry plaintext (golden rule 4).
+// SSE on /v1/events. Payloads never carry plaintext.
 
 const event = <T extends string, D extends z.ZodType>(type: T, data: D) =>
   z.object({ id: z.string().min(1), type: z.literal(type), at: zUnixSeconds, data });

@@ -33,7 +33,7 @@ const NODE_H = 72;
 const nodeTypes = { agent: AgentNode };
 const edgeTypes = { hive: HiveEdge };
 
-// First slots match Figma Canvas 1 Live (55:46) at zoom 1; beyond that, a grid.
+// The first slots follow the designed layout at zoom 1; beyond that, a grid.
 const SLOTS: XY[] = [{ x: 130, y: 260 }, { x: 600, y: 260 }, { x: 130, y: 540 }, { x: 600, y: 540 }, { x: 365, y: 110 }, { x: 365, y: 680 }];
 export function freeSlot(taken: XY[], index: number, total: number): XY {
   const grid = (i: number) => ({ x: 40 + (i % 4) * 250, y: 60 + Math.floor(i / 4) * 170 });
@@ -75,12 +75,12 @@ export function GraphCanvas({ layout, place }: { layout: Layout; place(patch: La
     () => Object.values(edges).filter((e) => e.state !== "revoked" || (e.revokedAt && Date.now() - e.revokedAt < GHOST_MS + 200)),
     [edges],
   );
-  // Only confirmed edges make a node non-isolated: a pending edge must not look final (golden rule 6).
+  // Only confirmed edges make a node non-isolated: a pending edge must not look final.
   const confirmed = useMemo(() => drawnEdges.filter((e) => e.state === "signed" || e.state === "revoking"), [drawnEdges]);
   const linked = useMemo(() => new Set(confirmed.flatMap((e) => [e.from.toString(), e.to.toString()])), [confirmed]);
 
   // A new browser has no saved layout: give every agent that has an edge a position, so the graph from chain
-  // shows up (rules T9). Agents without edges stay as chips until they're dropped.
+  // shows up. Agents without edges stay as chips until they're dropped.
   useEffect(() => {
     if (status !== "ready") return;
     const missing = Object.keys(agents).filter((id) => linked.has(id) && !layout[id]).sort((a, b) => Number(a) - Number(b));
@@ -153,7 +153,7 @@ export function GraphCanvas({ layout, place }: { layout: Layout; place(patch: La
     place({ [id]: { x: Math.round(p.x - 110), y: Math.round(p.y - 36) } });
   }
 
-  // Enter on a focused node opens its drawer (design.md §10).
+  // Enter on a focused node opens its drawer.
   function onKeyDown(e: KeyboardEvent) {
     if (e.key !== "Enter") return;
     const node = (e.target as HTMLElement).closest<HTMLElement>(".react-flow__node");

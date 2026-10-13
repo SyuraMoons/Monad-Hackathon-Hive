@@ -11,7 +11,7 @@ export const pulses = {
     listeners.add(l);
     return () => void listeners.delete(l);
   },
-  /** One pulse per propagatedTo target (SRD NL-7). */
+  /** One pulse per propagatedTo target. */
   fromEvent(event: HiveEvent) {
     if (event.type !== "memory.written") return;
     const from = event.data.agentId.toString();

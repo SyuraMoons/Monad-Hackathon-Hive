@@ -15,7 +15,7 @@ import { useGraph } from "@/lib/stores/graph";
 import { useSession } from "@/lib/stores/session";
 import { topicLabel } from "@/lib/topics";
 
-// Event names exactly as the contracts emit them (rules §4).
+// Event names exactly as the contracts emit them.
 const NAME: Record<AuditEvent["kind"], string> = {
   "agent.registered": "AgentRegistered",
   "edge.added": "EdgeAdded",
@@ -23,7 +23,7 @@ const NAME: Record<AuditEvent["kind"], string> = {
   "memory.written": "MemoryWritten",
   "memory.propagated": "MemoryPropagated",
 };
-// Colour marks the type; the name itself stays ink (amber text fails AA at 14px, design D1).
+// Colour marks the type; the name itself stays ink (amber text fails AA at 14px).
 const DOT: Record<AuditEvent["kind"], string> = {
   "agent.registered": "bg-ink-3",
   "edge.added": "bg-amber-strong",
@@ -43,7 +43,7 @@ type FilterKey = (typeof FILTERS)[number]["key"];
 const PAGE = 50;
 
 const sameDay = (unix: number) => new Date(unix * 1000).toDateString() === new Date().toDateString();
-/** `27 Oct` inside a row (design.md §9). */
+/** `27 Oct` inside a row. */
 const shortDate = (unix: number) => longDate(unix).split(" ").slice(0, 2).join(" ");
 
 /** A write and its deliveries share a content hash; the card on the right is about that memory. */
@@ -85,7 +85,6 @@ function useAuditEvents(owner: string | undefined) {
   return { events, stats, error };
 }
 
-// Figma 08 · Audit (62:170).
 export default function AuditPage() {
   const owner = useSession((s) => s.owner);
   const mode = useSession((s) => s.mode);
@@ -103,7 +102,7 @@ export default function AuditPage() {
   const pages = Math.max(1, Math.ceil(shown.length / PAGE));
   const rows = shown.slice(page * PAGE, page * PAGE + PAGE);
 
-  // Open the most recent write by default, like the Figma frame.
+  // Open the most recent write by default.
   useEffect(() => {
     if (selected || !events) return;
     const w = events.find((e) => e.kind === "memory.written");

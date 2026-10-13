@@ -6,7 +6,7 @@ import { createPortal } from "react-dom";
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 /**
- * design.md §6 Modal: 520 wide, radius 14, ink border, shadow-modal, scrim ink 28%.
+ * Modal: 520 wide, radius 14, ink border, shadow-modal, scrim ink 28%.
  * Esc closes, Tab stays inside, and focus goes back to `returnFocus` (or the previous element) on close.
  */
 export function Modal({ labelledBy, onClose, returnFocus, dismissible = true, children }: {

@@ -3,7 +3,7 @@ import { cn } from "@/lib/cn";
 import { shortHash } from "@/lib/format";
 import { StatusDot } from "./StatusDot";
 
-// Figma Wallet chip 93:42. The balance is hidden because gas is sponsored (design D3, rules A5).
+// The chip shows the address only; the wallet menu shows the balance.
 export function WalletChip({ address, open = false, className, ...rest }: ButtonHTMLAttributes<HTMLButtonElement> & { address: string; open?: boolean }) {
   return (
     <button

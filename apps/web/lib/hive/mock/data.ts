@@ -1,4 +1,4 @@
-// All demo data lives here and nowhere else (rules.md golden rule 8). Wire format, so it goes
+// All demo data lives here and nowhere else. Wire format, so it goes
 // through the same zod schemas as the live bridge and Envio responses.
 import type { GraphSnapshotWire } from "@hive/shared";
 import { bytesToHex } from "viem";
@@ -58,7 +58,7 @@ export const MOCK_MEMORY: Record<string, string> = {
   ["0x" + "b2".repeat(32)]: "Remember I prefer short answers in the morning.",
 };
 
-/** Figma Canvas 1 Live (55:46) feed, as bridge events. Offsets are seconds before "now". */
+/** The canvas live feed, as bridge events. Offsets are seconds before "now". */
 export const MOCK_SEED_EVENTS = [
   { ago: 272, type: "memory.written", data: { slotId: "1", agentId: "1", topic: "personal", contentHash: "0x" + "b2".repeat(32), txHash: "0x" + "c3".repeat(32), propagatedTo: [] } },
   { ago: 21, type: "memory.written", data: { slotId: "2", agentId: "1", topic: "work", contentHash: "0x" + "a1".repeat(32), txHash: "0x" + "d4".repeat(32), propagatedTo: ["2"] } },

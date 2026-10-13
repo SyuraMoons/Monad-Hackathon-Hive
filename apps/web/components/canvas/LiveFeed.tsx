@@ -11,7 +11,7 @@ import { useUi } from "@/lib/stores/ui";
 import { topicColor, topicLabel } from "@/lib/topics";
 
 function TopicTag({ topic }: { topic: string }) {
-  // Topic text stays ink inside a topic-coloured border until D1 is decided (design.md §3.3).
+  // Topic text stays ink inside a topic-coloured border: topic colours fail AA at 14px as text.
   return (
     <span className="rounded-tag border px-1.5 py-px font-mono text-[14px] leading-tight text-ink" style={{ borderColor: topicColor(topic) }}>
       {topicLabel(topic)}
@@ -75,7 +75,7 @@ function FeedRow({ row, newest }: { row: Row; newest: boolean }) {
   );
 }
 
-// Figma "Live memory" panel (55:98): shows where memory went, and where it didn't.
+// "Live memory" panel: shows where memory went, and where it didn't.
 export function LiveFeed() {
   const rows = useFeed((s) => s.rows);
   const bridge = useUi((s) => s.bridge);

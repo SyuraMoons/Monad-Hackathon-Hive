@@ -1,4 +1,4 @@
-/* Figma hero 5:22: one screen, centred. The negative margin tucks it under the sticky header
+/* Hero: one screen, centred. The negative margin tucks it under the sticky header
    so the waves start at the very top of the page. */
 .hero    { position:relative; overflow:hidden; background:var(--color-paper);
            margin-top:calc(var(--nav-h, 60px) * -1); min-height:100svh;

@@ -2,7 +2,7 @@ import { z } from "zod";
 import { zAddress, zAgentId, zContentHash, zSlotId, zTopic, zTxHash, zUnixSeconds } from "../ids.js";
 import { MAX_CONTENT_BYTES, zEntities, zGist, zMemoryContent, zMemoryKind, zMemoryMeta } from "../memory.js";
 
-// MCP tools (rules §4). The caller's identity comes from its token, never from an argument (golden rule 3).
+// MCP tools. The caller's identity comes from its token, never from an argument.
 
 const zContent = zMemoryContent;
 

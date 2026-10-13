@@ -13,7 +13,7 @@ const item = "flex min-h-10 w-full cursor-pointer items-center px-[18px] py-2.5 
 /** `0x7f3a9c…e4b1c21e`: longer than a hash chip, so the address can be recognised at a glance. */
 const longAddress = (a: string) => `${a.slice(0, 8)}…${a.slice(-8)}`;
 
-// Figma Wallet menu (93:43, Canvas 7 93:290). Gas is paid by this account (ADR-006), so it shows the balance and
+// Wallet menu. Gas is paid by this account (ADR-006), so it shows the balance and
 // points to the faucet when it runs low.
 export function WalletMenu({ address }: { address: string }) {
   const router = useRouter();

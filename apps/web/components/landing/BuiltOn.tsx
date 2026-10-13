@@ -4,7 +4,7 @@ import { eyebrow, gutter } from "./type";
 
 const STACK = ["Monad", "Mera", "Envio", "MCP"];
 
-// Figma Section/Built on 7:10 (Display/Stack Label, enlarged to 52 in the frame)
+// Built-on section (stack label enlarged to 52).
 export function BuiltOn() {
   return (
     <section aria-labelledby="built-on-title" className={cn(gutter, "flex flex-col items-center gap-[34px] py-[88px] text-center")}>

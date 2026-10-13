@@ -12,7 +12,7 @@ const center = (n: InternalNode) => ({
 });
 
 /**
- * Keyboard access to edges (design.md §10). React Flow draws edges before nodes, so its own edge focus would
+ * Keyboard access to edges. React Flow draws edges before nodes, so its own edge focus would
  * come first in Tab order. These controls sit over each edge's label in the viewport portal, after the nodes:
  * Enter opens the edge menu, Delete opens the revoke confirm.
  */

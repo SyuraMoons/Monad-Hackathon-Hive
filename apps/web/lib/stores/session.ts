@@ -15,7 +15,7 @@ import type { LiveHiveClient } from "@/lib/hive/live";
 import type { MockHiveClient } from "@/lib/hive/mock";
 import { getPasskeyService, PasskeyError, type HiveKeys, type PasskeyErrorCode } from "@/lib/passkey";
 
-/** Login screen states (Figma 05 · Login): 1 signed-out · 2 waiting · 3 verified · 4 error. */
+/** Login screen states: 1 signed-out · 2 waiting · 3 verified · 4 error. */
 type Status = "signed-out" | "waiting" | "verified" | "signed-in" | "error";
 
 export type LoginError = { code: PasskeyErrorCode | "BRIDGE"; message: string };
@@ -35,7 +35,7 @@ type SessionState = {
   credentialId?: string;
   /** Which key rows on Login 3 are done. */
   progress: { owner: boolean; encryption: boolean; scope: boolean };
-  /** Where to go after Login 3: /connect when the owner has no agent yet (rules §6), the canvas otherwise. */
+  /** Where to go after Login 3: /connect when the owner has no agent yet, the canvas otherwise. */
   destination?: "/connect" | "/canvas";
   error?: LoginError;
   /** True after the user chose Sign out, so the app sends them home rather than back to /login. */
@@ -49,7 +49,7 @@ type SessionState = {
   /** Derives the keys again from the signed-in passkey (one touch). Resolves to the keys already held when there are some. */
   unlock(): Promise<HiveKeys>;
   signIn(options?: { create?: boolean }): Promise<void>;
-  /** Connect page: register the agent if needed (owner userOp), then authorize it with the bridge (rules O1, §5.1). */
+  /** Connect page: register the agent if needed (owner transaction), then authorize it with the bridge. */
   connectAgent(agentType: AgentType): Promise<void>;
   /** Registers one more agent (an owner transaction that costs gas), then authorizes it. Resolves to its id. Throws a readable message. */
   createAgent(name: string, agentType: AgentType, onStep?: (step: CreateStep) => void): Promise<AgentId>;
@@ -95,7 +95,7 @@ function clearSigner() {
 
 const MAX_AGENT_INDEX = 64;
 
-/** The key index n whose m/44'/60'/0'/0/{n} address is `agentKey` (rules §4: recoverable by re-deriving). */
+/** The key index n whose m/44'/60'/0'/0/{n} address is `agentKey`. */
 function findAgentIndex(keys: HiveKeys, agentKey: string): number | null {
   for (let n = 1; n <= MAX_AGENT_INDEX; n++) {
     if (privateKeyToAddress(keys.agentPrivateKey(n)).toLowerCase() === agentKey.toLowerCase()) return n;
@@ -182,7 +182,7 @@ export const useSession = create<SessionState>()((set, get) => ({
       secret.memoryPrfOutput.fill(0);
       set({ progress: { owner: true, encryption: true, scope: false } });
 
-      // auth.challenge → sign → auth.verify (rules §6, Login 3)
+      // auth.challenge → sign → auth.verify
       const client = await getHiveClient();
       const { nonce } = await client.auth.challenge(keys.ownerAddress);
       const signature = await keys.owner.signMessage({ message: authMessage(keys.ownerAddress, nonce) });

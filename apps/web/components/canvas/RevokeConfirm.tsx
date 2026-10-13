@@ -6,7 +6,7 @@ import { revokeEdge } from "@/lib/edgeActions";
 import { useGraph } from "@/lib/stores/graph";
 import { useUi, type Anchor } from "@/lib/stores/ui";
 
-// Figma Canvas 3 Revoke confirm (61:247). Copy is exact; it says plainly what revoking can't undo (design.md §9).
+// Revoke confirm. Copy is exact; it says plainly what revoking can't undo.
 export function RevokeConfirm({ edgeKey, at }: { edgeKey: string; at: Anchor }) {
   const edge = useGraph((s) => s.edges[edgeKey]);
   const agents = useGraph((s) => s.agents);

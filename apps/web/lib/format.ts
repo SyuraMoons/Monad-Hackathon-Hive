@@ -1,4 +1,4 @@
-// Display formats from design.md §9.
+// Display formats.
 
 /** `0x4f1c…9a2e`: 0x plus 4 characters … last 4. */
 export const shortHash = (hash: string) => (hash.length > 12 ? `${hash.slice(0, 6)}…${hash.slice(-4)}` : hash);

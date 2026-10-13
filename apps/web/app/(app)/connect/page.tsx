@@ -24,7 +24,7 @@ const AGENTS: Record<Tab, { name: string; type: GuideType; icon?: string }> = {
   deepseek: { name: "DeepSeek", type: "deepseek", icon: "/agents/deepseek.png" },
 };
 
-// rules O5 / design D4: hive_whoami replaces hive_register_agent (the browser registers agents).
+// hive_whoami replaces hive_register_agent (the browser registers agents).
 const TOOLS = [
   ["hive_write_memory", "save a memory under a topic"],
   ["hive_save_session", "save a summary of this conversation to Hive"],

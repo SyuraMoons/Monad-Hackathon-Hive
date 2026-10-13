@@ -2,7 +2,7 @@ import { Logo } from "@/components/ui/Logo";
 import { cn } from "@/lib/cn";
 import { gutter } from "./type";
 
-// Figma Footer 7:28
+// Footer.
 export function Footer() {
   return (
     <footer className={cn(gutter, "flex flex-wrap items-center gap-2 border-t border-line py-7")}>

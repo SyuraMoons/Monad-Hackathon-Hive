@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-// Node x/y is the only canvas state that lives in the browser (rules §6, Canvas 0). Everything else
+// Node x/y is the only canvas state that lives in the browser. Everything else
 // comes back from chain and Envio. localStorage can be missing or full, so every access is guarded.
 export type XY = { x: number; y: number };
 export type Layout = Record<string, XY>;

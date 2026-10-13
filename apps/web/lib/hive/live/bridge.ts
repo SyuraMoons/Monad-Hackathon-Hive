@@ -15,7 +15,7 @@ import {
 import type { HiveClient, Session } from "../types";
 import { createEventStream } from "./events";
 
-// The bridge's HTTP routes (rules §5.1). Every response is checked against the shared zod schema,
+// The bridge's HTTP routes. Every response is checked against the shared zod schema,
 // so a bridge that drifts from the contract fails loudly here instead of deep inside a screen.
 
 const TIMEOUT_MS = 10_000;
@@ -106,7 +106,7 @@ export function createBridgeApi(): Pick<HiveClient, "auth" | "agents" | "oauth">
         owner = body.owner;
         return { owner: body.owner, ...res };
       },
-      // Sign out ends every agent's bridge session, so scoped keys leave the bridge's memory (rules §5.1).
+      // Sign out ends every agent's bridge session, so scoped keys leave the bridge's memory.
       // One call for all of them: an agent that never called a tool is not `connected` but holds keys all the same.
       async signOut(session) {
         userToken = session.userToken;

@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Albert_Sans, Fraunces, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
-// Variable weight (covers 300/400/600) so the SOFT and WONK axes from Figma can load too.
+// Variable weight (covers 300/400/600) so the SOFT and WONK axes can load too.
 const fraunces = Fraunces({
   subsets: ["latin"],
   style: ["normal", "italic"],

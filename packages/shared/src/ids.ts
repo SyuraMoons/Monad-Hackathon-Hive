@@ -12,11 +12,11 @@ export const zUint256 = z
   .transform((s) => BigInt(s))
   .refine((n) => n <= MAX_UINT256, "exceeds uint256");
 
-/** Agent ID: uint256 onchain, decimal string in JSON, bigint in TS (rules §4). */
+/** Agent ID: uint256 onchain, decimal string in JSON, bigint in TS. */
 export const zAgentId = zUint256;
 export type AgentId = bigint;
 
-/** Edge ID: uint256 assigned by KnowledgeGraph.addEdge (rules §4, A11). */
+/** Edge ID: uint256 assigned by KnowledgeGraph.addEdge. */
 export const zEdgeId = zUint256;
 export type EdgeId = bigint;
 
@@ -35,11 +35,11 @@ export type EdgeTopic = z.infer<typeof zEdgeTopic>;
 
 const zBytes32 = z.string().regex(/^0x[0-9a-fA-F]{64}$/, "expected 32-byte hex").transform((s) => s.toLowerCase() as Hex);
 
-/** keccak256(iv ‖ ciphertext), never a hash of plaintext (golden rule 5). */
+/** keccak256(iv ‖ ciphertext), never a hash of plaintext. */
 export const zContentHash = zBytes32.brand<"ContentHash">();
 export type ContentHash = z.infer<typeof zContentHash>;
 
-/** Transaction hash. For userOps, the bundle transaction hash (rules §5.6). */
+/** Transaction hash. */
 export const zTxHash = zBytes32.brand<"TxHash">();
 export type TxHash = z.infer<typeof zTxHash>;
 
@@ -50,7 +50,7 @@ export const AGENT_TYPES = ["claude", "gpt", "deepseek", "therapy-bot", "other"]
 export const zAgentType = z.enum(AGENT_TYPES);
 export type AgentType = z.infer<typeof zAgentType>;
 
-/** Unix seconds, the only timestamp unit in any API (rules §4). */
+/** Unix seconds, the only timestamp unit in any API. */
 export const zUnixSeconds = z.number().int().nonnegative();
 export type UnixSeconds = number;
 
