@@ -1,23 +1,31 @@
 # Hive
 
-**An onchain permission layer for AI agent memory.** An agent can read another agent's memory only if the owner signed a permission edge for it on Monad. With no edge, nothing is shared. Memory content is encrypted with a key derived from the owner's passkey and is never put onchain.
+**Hive lets you draw who your AI agents share memory with.** Every connection is a permission you sign with a passkey. It is stored on Monad and checked before any memory is read.
 
-It is built for developers to build on: four contracts, an MCP server any agent can call, a typed client, and an indexer that audits the whole history. The canvas in `apps/web` is the reference client, where the owner draws the edges.
+Most people use more than one AI, and each one keeps its own memory. Switch from Claude to ChatGPT and the new assistant knows nothing about you or your project, so you explain everything again or paste whole conversations across. Hive gives your agents a shared memory that you control: an agent reads another's memory only along an edge you drew, and with no edge nothing is shared. Memory content is encrypted with a key derived from your passkey and is never put onchain.
+
+Hive is an app: a canvas where you put your agents, draw an edge from one to another, and sign it with a passkey. Under it are four contracts on Monad testnet, an MCP server any agent can call, and an indexer that audits the whole history, and other developers can call those directly ([Build on it](#build-on-it)).
+
+It is for people who use more than one AI, students and developers first ([who it is for](#who-it-is-for)). A developer outside the team has already run it on testnet ([who has tried it](#who-has-tried-it)).
 
 > Monad Metropolis Hackathon · Track 4 (Trust, Identity & AI) · also entered for the Envio and Mera bounties.
 
-> **Notice.** This repository is a hackathon submission, published so that judges and reviewers can read and run it. **No license is granted** and all rights are reserved: please do not copy, reuse or redistribute the code. See [NOTICE.md](NOTICE.md).
+> **Notice.** This repository is a hackathon submission, published so that judges and reviewers can read and run it. **No license is granted** for the source and all rights are reserved: please do not copy, reuse or redistribute the code. See [NOTICE.md](NOTICE.md).
+>
+> What is open to build on today is what is deployed: the contracts on Monad testnet, the hosted bridge and the indexer. Calling them needs no copy of this code ([Build on it](#build-on-it)).
 
 ## Live
 
 | | |
 | --- | --- |
-| **App** (reference client) | https://monad-hackathon-eta.vercel.app |
+| **App** | https://monad-hackathon-eta.vercel.app |
 | **Bridge** (MCP server and HTTP API) | https://hivebridge-production.up.railway.app · [`/health`](https://hivebridge-production.up.railway.app/health) · [`/docs`](https://hivebridge-production.up.railway.app/docs) (Swagger) · [`/openapi.json`](https://hivebridge-production.up.railway.app/openapi.json) |
 | **Agent card** (ERC-8004) | [`/agents/1/card.json`](https://hivebridge-production.up.railway.app/agents/1/card.json) |
 | **Indexer** (Envio Cloud, GraphQL) | https://indexer.dev.hyperindex.xyz/5a8ecda/v1/graphql |
-| **Demo video** | In progress |
-| **Pitch video** | To be added |
+| **Demo video** | https://youtu.be/93VHQZhWvCQ |
+| **Pitch video** | https://youtu.be/c7st0s-S7Cw |
+
+[![Hive technical demo](https://img.youtube.com/vi/93VHQZhWvCQ/hqdefault.jpg)](https://youtu.be/93VHQZhWvCQ)
 
 Contracts on Monad testnet (chain 10143):
 
@@ -31,7 +39,7 @@ Contracts on Monad testnet (chain 10143):
 
 ## Try it (for judges)
 
-There is no test account: the login is a passkey you create yourself, and it is the only key.
+There is no test account: the login is a passkey you create yourself, and it is the only key. To see it without setting anything up, watch the [demo video](https://youtu.be/93VHQZhWvCQ).
 
 1. Open the [app](https://monad-hackathon-eta.vercel.app) in Safari with iCloud Keychain, or in Chrome with Google Password Manager, or with 1Password. A passkey saved locally in desktop Chrome cannot produce the key material and fails ([gotchas](docs/gotchas.md)).
 2. Create a passkey. The Connect page and the wallet menu show your address.
@@ -40,7 +48,64 @@ There is no test account: the login is a passkey you create yourself, and it is 
 5. Open an agent's drawer and copy its `claude --mcp-config` command into a terminal with Claude Code. Do the same for the second agent in a second terminal.
 6. Ask the first agent to save something to Hive, then ask the second to read it. Revoke the edge on the canvas and the next read returns nothing.
 
-Steps 4 to 6 were run on 10 Oct with a local web app and bridge, including the revoke ([roadmap, verified runs](docs/roadmap.md)). On 11 Oct agents, edges, ERC-8004 identities and memory writes were made through the hosted bridge; the transactions are under [Proof on testnet](#proof-on-testnet).
+Steps 4 to 6 were run on 10 Oct and again on 12 Oct with a local web app and bridge, including the revoke ([roadmap, verified runs](docs/roadmap.md)). On 11 Oct agents, edges, ERC-8004 identities and memory writes were made through the hosted bridge; the transactions are under [Proof on testnet](#proof-on-testnet).
+
+## Who it is for
+
+People who use more than one AI. Two groups feel it most, and both are around us on campus.
+
+**Students.** They use AI every day for coursework, code and personal things, and they go where it is free: a plan the school provides, a student offer, a new model with a generous free tier. Say you have used Claude for months on your thesis and then your school gives you ChatGPT. Everything you built up stays behind in Claude. With Hive the school ChatGPT reads the thesis topic and nothing else.
+
+**Developers.** One terminal with Claude Code, another with Codex, a ChatGPT tab for the design questions. While they build something, each agent knows only its own session, so the developer carries context from one to the next by hand. With Hive each agent saves to a topic and the others read it over MCP, and only where the owner drew an edge.
+
+We start with our own university, Universitas Gadjah Mada: students and developers we can sit next to and watch use it. Developers can set it up themselves today. For most students the setup is still too long ([What you have to trust](#what-you-have-to-trust)).
+
+Developers can also build on what is under the app:
+
+| Who | Their problem today | What they would use |
+| --- | --- | --- |
+| **MCP server authors** | Every caller gets the same API key, so a tool cannot tell one agent from another | `KnowledgeGraph.hasPermission(from, to, topic)` as the check in front of a tool, and the agent's onchain identity |
+| **Multi-agent frameworks** | All agents share one store with no rules between them | The bridge as the memory backend through [`@hive/mcp-client`](packages/mcp-client): sharing per pair and per topic, with an expiry |
+
+### Why not roll your own
+
+Rolling your own usually means one database and one API key that every agent shares. That has no rule per agent, a revoke means rotating the key for everyone, and there is no record of who could read what. Getting past that means building what is already here:
+
+| You would have to build | Here |
+| --- | --- |
+| Permissions per pair and per topic, with expiry and revoke | [`KnowledgeGraph`](packages/contracts/src/KnowledgeGraph.sol), deployed, and readable by any app without us |
+| A check that runs before any fetch or decrypt, and denies on doubt | [`permissions.ts`](apps/bridge/src/permissions.ts), read from live chain state so a revoke holds on the next read |
+| Encryption whose key the vendor does not keep | A memory key from the owner's passkey, in its own PRF namespace ([Keys](#keys-mera)) |
+| Sign-in for hosted agents | An OAuth server that the claude.ai and ChatGPT connectors accept ([`oauth.ts`](apps/bridge/src/oauth.ts)) |
+| A history someone else can audit | The Envio indexer, with a check for any delivery no edge explains |
+| Search that cannot widen access | Ranking inside the permitted set only, with encrypted vectors ([`search.ts`](apps/bridge/src/search.ts)) |
+
+What it costs you: every write is a transaction on Monad testnet, and the bridge is trusted during an agent session ([What you have to trust](#what-you-have-to-trust)).
+
+## Who has tried it
+
+People outside the team ran Hive during the hackathon: university friends of the team, connecting Claude Code, Codex and ChatGPT agents. One of them is owner [`0xCd81…f238`](https://testnet.monadscan.com/address/0xCd8123EA42Ad7B8D74f494041DF82322BFA8f238), and what that address did is onchain:
+
+| Step | Evidence |
+| --- | --- |
+| Registers a `claude` agent, 11 Oct | Agent 13, [register](https://testnet.monadscan.com/tx/0xbb1fa4271b77365be3e65ceefdb4e8cd777144ede96f9e251c471980ef5a0364) |
+| Registers a `gpt` agent, 13 Oct | Agent 56, [register](https://testnet.monadscan.com/tx/0x1ab7e78b722eebbaa00c2b913ea009befe9fd0d51b67c5fdf95c411946b609d9) |
+| The `claude` agent writes three memories, 13 Oct, each delivered along one edge | Slots [23](https://testnet.monadscan.com/tx/0x4b210c32ac03468e3303aa10e9b5a16d4bcfb7810f6a4d31bb4c8a479bb0b713), [24](https://testnet.monadscan.com/tx/0x8abf15e34defcb4868e565403c1ae8fe36f5b399e27dc943e5467d5afd87898b) and [25](https://testnet.monadscan.com/tx/0xdf79c4555adf53767b2dbf59d5a93c9d67eb11ce2c35967575a86360082bb25c) |
+| Revokes an edge, 13 Oct | Edge 34, agent 56 → 13: [addEdge](https://testnet.monadscan.com/tx/0xeda3ac96c9eeebad56ed258b52bbfeb15e2c5bce89271fc0aec77ef50a2ef392), then [removeEdge](https://testnet.monadscan.com/tx/0xfb191419640067760585e2d624bda51644e586c86cf5706fbe75ba4f19dc9b8e). In all, 8 edges added and 6 revoked, 0 policy violations |
+
+Read from the indexer's `OwnerStats`, `Agent` and `MemorySlot` on 14 Oct. The chain shows what the address did, not who holds its passkey: that this owner is outside the team, and which clients the agents ran in, is the team's report. No other team has integrated Hive.
+
+Across every owner, the indexer counted 19 owner addresses, 58 agents and 25 memories on 14 Oct, and 6 of those addresses have written a memory. An address is a passkey, not a person, and some of them are the team's own, including `0xf45a…0214` from [Proof on testnet](#proof-on-testnet), so this is a count of use and not of users.
+
+## Getting more users and integrations
+
+Planned, in this order:
+
+1. Our own campus first. Onboard students and developers from our university one at a time, and record each one here: owner address, which agents, and the first write. The goal is a small group that uses Hive every week, not a signup number.
+2. A quickstart that takes someone from a new passkey to a first write and read between two agents, starting from [the two-agent manual test](docs/manual-test-two-agents.md). What the first group trips over goes into it and into the Connect page.
+3. Be there when students switch. When a school rolls out a free AI plan or a provider launches a student offer, that is when the problem is felt: "Got a new free AI? Bring your context with you." A short clip of drawing a line between Claude and ChatGPT goes to class group chats, campus tech clubs and student Discord servers.
+4. Choose a license for the client and publish `@hive/mcp-client` to npm, so building on the bridge does not need this repo.
+5. Ask one MCP server author to put `hasPermission` in front of a tool, as the first integration that does not use our bridge.
 
 ## Proof on testnet
 
@@ -61,7 +126,7 @@ The owner's address sent the registrations and the edges; each write was sent by
 
 The same owner also signed in on a second device, an iPad, with the same Google Password Manager passkey and got the same address, then agent 10 wrote slot 9 ([write](https://testnet.monadscan.com/tx/0x3e390fdc50a158240b54d2de93af746e55e33907033657eeb453e1d38bf58216), propagated to agents 11 and 12). The address on the iPad is the owner's report; the write is onchain.
 
-Not shown by these links: a revoke on this owner's edges (none has been revoked yet; a revoke was run on 10 Oct, see the [roadmap](docs/roadmap.md)).
+Not shown by these links: a revoke. One made by another owner is linked under [Who has tried it](#who-has-tried-it), and one was run on 10 Oct (see the [roadmap](docs/roadmap.md)).
 
 ## How it works
 
@@ -70,7 +135,7 @@ Not shown by these links: a revoke on this owner's edges (none has been revoked 
        │                                                    │ MCP over HTTP, agent token
        ▼                                                    ▼
 ┌──────────────────┐   authorize an agent    ┌──────────────────────────────────────┐
-│ Reference client │────────────────────────▶│ Bridge                               │
+│ Web app          │────────────────────────▶│ Bridge                               │
 │ apps/web         │   (keys for a session)  │ apps/bridge                          │
 │ canvas, audit    │                         │ 1. check the edge on live chain state│
 └──────┬───────────┘                         │ 2. only then fetch, decrypt, rank    │
@@ -125,6 +190,8 @@ Each claim above, the file that implements it and the test that covers it.
 
 ## Build on it
 
+Three of the ways below need nothing from this repository: an MCP client against the hosted bridge, the contracts, and the indexer. The typed client and a bridge of your own run this repository's code, which is not licensed for reuse yet ([NOTICE.md](NOTICE.md)): today that is for evaluating it.
+
 **From an MCP client.** Any client that speaks MCP over HTTP can connect with an agent token. The tools, registered in [`apps/bridge/src/mcp.ts`](apps/bridge/src/mcp.ts):
 
 | Tool | What it does |
@@ -162,20 +229,20 @@ query ($owner: String!) {
 }
 ```
 
-**Run your own bridge.** Nothing ties you to ours. `pnpm --filter @hive/bridge dev` starts one on `:4000` with the keys from `.env.example` (your own Supabase project and funder key). `BRIDGE_CHAIN=memory` runs it against an in-process chain with no network.
+**Run your own bridge.** The contracts do not know which bridge calls them, so ours is not the only one that can exist. `pnpm --filter @hive/bridge dev` starts one on `:4000` with the keys from `.env.example` (your own Supabase project and funder key). `BRIDGE_CHAIN=memory` runs it against an in-process chain with no network.
 
 ## What uses Monad
 
 | Building block | Status |
 | --- | --- |
-| **ERC-8004 agent identity** | Every agent can also be registered in the public ERC-8004 Identity Registry, with a `hiveAgentId` metadata entry and an agent card served by the bridge. Four agents have one on testnet, identities 2144 to 2147, and the indexer joins each to its agent ([ADR-028](docs/decisions.md)). We use the identity registry only, not reputation or validation. |
+| **ERC-8004 agent identity** | Every agent can also be registered in the public ERC-8004 Identity Registry, with a `hiveAgentId` metadata entry and an agent card served by the bridge. 45 agents had one on testnet when the indexer was queried on 14 Oct, the first four being identities 2144 to 2147, and the indexer joins each to its agent ([ADR-028](docs/decisions.md)). We use the identity registry only, not reputation or validation. |
 | **P256 precompile** | Not used. The passkey is used for its PRF output, from which secp256k1 keys are derived, so no passkey signature is verified onchain. |
 | **BTX encrypted mempool** | Not used. |
 | **Gas model** | Every transaction declares an explicit `gas`, because Monad charges the declared limit: an estimate with a buffer in the browser ([`gas.ts`](apps/web/lib/hive/gas.ts)) and a clamped estimate in the bridge ([`chain.ts`](apps/bridge/src/chain.ts)). |
 
 ## Keys (Mera)
 
-One passkey, two PRF namespaces, one prompt. The passkey is asked for two salts in the same ceremony and returns two outputs that share nothing. The first is the account. The second does no account work: it only encrypts memory. Nothing secret is stored on a server or on disk ([ADR-029](docs/decisions.md)).
+One passkey, two PRF namespaces, one prompt. The passkey is asked for two salts in the same ceremony and returns two outputs that share nothing. The first is the account. The second does no account work: it only encrypts memory. No key is written to disk or to a database: keys exist in browser memory, and in bridge process memory for the agents the owner authorized ([ADR-029](docs/decisions.md), table below).
 
 ```
 passkey
@@ -193,6 +260,7 @@ What the split changes:
 
 - **The recovery phrase is not the memory key.** Someone who learns the phrase controls the account but cannot decrypt a memory written under the memory namespace. Reading needs the passkey itself.
 - **The account keys say nothing about the memory key**, and the other way round. Neither output can be computed from the other.
+- **No passkey signature goes onchain.** The passkey is used only for its PRF outputs, and the keys that sign transactions are secp256k1 keys derived from them. That is why the P256 precompile is not used.
 - **One prompt.** Our WebAuthn client sends both salts in one request. An authenticator that answers only the first is asked again through Mera with the memory salt, which is a second prompt. If both outputs come back equal, sign-in is refused.
 - **Older memories still open.** Memories sealed before the split used a key taken from the seed (`HKDF("hive/encrypt")`). That key is kept for decrypting only and nothing new is sealed with it.
 
@@ -205,26 +273,7 @@ What the split changes:
 
 Both namespaces are deterministic, so the same passkey on a second device gives the same address and the same memory key. On 11 Oct the same Google Password Manager passkey signed in on a Mac and on an iPad and gave the same address ([roadmap](docs/roadmap.md)). On the iPad it took one passkey prompt. Not recorded yet: Safari with iCloud Keychain and 1Password, and opening a memory sealed under the new key on the second device.
 
-## For the bounties
-
-**Envio.** HyperIndex drives three things a user sees: the audit page, the provenance card of a memory, and the stats strip with the "deliveries without an active edge" check. It also lets the canvas show an ERC-8004 identity added from another browser.
-
-| Asked for | Where |
-| --- | --- |
-| `config.yaml`, `schema.graphql`, handlers | [`config.yaml`](packages/indexer/config.yaml), [`schema.graphql`](packages/indexer/schema.graphql), [`src/handlers`](packages/indexer/src/handlers) |
-| Deployed indexer | Envio Cloud: https://indexer.dev.hyperindex.xyz/5a8ecda/v1/graphql |
-| Something that consumes it | [`apps/web/lib/hive/live/audit.ts`](apps/web/lib/hive/live/audit.ts): the four queries the web app sends |
-| Depth | Five contracts, eight events, three joins the contracts do not give, derived stats, a policy check, and a join to a registry that is not ours |
-
-**Mera.** One passkey, two PRF namespaces. Mera's default salt gives the account: the recovery phrase, the owner key and one key per agent, which the owner hands to the bridge for a session. A second salt, `sha256("hive/prf/memory/v1")`, gives a key that does no account work at all: the AES-256-GCM key that encrypts memory content ([`apps/web/lib/passkey/keys.ts`](apps/web/lib/passkey/keys.ts)). Both are read in one passkey prompt ([`webauthn.ts`](apps/web/lib/passkey/webauthn.ts), [`mera.ts`](apps/web/lib/passkey/mera.ts)).
-
-| Asked for | Where |
-| --- | --- |
-| A PRF namespace doing non-account work | The memory namespace, under its own salt: memory is encrypted with its key and the owner decrypts their own memories in the browser with it ([ADR-029](docs/decisions.md), [ADR-024](docs/decisions.md)) |
-| Nothing sensitive persisted | See the table under [Keys](#keys-mera). No key is stored; two 24 h tokens are |
-| Cross-device | Both namespaces are deterministic, so a synced passkey gives the same address and the same memory key. Run on 11 Oct, Mac and iPad with Google Password Manager: same address on both. Decrypting a memory on the second device is not recorded |
-
-Two honest limits. Inside the account namespace the owner key and the agent keys still come from one salt and are separated by derivation path, not by one salt each. And the two-salt prompt has run on one authenticator only, Google Password Manager, where it took one prompt; the others are not run.
+Two honest limits. Inside the account namespace the owner key and the agent keys still come from one salt and are separated by derivation path, not by one salt each. And the two-salt prompt has run on one authenticator only, Google Password Manager.
 
 ## Indexer (Envio)
 
@@ -235,7 +284,29 @@ Two honest limits. Inside the account namespace the owner key and the agent keys
 - **A policy check.** `PolicyViolation` records any `Propagate` that no active, unexpired edge explains ([`propagation.ts`](packages/indexer/src/handlers/propagation.ts)). It is expected to stay empty, so the indexer audits the protocol.
 - **A cross-registry join.** ERC-8004 identities are joined to our agents, but only after checking that both have the same owner ([`identity.ts`](packages/indexer/src/handlers/identity.ts)).
 
-The web app's audit page, provenance card and stats strip read it. Status: deployed on Envio Cloud and synced to the chain head when queried on 11 Oct: 11 agents, 12 edges, 7 memory slots, 10 propagations, 40 audit rows, 0 violations, and 45 ERC-8004 identities of which 4 are joined to our agents.
+Three things a user sees read it: the audit page, the provenance card of a memory, and the stats strip with the "deliveries without an active edge" check. It also lets the canvas show an ERC-8004 identity added from another browser.
+
+Status: deployed on Envio Cloud and synced to the chain head when queried on 14 Oct: 58 agents under 19 owner addresses, 48 edges of which 17 are revoked, 25 memory slots, 31 propagations, 179 audit rows, 0 violations, and 226 ERC-8004 identities of which 45 are joined to our agents. On 11 Oct the same query gave 11 agents, 12 edges and 7 memory slots.
+
+## For the bounties
+
+Each is described once above. This is where to find what each bounty asks for.
+
+**Envio** ([Indexer](#indexer-envio))
+
+| Asked for | Where |
+| --- | --- |
+| `config.yaml`, `schema.graphql`, handlers | [`config.yaml`](packages/indexer/config.yaml), [`schema.graphql`](packages/indexer/schema.graphql), [`src/handlers`](packages/indexer/src/handlers) |
+| Deployed indexer | Envio Cloud: https://indexer.dev.hyperindex.xyz/5a8ecda/v1/graphql |
+| Something that consumes it | [`apps/web/lib/hive/live/audit.ts`](apps/web/lib/hive/live/audit.ts): the four queries the web app sends |
+
+**Mera** ([Keys](#keys-mera))
+
+| Asked for | Where |
+| --- | --- |
+| A PRF namespace doing non-account work | The memory namespace: [`keys.ts`](apps/web/lib/passkey/keys.ts), read in the same prompt by [`webauthn.ts`](apps/web/lib/passkey/webauthn.ts) and [`mera.ts`](apps/web/lib/passkey/mera.ts) ([ADR-029](docs/decisions.md), [ADR-024](docs/decisions.md)) |
+| Nothing sensitive persisted | The secrets table under Keys. No key is stored; two 24 h tokens are |
+| Cross-device | The last paragraph under Keys |
 
 ## What you have to trust
 
@@ -244,21 +315,15 @@ The web app's audit page, provenance card and stats strip read it. Status: deplo
 | **You own** | The passkey, the recovery phrase and the encryption key. The phrase opens the same account in any BIP-39 wallet, but not the memories: those need the passkey |
 | **Public by design** | Agent names and types, edges, topic names and content hashes. Do not put anything sensitive in a topic or an agent name |
 | **Trusted today** | The bridge operator, during an agent session: the bridge holds the keys of authorized agents and decrypted memories in process memory. Supabase, for availability only: it holds ciphertext |
-| **Outside our control** | An authorized read hands the text to the reading agent and so to its model provider |
+| **Outside our control** | An authorized read hands the text to the reading agent and so to its model provider. Whether an assistant can join at all depends on its app and plan letting you add an MCP server |
+| **Setup today** | A passkey in a synced password manager, testnet MON from the faucet, and an MCP connection per agent. A developer can do that now; it is too many steps for most students |
 
-## Who it is for
-
-- **MCP server authors** who give every caller the same API key today. Here each agent has an onchain identity, and what it may read is a signed edge.
-- **Multi-agent frameworks** whose agents share one store with no rules between them. Here sharing is per pair and per topic, and can expire.
-- **People running several coding agents** who paste context from one to another by hand.
-
-Why not roll your own: a revoke takes effect on the next read, the permission history is public and indexed, and the decryption key stays with the owner instead of with a vendor.
+**What no single platform holds.** The permissions are contract state that any app can read, the history is public events that anyone can index, the memory key comes from the owner's passkey, and the agents on either end of an edge can come from different vendors. The bridge is the one central piece, and the contracts do not depend on it: another bridge can serve the same permissions ([Build on it](#build-on-it)).
 
 ## What comes next
 
 - A recorded run of the claude.ai, Claude Desktop and ChatGPT connectors. They were used against the hosted bridge on 11 Oct, but that is the team's report: the chain shows a write, not which client made it ([ADR-019](docs/decisions.md)).
 - The two-salt prompt recorded on Safari with iCloud Keychain and on 1Password, and a memory opened on the second device.
-- Publish `@hive/mcp-client` to npm, so building on the bridge does not need this repo.
 - A contract redeploy that carries what is waiting in the source: `setExpiry`, so an edge's expiry changes in place ([ADR-027](docs/decisions.md)).
 
 ## What is real
@@ -270,9 +335,9 @@ Why not roll your own: a revoke takes effect on the next read, the permission hi
 | MCP write, read and revoke with two Claude Code agents | **Run on testnet**, 10 Oct |
 | Encrypted storage, ciphertext only | **Live** |
 | Bridge on Railway, web on Vercel | **Live** |
-| Envio indexer | **Live** on Envio Cloud, synced to head on 11 Oct |
-| ERC-8004 identity | **Run on testnet**, 11 Oct: four agents registered and joined in the indexer |
-| Memory key in its own PRF namespace | **Live**. Signed in on two devices with one passkey and one prompt on 11 Oct; a decrypt on the second device not recorded |
+| Envio indexer | **Live** on Envio Cloud, synced to head on 14 Oct |
+| ERC-8004 identity | **Run on testnet**, 11 Oct: four agents registered and joined in the indexer. 45 agents joined by 14 Oct |
+| Memory key in its own PRF namespace | **Live**. Signed in on two devices on 11 Oct, details under [Keys](#keys-mera) |
 | Memory search and structured memory | **Run** on the hosted bridge, 11 Oct: `hive_search_memory` for "ERC-8004 registration status" answered `mode: "hybrid"` and ranked the ERC-8004 memory (slot 6) first, matched on text, entity and meaning. One query on three memories; ranking quality is otherwise measured on fixtures |
 | claude.ai, Claude Desktop and ChatGPT connectors (OAuth) | **Run**, 11 Oct, as reported by the team: the Claude connector added from an iPad, Claude Desktop, Codex CLI, and a save from chatgpt.com that a Claude agent read ([slot 10](https://testnet.monadscan.com/tx/0x27163bf07c4c69a314022de73e3d72d46979005052165df4d9e3b435962bbbfd)). The chain shows the write and its propagation, not which client made it |
 | DeepSeek runner, propagation animation | Planned |
@@ -284,7 +349,7 @@ Every run we checked, and what each one did not check, is in [docs/roadmap.md](d
 Requires Node 22+, pnpm 11 and [Foundry](https://getfoundry.sh).
 
 ```bash
-git clone --recurse-submodules <repo-url>   # already cloned? run: git submodule update --init
+git clone --recurse-submodules https://github.com/SyuraMoons/Monad-Hackathon-Hive.git   # already cloned? run: git submodule update --init
 corepack enable pnpm
 pnpm install
 cp .env.example .env
@@ -304,7 +369,7 @@ pnpm -r --if-present test     # unit tests
 | [`packages/crypto`](packages/crypto) | AES-256-GCM `encrypt`, `decrypt`, `contentHash` |
 | [`packages/mcp-client`](packages/mcp-client) | Typed client for the bridge |
 | [`packages/indexer`](packages/indexer) | Envio HyperIndex: `config.yaml`, `schema.graphql`, handlers |
-| [`apps/web`](apps/web) | Reference client: canvas, audit page, connect guides (Next.js 15) |
+| [`apps/web`](apps/web) | The app: canvas, audit page, connect guides (Next.js 15) |
 | [`apps/agents`](apps/agents) | DeepSeek runner (planned until a live run) |
 
 ## Docs
@@ -319,9 +384,11 @@ pnpm -r --if-present test     # unit tests
 
 ## Team
 
-| Role | Owns |
-| --- | --- |
-| P1: Contracts | AgentRegistry, KnowledgeGraph, MemorySlots, tests, deploy |
-| P2: Backend / infra | Encrypted storage, MCP bridge, Envio indexer, passkey auth |
-| P3: Canvas frontend | React Flow canvas, edge editor, audit page |
-| P4: Agents & pitch | Agent integrations, docs, demo script |
+Four students from Universitas Gadjah Mada. We switch between AI assistants and run several coding agents at once ourselves, which is where the problem comes from.
+
+- Muhamad Harfi Ibadurahman
+- Altaf Parves Shua Ilham
+- Nalen Raditya Sadewa
+- Akhnaf Fawzan Yogatrisna
+
+Nobody held one fixed role. Between us the work covered the contracts and their deploy, the bridge with encrypted storage and the indexer, passkey sign-in, the canvas and audit page, and the agent connectors and docs.

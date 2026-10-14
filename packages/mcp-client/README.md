@@ -1,6 +1,6 @@
 # @hive/mcp-client
 
-Small MCP client for the mock agents. It talks to the bridge's `POST /mcp` with an agent token, so a demo bot can write and read memory without Claude Desktop.
+Typed client for the Hive bridge. It talks to the bridge's `POST /mcp` with an agent token, so your own code can write and read memory without an MCP host such as Claude Code. It is a workspace package and not on npm yet.
 
 ```ts
 import { HiveClient } from "@hive/mcp-client";
