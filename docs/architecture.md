@@ -7,8 +7,8 @@
 | # | Layer | Tech | Package | Status |
 | --- | --- | --- | --- | --- |
 | 1 | Canvas: drag agents, draw permission edges, see propagation | Next.js 15 + React Flow | `apps/web` | 🚧 (agents created and an edge signed and revoked on testnet from the canvas, 10 Oct ✅; propagation animation ⏳) |
-| 2 | Passkey auth: the passkey derives the user's keys | Mera (WebAuthn PRF) | `apps/web` | 🚧 (a passkey-derived owner signed agents and an edge on testnet, 10 Oct ✅; same passkey on a second device not yet run) |
-| 3 | Agent bridge: MCP tools for agents plus an event stream for the canvas | Node + MCP SDK | `apps/bridge` | 🚧 (MCP write, read and revoke run on testnet with two Claude Code agents, 10 Oct ✅; deployed on Railway ✅; search and the OAuth connectors built, no live run) |
+| 2 | Passkey auth: the passkey derives the user's keys | Mera (WebAuthn PRF) | `apps/web` | 🚧 (a passkey-derived owner signed agents and an edge on testnet, 10 Oct ✅; the same passkey gave the same address on a Mac and an iPad, 11 Oct ✅; a memory decrypted on the second device not recorded) |
+| 3 | Agent bridge: MCP tools for agents plus an event stream for the canvas | Node + MCP SDK | `apps/bridge` | 🚧 (MCP write, read and revoke run on testnet with two Claude Code agents, 10 Oct ✅; deployed on Railway ✅; search answered `hybrid` on the hosted bridge, 11 Oct ✅; the OAuth connectors were used against it on 11 Oct as reported by the team, with no recorded run) |
 | 4 | Memory storage: encrypted memory content | Supabase | `supabase/` | ✅ (ciphertext-only `memory_content`, written and read by the bridge) |
 | 5 | Permission graph: agents, edges, propagation events | Solidity on Monad testnet (10143) | `packages/contracts` | ✅ |
 | 5b | Audit trail: indexed onchain events | Envio HyperIndex | `packages/indexer` | 🚧 (handlers and tests ✅; on Envio Cloud and synced to head 11 Oct ✅, ERC-8004 identities joined ✅; the web reads it in live mode, `/audit` on the deployed site not yet seen in a browser) |
@@ -21,8 +21,8 @@
 | Agent identity for other projects (optional) | Monad (ERC-8004 Identity Registry) and an agent card on the bridge | Lets anything outside Hive find an agent. Never decides access (ADR-028). Four agents have one on testnet since 11 Oct |
 | Permission edges (from, to, topic, expiry) | Monad (`KnowledgeGraph`) | Anyone can audit who may share what |
 | Memory write events (content **hash** only) | Monad (`MemorySlots`) | Verifiable propagation trail |
-| Memory content | Supabase, AES-GCM ciphertext | Private. The server can't decrypt it |
-| Keys | Derived on the client from the passkey's PRF outputs, one salt for the account and one for memory | Never stored server-side |
+| Memory content | Supabase, AES-GCM ciphertext | Private. Supabase holds ciphertext only and cannot decrypt it. The bridge can, while an agent the owner authorized has a session (see the trust model) |
+| Keys | Derived on the client from the passkey's PRF outputs, one salt for the account and one for memory | Never stored on disk or in a database. The bridge holds an authorized agent's keys in process memory for its session |
 
 ## Keys
 
@@ -39,7 +39,7 @@ One passkey produces several keys (this targets the Mera "One Passkey, Many Keys
 
 `HKDF(seed, "hive/encrypt")`, the encryption key before ADR-029, is still derived as a **legacy key** that only decrypts memories sealed back then.
 
-Built and unit-tested; the two-salt prompt has not been run on a real authenticator yet.
+Built and unit-tested. The two-salt prompt ran on one authenticator, Google Password Manager, on 11 Oct and took one prompt; Safari with iCloud Keychain and 1Password are not run.
 
 The same phrase restores the same account without the passkey, in Hive or any BIP-39 wallet. It does not decrypt memories written after ADR-029: that needs the passkey, or a synced copy of it on another device. The wallet menu shows it after a fresh passkey prompt. Keys are derived and signing works today: the owner key signs writes directly (ADR-006), and on 10 Oct a passkey-derived owner registered agents and signed and revoked an edge on testnet from the canvas (see the roadmap's verified runs).
 
@@ -65,7 +65,7 @@ Agent B ─▶ bridge read_memory(topic) ─▶ onchain canRead check ─▶ dec
 Agent C (no edge) ─▶ read_memory ─▶ nothing returned   ← the demo's WOW moment
 ```
 
-**Connect claude.ai or Claude Desktop** (ADR-019; built, not yet run against claude.ai)
+**Connect claude.ai or Claude Desktop** (ADR-019; used against the hosted bridge on 11 Oct as reported by the team, no recorded run)
 ```
 claude.ai ─▶ POST /mcp ─▶ 401 + WWW-Authenticate (resource_metadata)
           ─▶ /.well-known/* ─▶ POST /oauth/register (DCR) ─▶ GET /oauth/authorize + PKCE
@@ -73,7 +73,7 @@ claude.ai ─▶ POST /mcp ─▶ 401 + WWW-Authenticate (resource_metadata)
           ─▶ redirect to claude.ai with a 60 s code ─▶ POST /oauth/token ─▶ agent token (refreshable while the session lives)
 ```
 
-**Find memory without loading it all** (built, ADR-022; not yet run on testnet or Railway)
+**Find memory without loading it all** (ADR-022; search ran on the hosted bridge on 11 Oct, delta reads and `supersedes` have no live run)
 ```
 Agent ─▶ read_memory(kind=state) ─▶ list_memory(cursor) ─▶ search_memory(query)
       ─▶ permission filter on live chain state ─▶ rank in the bridge (BM25, then encrypted embeddings)
@@ -87,4 +87,4 @@ Agent ─▶ read_memory(kind=state) ─▶ list_memory(cursor) ─▶ search_me
 - The owner reads their own memories in the canvas: the bridge returns the ciphertext of memories they own and the browser decrypts it with the key derived from their passkey. Decrypted text stays in browser memory and is dropped on sign-out (ADR-024).
 - Topic names and agent names are public. `MemorySlots` stores each memory's topic as text and `AgentRegistry` stores agent names and types, so anyone can read them on a block explorer, forever. Only memory content is encrypted (ADR-023).
 - An authorized read hands plaintext to the reading agent, and so to its model provider (Anthropic, OpenAI or DeepSeek), which may keep it under its own terms. Encryption protects memory at rest and between agents without an edge, not from the model that reads it.
-- Claude Code connects over MCP and was run against testnet on 10 Oct. The claude.ai and Claude Desktop connector (ADR-019) is built but not yet run against claude.ai, the DeepSeek runner is planned until a live run (ADR-020), and the ChatGPT connector uses the same OAuth server (accepted callbacks and `iss` are built, ADR-019) but has not been run against ChatGPT. The web app's mock mode uses fixed demo data.
+- Claude Code connects over MCP and was run against testnet on 10 Oct. The claude.ai, Claude Desktop and ChatGPT connectors share one OAuth server (ADR-019) and were used against the hosted bridge on 11 Oct; that is the team's report, because the chain shows a write and not which client made it. The DeepSeek runner is planned until a live run (ADR-020). The web app's mock mode uses fixed demo data.
