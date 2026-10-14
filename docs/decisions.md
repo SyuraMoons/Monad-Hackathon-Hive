@@ -308,3 +308,12 @@ Short architecture decision records. To add one, append the next number and don'
 **Decision.** The product is Hive, everywhere. The three places that said Mindshare now say Hive, and no rename script is written.
 
 **Consequences.** One name in the UI, the docs, the code and the demo. Nothing that is deployed or connected has to change: tool names, tokens and env vars stay as they are. The rule from ADR-008 that still holds is kept: the strings `hive/encrypt`, `hive/prf/memory/v1` and `hive/memory-key/v1` are never renamed, because each one decides a key (ADR-029).
+
+## ADR-032: The repository is MIT licensed
+**Date:** 2026-10-14 · **Status:** accepted
+
+**Context.** The repository was published on 12 Oct with a notice that granted no license and reserved all rights. Hive is offered as something other developers build on (an MCP client, a bridge of your own, contracts any app can read), and a "do not reuse" notice contradicts that. The four contracts already carried `SPDX-License-Identifier: MIT`, so the repository said two different things.
+
+**Decision.** The code and the documentation are MIT, in a root `LICENSE` file. `NOTICE.md` keeps the hackathon context, the third-party license note and a trademark line. `@hive/mcp-client` and the root package declare `"license": "MIT"`.
+
+**Consequences.** Anyone may fork, run and ship this code, including a bridge of their own. The deployed contracts, bridge and indexer were already callable by anyone and are unchanged. Copies made under MIT cannot be recalled, so a later move to a stricter license would apply only to new code. The copyright line reads "Hive contributors" and names no person.

@@ -10,9 +10,7 @@ It is for people who use more than one AI, students and developers first ([who i
 
 > Monad Metropolis Hackathon · Track 4 (Trust, Identity & AI) · also entered for the Envio and Mera bounties.
 
-> **Notice.** This repository is a hackathon submission, published so that judges and reviewers can read and run it. **No license is granted** for the source and all rights are reserved: please do not copy, reuse or redistribute the code. See [NOTICE.md](NOTICE.md).
->
-> What is open to build on today is what is deployed: the contracts on Monad testnet, the hosted bridge and the indexer. Calling them needs no copy of this code ([Build on it](#build-on-it)).
+> **License.** MIT, see [LICENSE](LICENSE). You can read, run, fork and build on this code. What is deployed is open too: the contracts on Monad testnet, the hosted bridge and the indexer can be called without a copy of the code ([Build on it](#build-on-it)).
 
 ## Live
 
@@ -24,6 +22,9 @@ It is for people who use more than one AI, students and developers first ([who i
 | **Indexer** (Envio Cloud, GraphQL) | https://indexer.dev.hyperindex.xyz/5a8ecda/v1/graphql |
 | **Demo video** | https://youtu.be/93VHQZhWvCQ |
 | **Pitch video** | https://youtu.be/c7st0s-S7Cw |
+| **Envio video** (bounty) | https://youtu.be/xVHAff1ztBw |
+| **Mera passkey video** (bounty) | https://youtu.be/69ft2X3jkzg |
+| **Monad UX video** | https://youtu.be/si_Q6pHpThM |
 
 [![Hive technical demo](https://img.youtube.com/vi/93VHQZhWvCQ/hqdefault.jpg)](https://youtu.be/93VHQZhWvCQ)
 
@@ -104,7 +105,7 @@ Planned, in this order:
 1. Our own campus first. Onboard students and developers from our university one at a time, and record each one here: owner address, which agents, and the first write. The goal is a small group that uses Hive every week, not a signup number.
 2. A quickstart that takes someone from a new passkey to a first write and read between two agents, starting from [the two-agent manual test](docs/manual-test-two-agents.md). What the first group trips over goes into it and into the Connect page.
 3. Be there when students switch. When a school rolls out a free AI plan or a provider launches a student offer, that is when the problem is felt: "Got a new free AI? Bring your context with you." A short clip of drawing a line between Claude and ChatGPT goes to class group chats, campus tech clubs and student Discord servers.
-4. Choose a license for the client and publish `@hive/mcp-client` to npm, so building on the bridge does not need this repo.
+4. Publish `@hive/mcp-client` to npm (the code is MIT since 14 Oct, [ADR-032](docs/decisions.md)), so building on the bridge does not need this repo.
 5. Ask one MCP server author to put `hasPermission` in front of a tool, as the first integration that does not use our bridge.
 
 ## Proof on testnet
@@ -190,7 +191,7 @@ Each claim above, the file that implements it and the test that covers it.
 
 ## Build on it
 
-Three of the ways below need nothing from this repository: an MCP client against the hosted bridge, the contracts, and the indexer. The typed client and a bridge of your own run this repository's code, which is not licensed for reuse yet ([NOTICE.md](NOTICE.md)): today that is for evaluating it.
+Three of the ways below need nothing from this repository: an MCP client against the hosted bridge, the contracts, and the indexer. The typed client and a bridge of your own use this repository's code, which is MIT ([LICENSE](LICENSE)): fork it, change it, ship it.
 
 **From an MCP client.** Any client that speaks MCP over HTTP can connect with an agent token. The tools, registered in [`apps/bridge/src/mcp.ts`](apps/bridge/src/mcp.ts):
 
@@ -292,7 +293,7 @@ Status: deployed on Envio Cloud and synced to the chain head when queried on 14 
 
 Each is described once above. This is where to find what each bounty asks for.
 
-**Envio** ([Indexer](#indexer-envio))
+**Envio** ([Indexer](#indexer-envio)) · [video](https://youtu.be/xVHAff1ztBw)
 
 | Asked for | Where |
 | --- | --- |
@@ -300,7 +301,7 @@ Each is described once above. This is where to find what each bounty asks for.
 | Deployed indexer | Envio Cloud: https://indexer.dev.hyperindex.xyz/5a8ecda/v1/graphql |
 | Something that consumes it | [`apps/web/lib/hive/live/audit.ts`](apps/web/lib/hive/live/audit.ts): the four queries the web app sends |
 
-**Mera** ([Keys](#keys-mera))
+**Mera** ([Keys](#keys-mera)) · [passkey video](https://youtu.be/69ft2X3jkzg) · [Mera UX video](https://youtu.be/si_Q6pHpThM)
 
 | Asked for | Where |
 | --- | --- |
