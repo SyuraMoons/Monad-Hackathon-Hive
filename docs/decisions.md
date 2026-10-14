@@ -308,3 +308,15 @@ Short architecture decision records. To add one, append the next number and don'
 **Decision.** The product is Hive, everywhere. The three places that said Mindshare now say Hive, and no rename script is written.
 
 **Consequences.** One name in the UI, the docs, the code and the demo. Nothing that is deployed or connected has to change: tool names, tokens and env vars stay as they are. The rule from ADR-008 that still holds is kept: the strings `hive/encrypt`, `hive/prf/memory/v1` and `hive/memory-key/v1` are never renamed, because each one decides a key (ADR-029).
+
+## ADR-032: Noncommercial license for the product, MIT for what others integrate with
+**Date:** 2026-10-14 · **Status:** accepted
+
+**Context.** The repository was published on 12 Oct with a notice that granted no license and reserved all rights. Hive is offered as something other developers build on (an MCP client, the contracts, a bridge of your own), and a "do not reuse" notice contradicts that, and gives an integrator no right to use the client. The team also does not want the product sold by someone else. The four contracts already carried `SPDX-License-Identifier: MIT`.
+
+**Decision.**
+- The repository is under PolyForm Noncommercial 1.0.0 (root `LICENSE`): the app, the bridge, the indexer, `@hive/crypto` and the agent runner.
+- `packages/mcp-client`, `packages/shared` and `packages/contracts` are MIT, each with its own `LICENSE`. They are the integration surface and hold no product.
+- Each `package.json` declares its license. `NOTICE.md` lists the split.
+
+**Consequences.** Another team can integrate through the client, the schemas, the contracts or the hosted bridge with no permission. Using or selling the app, the bridge or the indexer commercially needs written permission. PolyForm is source-available, not open source by the OSI definition. Copies made under MIT cannot be recalled. The contracts were already deployed and public, so anyone could redeploy them regardless of license. A license does not stop a similar product from being built from scratch.
