@@ -1,6 +1,6 @@
 {
   "name": "hive",
-  "license": "MIT",
+  "license": "SEE LICENSE IN LICENSE",
   "private": true,
   "packageManager": "pnpm@11.2.2",
   "scripts": {

@@ -10,7 +10,7 @@ It is for people who use more than one AI, students and developers first ([who i
 
 > Monad Metropolis Hackathon · Track 4 (Trust, Identity & AI) · also entered for the Envio and Mera bounties.
 
-> **License.** MIT, see [LICENSE](LICENSE). You can read, run, fork and build on this code. What is deployed is open too: the contracts on Monad testnet, the hosted bridge and the indexer can be called without a copy of the code ([Build on it](#build-on-it)).
+> **License.** Free for noncommercial use ([PolyForm Noncommercial](LICENSE)), so you can read, run and build on it; selling it or using it in a commercial product needs our permission. The pieces other developers integrate with are MIT: [`@hive/mcp-client`](packages/mcp-client), [`@hive/shared`](packages/shared) and the contracts. What is deployed is open too: the contracts on Monad testnet, the hosted bridge and the indexer can be called without a copy of the code ([Build on it](#build-on-it)). Details in [NOTICE.md](NOTICE.md).
 
 ## Live
 
@@ -105,7 +105,7 @@ Planned, in this order:
 1. Our own campus first. Onboard students and developers from our university one at a time, and record each one here: owner address, which agents, and the first write. The goal is a small group that uses Hive every week, not a signup number.
 2. A quickstart that takes someone from a new passkey to a first write and read between two agents, starting from [the two-agent manual test](docs/manual-test-two-agents.md). What the first group trips over goes into it and into the Connect page.
 3. Be there when students switch. When a school rolls out a free AI plan or a provider launches a student offer, that is when the problem is felt: "Got a new free AI? Bring your context with you." A short clip of drawing a line between Claude and ChatGPT goes to class group chats, campus tech clubs and student Discord servers.
-4. Publish `@hive/mcp-client` to npm (the code is MIT since 14 Oct, [ADR-032](docs/decisions.md)), so building on the bridge does not need this repo.
+4. Publish `@hive/mcp-client` to npm (the client is MIT since 14 Oct, [ADR-032](docs/decisions.md)), so building on the bridge does not need this repo.
 5. Ask one MCP server author to put `hasPermission` in front of a tool, as the first integration that does not use our bridge.
 
 ## Proof on testnet
@@ -191,7 +191,7 @@ Each claim above, the file that implements it and the test that covers it.
 
 ## Build on it
 
-Three of the ways below need nothing from this repository: an MCP client against the hosted bridge, the contracts, and the indexer. The typed client and a bridge of your own use this repository's code, which is MIT ([LICENSE](LICENSE)): fork it, change it, ship it.
+Three of the ways below need nothing from this repository: an MCP client against the hosted bridge, the contracts, and the indexer. The typed client and the contracts are MIT, so you can use them in anything, commercial or not. A bridge of your own uses the rest of this repository's code, which is free for noncommercial use ([NOTICE.md](NOTICE.md)).
 
 **From an MCP client.** Any client that speaks MCP over HTTP can connect with an agent token. The tools, registered in [`apps/bridge/src/mcp.ts`](apps/bridge/src/mcp.ts):
 
